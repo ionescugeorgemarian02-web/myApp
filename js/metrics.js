@@ -104,6 +104,10 @@ export function aggregate(records) {
   const uncovered = records.filter(withStaff)
     .reduce((total, row) => total + Math.max(0, row.planned - row.present), 0);
   const downRecords = records.filter((r) => r.downtime != null);
+  const coverage = (test, ...fields) => ({
+    complete: records.filter(test).length,
+    hasData: records.some((row) => fields.some((field) => row[field] != null)),
+  });
   return {
     shifts: records.length,
     withNumbers: records.filter((r) => SHIFT_FIELDS.some(([k]) => r[k] != null)).length,
@@ -114,6 +118,12 @@ export function aggregate(records) {
     downtime: downRecords.length ? downRecords.reduce((s, r) => s + r.downtime, 0) : null,
     absencePct: planned > 0 ? (uncovered / planned) * 100 : null,
     planned, present,
+    coverage: {
+      plan: coverage(withPlan, "plan", "produced"),
+      scrap: coverage(withScrap, "scrap"),
+      downtime: { complete: downRecords.length, hasData: Boolean(downRecords.length) },
+      staffing: coverage(withStaff, "planned", "present"),
+    },
   };
 }
 

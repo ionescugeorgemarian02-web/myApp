@@ -237,9 +237,9 @@ async function writePending() {
       await writeNotebook(pending);
       if (version === revision) pending = null;
     }
-    status("Salvat", "saved");
+    status("Salvat pe dispozitiv", "saved");
   } catch (error) {
-    status("Salvare eșuată", "error");
+    status("Modificări nesalvate", "error");
     toast(error.message || "Salvarea locală a eșuat.");
     throw error;
   }

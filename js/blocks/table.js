@@ -1,6 +1,6 @@
 import { HANDOVER_FIELDS, PROBLEM_FIELDS, closureError, closureMissing, handoverSituation, handoverStatus, readKey, problemMatches } from "../operations.js";
 import { csvCell, nonnegative, productionKpis } from "../production.js";
-import { el, input, btn, id, details, now, norm, ask, roDate, iconBtn, toast, confirmShare, fieldError, icon } from "../ui.js";
+import { el, input, btn, id, details, now, norm, ask, roDate, validDate, iconBtn, toast, confirmShare, fieldError, icon } from "../ui.js";
 import { app } from "../state.js";
 import { download } from "../store.js";
 import { share } from "../logic.js";
@@ -40,6 +40,12 @@ export function newRow(b, c, draft = false) {
 const draftKey = (b, c) => b.type === "journal" ? c.key : "new";
 export function draftRow(b, c) {
   return drafts.get(b)?.get(draftKey(b, c)) || newRow(b, c, true);
+}
+export function handoverDraft(b, c) {
+  const row = draftRow(b, c);
+  const zone = colByKey(b, "handoverZone");
+  if (zone && app.data.settings.zone && !(zone.id in row.values)) row.values[zone.id] = app.data.settings.zone;
+  return row;
 }
 const draftEntry = (b, r) => [...(drafts.get(b) || [])].find(([, row]) => row === r);
 const isDraft = (b, r) => Boolean(draftEntry(b, r));
@@ -83,6 +89,8 @@ export function shiftFigures(b, r) {
 // Rezumatul unui rând închis: titlu + etichete (dată, stare, bifă).
 function summaryOf(b, r, c) {
   const journal = b.type === "journal";
+  const managed = Boolean(colByKey(b, "problem"));
+  const handover = Boolean(colByKey(b, "prepared"));
   let title = el("span", "", "recTitle"),
     meta = el("span", "", "meta");
   if (journal) {
@@ -95,23 +103,40 @@ function summaryOf(b, r, c) {
           ? new Date(r.created).toLocaleDateString("ro")
           : "Intrare") + (shift ? " · Schimb " + r.values[shift.id] : "");
     const figures = shiftFigures(b, r);
-    if (figures) meta.append(el("span", figures, "snippet figures"));
+    if (!handover && figures) meta.append(el("span", figures, "snippet figures"));
     let first = b.cols.find(
       (x) => x.type === "text" && x !== shift && r.values[x.id],
     );
-    if (first) meta.append(el("span", r.values[first.id], "snippet"));
+    if (first && !handover) meta.append(el("span", r.values[first.id], "snippet"));
+    const zone = handover && readKey(b, r, "handoverZone");
+    if (zone) meta.append(el("span", zone, "chip"));
+    if (handover && !isDraft(b, r)) {
+      const status = readKey(b, r, "received") ? "Preluare verificată"
+        : readKey(b, r, "prepared") ? "Predare verificată" : "Predare neverificată";
+      meta.append(el("span", status, "chip"));
+    }
   } else {
-    let label = rowLabel(b, r);
+    const label = rowLabel(managed ? { ...b, cols: b.cols.filter((col) => norm(col.name) !== "responsabil") } : b, r);
     title.textContent = label === "Rând fără text" ? "Rând nou – necompletat" : label;
     for (let col of b.cols) {
       let v = r.values[col.id];
+      if (managed && norm(col.name) === "responsabil") {
+        meta.append(el("span", String(v || "").trim() ? "Responsabil · " + v : "Fără responsabil", "chip"));
+        continue;
+      }
+      if (managed && col.type === "date" && norm(col.name).includes("termen")) {
+        const late = validDate(v) && v < c.date && !isClosed(b, r);
+        meta.append(el("span", !validDate(v) ? "Fără termen" : (late ? "Restantă · " : "Termen · ") + roDate(v), late ? "chip warn" : "chip"));
+        continue;
+      }
       if (v === "" || v == null || v === false) continue;
       if (col.type === "select")
         meta.append(
           el(
             "span",
             v,
-            "chip" + (["inchis", "rezolvat"].includes(norm(v)) ? " done" : ""),
+            "chip" + (col.key === "urgency" && v === "Critică" && !isClosed(b, r) ? " critical"
+              : ["inchis", "rezolvat"].includes(norm(v)) ? " done" : ""),
           ),
         );
       else if (col.type === "date") {
@@ -128,7 +153,7 @@ function summaryOf(b, r, c) {
   }
   let wrap = el("span", "", "recHead");
   wrap.append(title);
-  if (isDraft(b, r)) meta.prepend(el("span", "Ciornă locală", "chip"));
+  if (isDraft(b, r)) meta.prepend(el("span", "Ciornă nesalvată", "chip warn"));
   if (meta.childElementCount) wrap.append(meta);
   return wrap;
 }
@@ -196,24 +221,24 @@ function fieldsConfig(b, c) {
   );
   return settings;
 }
-function orderedSections(b, sections) {
+function orderedSections(b, sections, lastSection) {
   const pending = new Set(b.cols);
   const result = sections.map(([title, keys, collapsed]) => [
     title, keys.map((key) => colByKey(b, key) || colByName(b, key)).filter((col) => pending.delete(col)), collapsed,
   ]);
-  if (pending.size) result.push(["Alte câmpuri", [...pending], true]);
+  if (pending.size) result.splice(lastSection ? -1 : result.length, 0, ["Alte câmpuri", [...pending], true]);
   return result.filter(([, cols]) => cols.length);
 }
 function fieldGroups(b) {
   if (colByKey(b, "prepared")) return orderedSections(b, [
-    ["Confirmări", ["prepared", "received"]],
-    ["Situația de predat", [norm(handoverSituation(b)?.name), "safetySummary", "materialShortage", "deliveryRisk"]],
-    ["Pentru schimbul următor", ["handoverActions", "handoverEscalation", "nextChecks", "prioritati pentru schimbul urmator", "de urmarit"], true],
+    ["Situația de predat", [norm(handoverSituation(b)?.name), "safetySummary", "materialShortage", "deliveryRisk", "echipamente oprite", "lipsuri de personal"]],
+    ["Pentru schimbul următor", ["handoverActions", "handoverEscalation", "nextChecks", "prioritati pentru schimbul urmator", "de urmarit"]],
     ["Data, zona și cifrele", ["data", "schimb", "handoverZone", ...SHIFT_KEYS], true],
-  ]);
+    ["Verificare și confirmare", ["prepared", "received"]],
+  ], true);
   if (colByKey(b, "problem")) return orderedSections(b, [
-    ["Înregistrare", ["problem", "impact", "urgency", "responsabil", "termen", "stare"]],
-    ["Măsură imediată și escaladare", ["containment", "escalation"], true],
+    ["Înregistrare", ["problem", "impact", "urgency", "containment", "responsabil", "termen", "stare"]],
+    ["Escaladare și sprijin", ["escalation"], true],
     ["Cauză și corecție", ["cauza (5 de ce)", "actiune"], true],
     ["Verificare și închidere", ["effectiveness", "closureNote"], true],
     ["Context", ["data", "incidentShift", "equipment"], true],
@@ -376,7 +401,7 @@ function record(b, r, c, groups) {
     const body = el("div", "", "recBody");
     if (handoverState) {
       updateHandover();
-      body.append(handoverState, el("p", "Fișă personală de sprijin pentru predarea și preluarea schimbului.", "formHelp"));
+      body.append(el("p", "Fișă personală de sprijin pentru predarea și preluarea schimbului.", "formHelp"));
     }
     for (const [name, cols, collapsed] of groups) {
       const group = el(name ? "fieldset" : "div", "", "formGroup");
@@ -393,6 +418,7 @@ function record(b, r, c, groups) {
         body.append(panel);
       } else body.append(group);
     }
+    if (handoverState) body.append(handoverState);
     if (b.type === "journal" && r.created) {
       const date = new Date(r.created);
       if (Number.isFinite(date.getTime()))
@@ -480,6 +506,10 @@ export function table(b, c) {
   // În jurnal, cele mai noi intrări sunt primele.
   const rows = journal ? [...b.rows].reverse() : [...b.rows];
   if (drafts.has(b)) rows.unshift(...drafts.get(b).values());
+  if (journal && c.handoverEntry) {
+    const index = rows.findIndex((row) => "row-" + row.id === c.handoverEntry);
+    if (index > 0) rows.unshift(...rows.splice(index, 1));
+  }
   if (!rows.length)
     out.append(
       el("p", journal ? "Nicio intrare încă." : "Niciun rând încă.", "empty"),
@@ -514,27 +544,62 @@ export function table(b, c) {
   } else {
     let list = el("div", "", "records" + (staged ? " operationalRecords" : ""));
     const groups = fieldGroups(b);
-    let update;
+    let update, sort;
     if (managed) {
       let query = "", filter = "Toate";
       const empty = el("p", "Nicio problemă pentru acest filtru.", "empty");
       empty.hidden = true;
+      const dueColumn = b.cols.find((column) => column.type === "date" && norm(column.name).includes("termen"));
+      const due = (row) => row.values[dueColumn?.id];
+      const rank = (row) => {
+        if (isDraft(b, row)) return 0;
+        if (isClosed(b, row)) return 6;
+        if (readKey(b, row, "urgency") === "Critică") return 1;
+        if (validDate(due(row)) && due(row) < c.date) return 2;
+        if (readKey(b, row, "urgency") === "Urgentă") return 3;
+        return due(row) === c.date ? 4 : 5;
+      };
       update = () => {
         let visible = 0;
-        for (const [index, row] of rows.entries()) {
+        for (const [row, item] of entries) {
           const show = problemMatches(b, row, query, filter, c.date);
-          list.children[index].hidden = !show;
+          item.hidden = !show;
           if (show) visible++;
         }
         empty.hidden = visible !== 0;
       };
+      sort = () => {
+        const order = entries.slice().sort(([a], [z]) => rank(a) - rank(z) ||
+          (validDate(due(a)) ? due(a) : "9999").localeCompare(validDate(due(z)) ? due(z) : "9999"));
+        // Reașază fișele în ordinea de citire fără a muta fișa cu focus.
+        const focused = order.findIndex(([, item]) => item.contains(document.activeElement));
+        let before = null;
+        for (let i = order.length - 1; i > focused; i--) {
+          const item = order[i][1];
+          if (item.nextSibling !== before || item.parentNode !== list) list.insertBefore(item, before);
+          before = item;
+        }
+        if (focused < 0) return;
+        before = order[focused][1];
+        for (let i = focused - 1; i >= 0; i--) {
+          const item = order[i][1];
+          if (item.nextSibling !== before) list.insertBefore(item, before);
+          before = item;
+        }
+      };
+      list.addEventListener("focusout", (event) => {
+        if (!event.target.closest(".record")?.contains(event.relatedTarget)) queueMicrotask(sort);
+      });
       const filters = el("div", "", "recordFields");
       filters.append(input("Caută probleme și acțiuni", "", (value) => { query = value; update(); }, "search"),
         input("Filtrează", "Toate", (value) => { filter = value; update(); }, "select",
           ["Toate", "Deschise", "Închise", "Restante", "Urgente / critice"]));
       out.append(filters, empty);
     }
-    for (const r of rows) list.append(record(b, r, { ...c, onProblemEdit: update }, groups));
+    const entries = rows.map((r) => [r, record(b, r, { ...c, onProblemEdit: update }, groups)]);
+    for (const [, item] of entries) list.append(item);
+    sort?.();
+    update?.();
     out.append(list);
   }
 

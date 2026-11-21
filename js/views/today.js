@@ -1,5 +1,5 @@
 import { intervalTotals, readKey, ROUTINE, shiftEnd } from "../operations.js";
-import { zoneIntervals, noData, productionFigures } from "./production.js";
+import { zoneIntervals, productionFigures, addInterval, coverageLabel } from "./production.js";
 import { app } from "../state.js";
 import { el, btn, icon, roDate, confirmShare, details, norm } from "../ui.js";
 import { routine } from "../blocks/routine.js";
@@ -85,6 +85,8 @@ function header(c) {
   return head;
 }
 
+const routinePhases = new WeakMap();
+
 function routineSection(block, c) {
   const section = el("section", "", "todayRoutine");
   const head = el("div", "", "todaySectionHead");
@@ -106,7 +108,7 @@ function routineSection(block, c) {
     if (!phases.has(phase)) {
       const label = el("span", phase);
       const tally = el("span", "", "formHelp");
-      const panel = details([label, tally, icon("down")], "phase-" + block.id + "-" + phase, "routinePhase");
+      const panel = details([label, tally, icon("down")], "phase-" + block.id + "-" + c.key + "-" + phase, "routinePhase");
       const content = el("div", "", "lines");
       panel.append(content);
       phases.set(phase, { panel, content, tally, items: [] });
@@ -124,7 +126,30 @@ function routineSection(block, c) {
     for (const { items, tally } of phases.values())
       tally.textContent = items.filter((item) => item.checked).length + " / " + items.length;
   }
+  function updatePhase(context) {
+    const window = app.data.settings.scheduleConfirmed && shiftEnd(context);
+    const start = context.hours[context.shift - 1];
+    const elapsed = (Date.parse(context.date + "T" + context.time + "Z") -
+      Date.parse(context.workDay + "T" + start + "Z")) / 60000;
+    const scheduled = window
+      ? (window.remaining <= 60 ? ROUTINE[3][0] : elapsed < 60 ? ROUTINE[1][0] : ROUTINE[2][0])
+      : app.data.settings.scheduleConfirmed && context.shift > context.automatic ? ROUTINE[0][0] : null;
+    const phase = phases.has(scheduled) ? scheduled
+      : [...phases].find(([, group]) => group.items.some((item) => !item.checked))?.[0];
+    const state = routinePhases.get(block);
+    if (state?.key === context.key && state.phase === phase) return;
+    const previous = state?.key === context.key && phases.get(state.phase);
+    if (previous && !previous.panel.contains(document.activeElement)) previous.panel.open = false;
+    if (phase) {
+      const panel = phases.get(phase).panel;
+      panel.open = true;
+      app.open.add(panel.dataset.key);
+    }
+    routinePhases.set(block, { key: context.key, phase });
+  }
   update();
+  section.updatePhase = updatePhase;
+  updatePhase(c);
   section.append(list);
   return section;
 }
@@ -137,7 +162,7 @@ function attention(c) {
   const add = (id, item) => { if (!list.has(id)) list.set(id, { ...item, id }); };
   const excerpt = (value) => value.length > 96 ? value.slice(0, 93).trimEnd() + "…" : value;
   const urgent = (entry, title, text, field, label, level) => add("row-" + entry.r.id, {
-    title, text, level, action: toRecord(entry, field, label), escalation: entry,
+    title, text, shortText: excerpt(entry.label), level, action: toRecord(entry, field, label), escalation: entry,
   });
   for (const incident of safetyEvents(app.data).filter((e) => e.type === "incident" && !e.closed)) {
     const field = colByName(incident.b, "actiune imediata");
@@ -190,50 +215,78 @@ function attention(c) {
   return [...list.values()];
 }
 
-function nextAction(c) {
+function nextAction(c, reminder) {
+  if (reminder) return reminder;
+  if (handover(c) && app.data.settings.scheduleConfirmed && shiftEnd(c)?.remaining <= 60)
+    return { title: "Predarea este verificată", action: { kind: "handover", label: "Deschide predarea" } };
   const previous = previousHandover(c);
   if (previous?.r && readKey(previous.b, previous.r, "prepared") && !readKey(previous.b, previous.r, "received"))
-    return { title: "Preluarea schimbului anterior", text: "Revizuiește fișa predată și confirmă preluarea.",
-      action: toRecord(previous, "received", "Preia schimbul anterior") };
-  const current = handover(c);
-  if (app.data.settings.scheduleConfirmed && shiftEnd(c)?.remaining <= 60 && current?.r &&
-      readKey(current.b, current.r, "prepared"))
-    return { title: "Predarea este verificată", text: "Verifică fișa înainte să pregătești rezumatul.",
-      action: { kind: "handover", label: "Deschide predarea" } };
-  return { title: "Actualizează producția", text: "Verifică planul și înregistrează realizatul pe intervale.",
-    action: { kind: "route", route: "Producție", label: "Deschide producția" } };
+    return { action: { kind: "handover", previous: true, label: "Preia schimbul" } };
+  return { action: { kind: "interval", label: "Adaugă interval" } };
 }
 
 export function updateTodayAttention(c) {
+  document.querySelectorAll(".todayRoutine").forEach((section) => section.updatePhase(c));
   const region = document.querySelector(".attentionRegion");
   if (!region) return;
-  const [first, ...rest] = attention(c);
-  const entry = first || nextAction(c);
-  const signature = JSON.stringify([entry, ...rest].map((item) => [item.id, item.title, item.text, item.action]));
+  const alerts = attention(c);
+  const reminder = alerts.find((item) => item.id === "handover-now");
+  const next = nextAction(c, reminder);
+  const [first, ...rest] = alerts.filter((item) => next !== item);
+  const signature = JSON.stringify([first, ...rest, next].map((item) => item && [item.id, item.title, item.text, item.action]));
   if (region.dataset.signature === signature) return;
   region.dataset.signature = signature;
-  const panel = el("section", "", "attentionPanel");
-  panel.dataset.level = entry.level || (first ? "warn" : "normal");
-  const lead = el("p", "", "attentionLabel");
-  lead.append(icon(first ? "alert" : "check"), el("span", first ? "Necesită atenție" : "Următoarea acțiune"));
-  if (entry.level === "critical") lead.append(el("strong", "Critică", "attentionSeverity"));
   const run = (item) => item.run || (() => runAction(item.action));
-  const actions = el("div", "", "attentionActions");
-  actions.append(btn(entry.action.label, run(entry), "primary nextAction", "chevron"));
-  if (entry.escalation) actions.append(btn("Ciornă SBAR", () => escalationDraft(entry.escalation), "sbarAction", "chat"));
-  panel.append(lead, el("h2", entry.title), el("p", entry.text, "attentionText"), actions);
-  region.replaceChildren(panel);
-  if (rest.length) {
-    const other = details([el("span", "Alte atenționări (" + rest.length + ")"), icon("down")], "attention-more", "otherAttention");
-    for (const item of rest) {
-      const row = el("article", "", "attentionRow");
-      const title = el("h3", (item.level === "critical" ? "Critică · " : "") + item.title);
-      row.append(title, el("p", item.text, "formHelp"), btn(item.action.label, run(item), "todayMore", "chevron"));
-      if (item.escalation) row.append(btn("Ciornă SBAR", () => escalationDraft(item.escalation), "sbarAction", "chat"));
-      other.append(row);
-    }
-    region.append(other);
+  const alertRow = (item) => {
+    const row = el("article", "", "attentionRow");
+    row.dataset.level = item.level || "warn";
+    const critical = item.level === "critical";
+    row.append(el("h3", critical ? item.shortText : item.title),
+      el("p", critical ? (item.title.startsWith("Incident") ? "Incident de siguranță · Critic" : "Problemă critică") : item.shortText || item.text, "formHelp"),
+      btn(item.action.label, run(item), "todayMore", "chevron"));
+    if (item.escalation) row.append(btn("Ciornă SBAR", () => escalationDraft(item.escalation), "sbarAction", "chat"));
+    return row;
+  };
+  const nodes = [];
+  if (first) {
+    const panel = el("section", "", "attentionPanel");
+    panel.dataset.level = first.level || "warn";
+    const lead = el("p", "", "attentionLabel");
+    lead.append(icon("alert"), el("span", "Necesită atenție"));
+    if (first.level === "critical") lead.append(el("strong", "Critică", "attentionSeverity"));
+    const actions = el("div", "", "attentionActions");
+    actions.append(btn(first.action.label, run(first), "primary", "chevron"));
+    if (first.escalation) actions.append(btn("Ciornă SBAR", () => escalationDraft(first.escalation), "sbarAction", "chat"));
+    panel.append(lead, el("h2", first.title), el("p", first.text, "attentionText"), actions);
+    nodes.push(panel);
   }
+  const critical = rest.filter((item) => item.level === "critical");
+  if (critical.length) {
+    const rows = el("div", "", "criticalAttention");
+    rows.append(...critical.map(alertRow));
+    nodes.push(rows);
+  }
+
+  const nextPanel = el("section", "", "attentionPanel shiftNext");
+  const lead = el("p", "", "attentionLabel");
+  lead.append(icon("check"), el("span", "Următoarea acțiune"));
+  nextPanel.append(lead);
+  if (next.title) nextPanel.append(el("h2", next.title));
+  const actions = el("div", "", "attentionActions");
+  const open = next.action.kind === "interval" ? () => addInterval(app.current) : run(next);
+  actions.append(btn(next.action.label, open, "primary nextAction", next.action.kind === "interval" ? "plus" : "chevron"));
+  nextPanel.append(actions);
+  if (next.action.kind !== "interval")
+    actions.append(btn("Adaugă interval", () => addInterval(app.current), "", "plus"));
+  nodes.splice(first ? 1 : 0, 0, nextPanel);
+
+  const otherItems = rest.filter((item) => item.level !== "critical");
+  if (otherItems.length) {
+    const other = details([el("span", "Alte atenționări (" + otherItems.length + ")"), icon("down")], "attention-more", "otherAttention");
+    other.append(...otherItems.map(alertRow));
+    nodes.push(other);
+  }
+  region.replaceChildren(...nodes);
 }
 
 // Cifrele schimbului curent, pe structura SQDCP (Siguranță, Calitate,
@@ -253,38 +306,48 @@ function shiftStrip(c) {
   const incidents = events.filter((e) => e.type === "incident").length;
   const tour = auditStatus(app.data, c.key)[0];
   const openHandover = () => runAction({ kind: "handover" });
+  const source = (fields) => {
+    const rows = intervalData ? intervals : legacy ? [legacy] : [];
+    const label = intervalData || !legacy ? "Intervale de producție" : "Fișa de predare";
+    const complete = rows.filter((row) => fields.every((field) => row[field] != null)).length;
+    const status = coverageLabel(rows.length, complete, rows.some((row) => fields.some((field) => row[field] != null)));
+    if (status) return label + " · " + status;
+    return intervalData ? fmt(rows.length, 0) + (rows.length === 1 ? " interval raportat" : " intervale raportate") : label;
+  };
   const openNumbers = intervalData ? () => { location.hash = "Producție"; } : openHandover;
   const tiles = [
-    ["S", "Siguranță", incidents ? incidents + (incidents === 1 ? " incident" : " incidente") : events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : noData,
-      tour ? "Tur " + tour.checked + "/" + tour.total + (tour.nok.length ? " · " + tour.nok.length + " NOK" : "") : "", incidents ? "bad" : "",
-      () => (tour ? app.openPage(tour.p) : newSafetyEvent())],
-    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : noData, rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openNumbers],
-    ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "%" : noData, rec?.plan != null && rec.produced != null ? fmt(rec.produced) + "/" + fmt(rec.plan) + " · Δ " + fmt(k.variance) : "",
+    ["S", "Siguranță", events.length ? incidents + (incidents === 1 ? " incident" : " incidente") : "—",
+      "Registrul de siguranță · " + (events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : "Fără raportări"),
+      tour ? "Tur " + tour.checked + "/" + tour.total + (tour.nok.length ? " · " + tour.nok.length + " NOK" : "") : "",
+      incidents ? "warn" : "", () => (tour ? app.openPage(tour.p) : newSafetyEvent())],
+    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : "—", source(["produced", "scrap"]),
+      rec?.scrap != null ? fmt(rec.scrap, 0) + " buc rebut" : "", "", openNumbers],
+    ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "% din plan" : "—", source(["plan", "produced"]),
+      rec?.plan != null && rec?.produced != null ? fmt(rec.produced) + " din " + fmt(rec.plan) + " buc" : "",
       k.planPct != null && k.planPct < 100 ? "warn" : "", openNumbers],
-    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : noData, "", "", openNumbers],
-    ["P", "Prezenți", legacy?.planned != null && legacy?.present != null ? fmt(legacy.present, 0) + "/" + fmt(legacy.planned, 0) : noData,
-      staffing.absencePct ? fmt(staffing.absencePct, 0) + "% absențe" : "", "", openHandover],
+    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : "—", source(["downtime"]), "", "", openNumbers],
+    ["P", "Prezenți", legacy?.planned != null && legacy?.present != null ? fmt(legacy.present, 0) + "/" + fmt(legacy.planned, 0) : "—",
+      "Fișa de predare" + (legacy?.planned == null || legacy?.present == null ? " · " +
+        (!legacy ? "Fără raportări" : legacy.planned == null && legacy.present == null ? "Fără cifre raportate" : "Date parțiale") : ""),
+      staffing.absencePct != null ? fmt(staffing.absencePct, 0) + "% absențe" : "", "", openHandover],
   ];
   const grid = el("div", "", "stripGrid");
-  for (const [area, name, value, sub, state, run] of tiles) {
+  for (const [area, name, value, source, sub, state, run] of tiles) {
     const tile = btn("", run, "stripTile");
     tile.dataset.area = area;
     if (state) tile.dataset.state = state;
-    tile.setAttribute("aria-label", name + ": " + value + (sub ? ", " + sub : ""));
     const label = el("span", "", "stripName");
     const marker = el("span", area, "kpiArea");
     marker.setAttribute("aria-hidden", "true");
     label.append(marker, el("span", name));
     tile.append(label, el("strong", value));
-    if (sub) tile.append(el("small", sub));
+    tile.append(el("small", [sub, source].filter(Boolean).join(" · ")));
     grid.append(tile);
   }
   if (intervalData) section.append(productionFigures(intervals));
   else if (legacy) section.append(productionFigures([legacy], "Fișa de predare · aria consemnată în fișă"));
   else section.append(productionFigures([]));
   section.append(grid);
-  if (intervalData) section.append(el("p", "Calitate, livrare și opriri din " + intervals.length + " intervale raportate pentru zona curentă. Efectivul vine din predare.", "formHelp"));
-  else if (legacy) section.append(el("p", "Cifre din predare. Verifică aria la care se referă.", "formHelp"));
   return section;
 }
 

@@ -121,3 +121,12 @@ dialog:has(.intervalFields) { width: min(560px, calc(100% - 24px)); }
   font-variant-numeric: tabular-nums;
 }
 .figureCoverage { color: var(--muted); font-size: .72rem; line-height: 1.25; }
+
+.intervalContext {
+  border-block-end: 1px solid var(--line);
+  margin-block-start: 12px;
+}
+.intervalContext legend { padding-bottom: 0; }
+.intervalDates { grid-column: 1 / -1; margin: 0; }
+.draftState, .operationalRecords .chip.warn { color: var(--warn); }
+.operationalRecords .chip.critical { color: var(--danger); background: var(--danger-soft); }

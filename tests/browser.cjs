@@ -21,12 +21,13 @@ async function mobileShift(browser, base) {
     await page.getByRole("button",{name:"Aplică programul"}).click();
     await page.getByText("Programul a fost aplicat").waitFor();
     await page.getByRole("button",{name:"Azi",exact:true}).click();
-    await page.getByRole("button",{name:"Deschide producția", exact:true}).waitFor();
+    await page.getByRole("button",{name:"Adaugă interval", exact:true}).waitFor();
     await page.clock.runFor(15 * 60 * 1000);
     const attention = page.locator(".attentionRegion");
     await attention.getByRole("heading",{name:"Predare neverificată · schimbul se termină la 14:10"}).waitFor();
+    assert.equal(await page.locator(".routinePhase[open] summary").first().textContent().then((label) => label.startsWith("La final")), true);
     await page.getByLabel("Alege schimbul").selectOption("2");
-    await attention.getByRole("button",{name:"Deschide producția"}).waitFor();
+    await attention.getByRole("button",{name:"Adaugă interval"}).waitFor();
     await page.getByLabel("Alege schimbul").selectOption("1");
     await attention.getByRole("button",{name:"Continuă predarea"}).click();
     const situation = page.getByLabel("Situația producției / probleme");
@@ -42,6 +43,17 @@ async function mobileShift(browser, base) {
     assert.deepEqual(await counts(), [1,0]);
     await page.getByRole("button",{name:"Azi",exact:true}).click();
     await attention.getByRole("heading",{name:"Predarea este verificată"}).waitFor();
+    await page.clock.setSystemTime(new Date(2026,10,23,14,15));
+    await page.clock.runFor(5000);
+    await attention.getByRole("button",{name:"Preia schimbul",exact:true}).click();
+    const previousRow = page.locator(".record[open]").filter({hasText:"Schimb 1"});
+    const previousSituation = previousRow.getByLabel("Situația producției / probleme");
+    assert.equal(await previousSituation.inputValue(), "Predare de zi verificată");
+    assert.equal(await previousSituation.evaluate((field) =>
+      Boolean(field.compareDocumentPosition(field.closest(".record").querySelector('[data-field="received"]')) & Node.DOCUMENT_POSITION_FOLLOWING)), true);
+    await previousRow.getByLabel("Preluare verificată").check();
+    await page.getByRole("button",{name:"Azi",exact:true}).click();
+    await attention.getByRole("button",{name:"Adaugă interval",exact:true}).waitFor();
     await page.clock.setSystemTime(new Date(2026,10,24,5,35));
     await page.clock.runFor(5000);
     await attention.getByRole("heading",{name:"Predare neverificată · schimbul se termină la 06:00"}).waitFor();
@@ -53,10 +65,10 @@ async function mobileShift(browser, base) {
     await page.getByLabel("Prioritate",{exact:true}).selectOption("Critică");
     await page.getByLabel("Termen",{exact:true}).fill("2026-11-23");
     await page.getByRole("button",{name:"Azi",exact:true}).click();
-    const primary = attention.locator(".primary");
+    const primary = attention.locator(".attentionPanel[data-level=critical] .primary");
     await attention.getByRole("heading",{name:"Problemă critică deschisă"}).waitFor();
     assert.equal(await attention.getByText("Abatere la testul de ambalare", {exact:false}).count(), 1);
-    for (const target of [attention.locator(".attentionPanel"), primary]) {
+    for (const target of [attention.locator(".attentionPanel[data-level=critical]"), primary]) {
       const box = await target.boundingBox();
       assert.ok(box.y >= 56 && box.y + box.height <= 786, JSON.stringify(box));
       assert.ok(box.width >= 44 && box.height >= 44);
@@ -86,23 +98,29 @@ async function mobileShift(browser, base) {
     await page.getByLabel("Stare",{exact:true}).selectOption("Închis");
     await page.getByRole("button",{name:"Azi",exact:true}).click();
     assert.equal(await attention.getByRole("heading",{name:"Problemă critică deschisă"}).count(), 0);
-    await page.getByRole("button",{name:"Producție",exact:true}).click();
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
     await context.setOffline(true);
     const dialog = page.getByRole("dialog");
-    await page.getByRole("button",{name:"Interval nou"}).click();
+    await attention.getByRole("button",{name:"Adaugă interval"}).click();
     assert.equal(await dialog.getByLabel("Schimb",{exact:true}).inputValue(),"3");
     assert.equal(await dialog.getByLabel("Data de lucru").inputValue(),"2026-11-23");
     await dialog.getByLabel("Început").fill("2026-11-23T23:30");
     await dialog.getByLabel("Sfârșit").fill("2026-11-24T00:30");
+    await dialog.getByText("23 nov. 2026 23:30 → 24 nov. 2026 00:30", {exact:true}).waitFor();
     await dialog.getByLabel("Plan (buc)",{exact:true}).fill("10");
     await dialog.getByLabel("Realizat total (buc)").fill("0");
     await dialog.getByRole("button",{name:"Salvează"}).click();
     await dialog.waitFor({state:"hidden"});
+    await page.clock.runFor(100);
+    await page.getByText("0 din 10 buc · 1 interval raportat", {exact:true}).waitFor();
+    await attention.getByRole("button",{name:"Adaugă interval"}).click();
+    assert.equal(await dialog.getByLabel("Început").inputValue(), "2026-11-24T00:30");
+    await dialog.getByRole("button",{name:"Renunță"}).click();
+    await page.getByRole("button",{name:"Producție",exact:true}).click();
     const realized = page.locator(".figure").filter({hasText:"Realizat"});
     await realized.getByText("0",{exact:true}).waitFor();
-    await page.getByText("Salvat",{exact:true}).waitFor();
+    await page.getByText("Salvat pe dispozitiv",{exact:true}).waitFor();
     await page.reload();
     await page.getByRole("heading",{name:"Producție"}).waitFor();
     await page.getByLabel("Data de lucru").fill("2026-11-23");
@@ -125,9 +143,9 @@ async function mobileShift(browser, base) {
       assert.equal(restored.zone, original.settings.zone);
       console.log("Chromium: import verificat cu o copie exportată din versiunea 3.2.");
     }
-    for (const width of [320, 390, 1280]) {
+    for (const width of [320, 390, 900, 1280]) {
       await page.setViewportSize({width,height:844});
-      for (const route of ["Azi", "Producție", "Probleme", "Caiet"]) {
+      for (const route of ["Azi", "Producție", "Predare", "Probleme", "Caiet"]) {
         await page.getByRole("navigation").getByRole("button",{name:route,exact:true}).click();
         await page.waitForFunction((name) => document.querySelector("nav [aria-current=page]")?.textContent === name, route);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width, route);
@@ -139,9 +157,7 @@ async function mobileShift(browser, base) {
           await page.getByRole("button",{name:"Problemă nouă"}).click();
           await page.getByLabel("Problemă",{exact:true}).waitFor();
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
-        } else if (route === "Azi") {
-          await page.getByText("Raportează",{exact:true}).click();
-          await page.getByRole("button",{name:"Predare",exact:true}).click();
+        } else if (route === "Predare") {
           await page.getByLabel("Predare verificată").waitFor();
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
         }
@@ -152,11 +168,11 @@ async function mobileShift(browser, base) {
     await page.getByRole("button",{name:"Luminoasă",exact:true}).click();
     await page.getByRole("button",{name:"Azi",exact:true}).click();
     await page.keyboard.press("Tab");
-    const mainAction = page.locator(".attentionRegion button.primary");
+    const mainAction = page.locator(".attentionRegion .nextAction");
     await mainAction.focus();
     assert.equal(await mainAction.evaluate((node) => getComputedStyle(node).outlineStyle), "solid");
     assert.deepEqual(runtimeErrors, []);
-    console.log("Chromium 320/390/1280px: configurare, atenționări în timp real, schimb de noapte, fișe în ciornă, focus, SBAR, realizat zero și salvare offline.");
+    console.log("Chromium 320/390/900/1280px: configurare, atenționări în timp real, schimb de noapte, fișe în ciornă, focus, SBAR, realizat zero și salvare offline.");
   } finally { await context.close(); }
 }
 (async () => {
@@ -173,7 +189,7 @@ async function mobileShift(browser, base) {
     await page.goto(base);
     await page.getByRole("button",{name:"Am înțeles"}).click();
     await page.getByRole("heading",{name:"Panou de schimb"}).waitFor();
-    await page.getByText("Date indisponibile",{exact:true}).first().waitFor();
+    await page.getByText("Fără raportări",{exact:true}).first().waitFor();
     await page.evaluate(()=>navigator.serviceWorker.ready);
     await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),360);
@@ -196,7 +212,7 @@ async function mobileShift(browser, base) {
     await dialog.getByLabel("Rebut (buc)").fill("1");
     await dialog.getByRole("button",{name:"Salvează"}).click();
     await page.locator(".figure").filter({hasText:"Realizat"}).getByText("8",{exact:true}).waitFor();
-    await page.getByText("Salvat",{exact:true}).waitFor();
+    await page.getByText("Salvat pe dispozitiv",{exact:true}).waitFor();
     await context.setOffline(true);
     await page.reload();
     await page.getByRole("heading",{name:"Producție"}).waitFor();
@@ -230,8 +246,7 @@ async function mobileShift(browser, base) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 360);
     await page.goto(base);
     await page.getByRole("heading", { name: "Panou de schimb" }).waitFor();
-    await page.getByText("Raportează", { exact: true }).click();
-    await page.getByRole("button", { name: "Predare", exact: true }).click();
+    await page.getByRole("navigation").getByRole("button", { name: "Predare", exact: true }).click();
     await page.getByText(/Fișă personală de sprijin/).waitFor();
     await page.getByLabel("Predare verificată").click();
     assert.equal(await page.getByLabel("Predare verificată").isChecked(), false);
@@ -314,12 +329,12 @@ async function mobileShift(browser, base) {
     await dialog.getByRole("button", { name: "Salvează" }).click();
     await dialog.waitFor({ state: "hidden" });
     await page.evaluate(async () => (await import("./js/store.js")).flush());
-    await page.getByText("Salvat", { exact: true }).waitFor();
+    await page.getByText("Salvat pe dispozitiv", { exact: true }).waitFor();
     await second.getByRole("button", { name: "Adaugă notiță" }).click();
     await second.getByRole("dialog").getByLabel("Notiță").fill("A doua filă");
     await second.getByRole("dialog").getByRole("button", { name: "Salvează" }).click();
     await second.getByRole("dialog").waitFor({ state: "hidden" });
-    await second.getByText("Salvare eșuată", { exact: true }).waitFor();
+    await second.getByText("Modificări nesalvate", { exact: true }).waitFor();
     await second.reload();
     await second.getByRole("button", { name: "Caiet", exact: true }).click();
     await second.getByRole("button", { name: "Notițe", exact: true }).click();

@@ -1,8 +1,8 @@
 import { app } from "../state.js";
-import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError } from "../ui.js";
+import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError, roDate } from "../ui.js";
 import { INTERVAL_NUMBERS, intervalTotals, intervalError } from "../operations.js";
 import { nonnegative, productionKpis } from "../production.js";
-import { problemsBlock } from "../metrics.js";
+import { addDays, problemsBlock } from "../metrics.js";
 import { rowLabel } from "../records.js";
 import { bars, fmt } from "../charts.js";
 
@@ -11,6 +11,35 @@ const amount = (number, unit = "") => number == null ? noData : fmt(number) + un
 export const zoneIntervals = (data, date, shift, zone) => (data.intervals || [])
   .filter((r) => r.date === date && r.shift === shift && norm(r.zone) === norm(zone))
   .sort((a, b) => a.start.localeCompare(b.start));
+
+export function coverageLabel(total, complete, hasData) {
+  if (!total) return "Fără raportări";
+  if (!complete && !hasData) return "Fără cifre raportate";
+  if (complete < total) return "Date parțiale · " + complete + "/" + total;
+  return "";
+}
+
+function intervalDates(start, end) {
+  const firstDay = start.slice(0, 10);
+  const lastDay = end.slice(0, 10);
+  const full = (value) => roDate(value.slice(0, 10), { day: "numeric", month: "short", year: "numeric" }) + " " + value.slice(11);
+  return firstDay === lastDay ? full(start) + " → " + end.slice(11) : full(start) + " → " + full(end);
+}
+
+function suggestedStart({ date, shift, zone }, hours) {
+  const rows = zoneIntervals(app.data, date, Number(shift), zone);
+  const end = rows.at(-1)?.end;
+  if (!end || (app.data.intervals || []).some((row) => norm(row.zone) === norm(zone) && row.start <= end && end < row.end))
+    return "";
+  if (!app.data.settings.scheduleConfirmed) return end;
+  const from = date + "T" + hours[shift - 1];
+  const until = (Number(shift) === 3 ? addDays(date, 1) : date) + "T" + hours[shift % 3];
+  return end >= from && end < until ? end : "";
+}
+
+export function addInterval(c) {
+  return editInterval(c, null, { date: c.workDay, shift: c.shift, zone: app.data.settings.zone || "" });
+}
 
 export function productionFigures(rows, source = "Intervale de producție") {
   const box = el("div", "", "productionFigures");
@@ -22,7 +51,7 @@ export function productionFigures(rows, source = "Intervale de producție") {
     const count = rows.filter((row) => fields.every((field) => row[field] != null)).length;
     const item = el("div", "", "figure");
     item.append(el("dt", label), el("dd", totals[key] == null ? "—" : fmt(totals[key])),
-      el("dd", !count ? "Date indisponibile" : count < rows.length ? "Date parțiale · " + count + "/" + rows.length : "buc", "figureCoverage"));
+      el("dd", coverageLabel(rows.length, count, rows.some((row) => fields.some((field) => row[field] != null))) || "buc", "figureCoverage"));
     grid.append(item);
   }
   box.append(grid, el("p", "Sursă · " + source + " · " + rows.length + (rows.length === 1 ? " fișă" : " fișe"), "formHelp"));
@@ -35,6 +64,13 @@ async function editInterval(c, existing, selection) {
     start: "", end: "", cause: "", action: "", equipment: "", problemId: "",
   };
   const draft = { ...initial };
+  let suggested = existing ? "" : suggestedStart(draft, c.hours);
+  if (suggested) draft.start = suggested;
+  const context = el("fieldset", "", "formGroup intervalContext");
+  const contextFields = el("div", "", "recordFields intervalFields");
+  context.append(el("legend", "Contextul intervalului"), contextFields);
+  const dates = el("p", "", "formHelp intervalDates");
+  dates.setAttribute("aria-live", "polite");
   const fields = el("div", "", "recordFields intervalFields");
   const extra = details([el("span", "Calitate, timp și cauze"), icon("down")], null, "formStage");
   const extraFields = el("div", "", "recordFields intervalFields");
@@ -45,17 +81,32 @@ async function editInterval(c, existing, selection) {
       draft[key] = v;
       const control = controls.get(key);
       if (control.getAttribute("aria-invalid") === "true") fieldError(control, "");
+      if (!existing && ["zone", "shift", "date"].includes(key) && (!draft.start || draft.start === suggested)) {
+        suggested = suggestedStart(draft, c.hours);
+        draft.start = controls.get("start").value = suggested;
+        fieldError(controls.get("start"), "");
+      }
+      if (["date", "shift", "zone", "start", "end"].includes(key)) updateDates();
     }, type, options);
     parent.append(group);
     const control = group.querySelector("input, select, textarea");
     controls.set(key, control);
     return control;
   }
-  field("zone", "Zonă / linie").required = true;
-  field("shift", "Schimb", "select", ["1", "2", "3"]);
-  field("date", "Data de lucru", "date").required = true;
+  function updateDates() {
+    const { start, end } = draft;
+    dates.textContent = start && end && end > start && start.slice(0, 10) !== end.slice(0, 10)
+      ? intervalDates(start, end)
+      : start && suggested === start ? "Început propus din ultimul interval raportat." : "";
+    dates.hidden = !dates.textContent;
+  }
+  field("zone", "Zonă / linie", "text", [], contextFields).required = true;
+  field("shift", "Schimb", "select", ["1", "2", "3"], contextFields);
+  field("date", "Data de lucru", "date", [], contextFields).required = true;
   field("start", "Început", "datetime-local").required = true;
   field("end", "Sfârșit", "datetime-local").required = true;
+  fields.append(dates);
+  updateDates();
   for (const [key, label] of INTERVAL_NUMBERS) {
     const control = field(key, label, "number", [], ["plan", "produced"].includes(key) ? fields : extraFields);
     control.min = "0";
@@ -105,15 +156,15 @@ async function editInterval(c, existing, selection) {
   try {
     if (await openDialog(() => [
       el("h2", existing ? "Editează intervalul" : "Interval nou"),
-      el("p", existing ? "Modificările se aplică la salvare." : "Ciornă locală · Fișa se înregistrează la salvare.", "formHelp"),
-      fields, el("p", "0 indică zero bucăți. Lasă câmpul gol dacă cifra nu este disponibilă.", "formHelp"), extra, footer,
+      el("p", "Ciornă nesalvată", "formHelp draftState"),
+      context, fields, el("p", "0 indică zero bucăți. Lasă câmpul gol dacă cifra nu este disponibilă.", "formHelp"), extra, footer,
     ]) !== "ok") return;
     if (existing) Object.assign(existing, draft);
     else (app.data.intervals ||= []).push(draft);
     selection.date = draft.date;
     selection.shift = draft.shift;
     selection.zone = draft.zone;
-    c.refresh();
+    app.refresh();
   } finally {
     form.removeEventListener("submit", validate);
     form.noValidate = false;
@@ -170,7 +221,7 @@ export function productionView(c) {
         { ref: 100, unit: "%", label: "Atingerea planului în ultimele intervale raportate" }));
     for (const row of rows) {
       const k = productionKpis(row);
-      const card = details(row.start.replace("T", " ") + " → " + row.end.slice(-5) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");
+      const card = details(intervalDates(row.start, row.end) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");
       card.append(el("p", "Plan " + amount(row.plan) + " · realizat " + amount(row.produced) + " · abatere " + amount(k.variance)),
         el("p", "Bune " + amount(row.good) + " · rebut " + amount(row.scrap) + " · reprelucrare " + amount(row.rework)),
         el("p", "Timp planificat " + amount(row.plannedTime, " min") + " · oprire " + amount(row.downtime, " min") + " · FPY " + amount(k.fpy, "%")),

@@ -10,6 +10,7 @@ import { advice } from "../advice.js";
 import { adviceSection } from "./advice.js";
 import { bars, sparkline, ranking, fmt } from "../charts.js";
 import { weekReport, share } from "../logic.js";
+import { coverageLabel } from "./production.js";
 import { progressView } from "./progress.js";
 
 let offset = 0, allAdvice = false, tab = "week";
@@ -31,17 +32,18 @@ function delta(cur, prev, { better = "up", unit = "", digits = 1 } = {}) {
   if (good != null) span.dataset.good = String(good);
   return span;
 }
-function kpi({ area, title, value, unit = "", note, cur, prev, better, series, baseline, digits = 1 }) {
+function kpi({ area, title, value, unit = "", source, note, cur, prev, better, series, baseline, digits = 1 }) {
   const box = el("article", "", "kpi");
   box.dataset.area = area;
   const head = el("div", "", "kpiHead");
   head.append(el("span", area, "kpiArea"), el("span", title, "kpiTitle"));
   const val = el("p", "", "kpiValue");
   val.append(el("strong", fmt(value, digits)), el("span", value == null ? "" : unit));
-  box.append(head, val, delta(cur, prev, { better, unit: unit === "%" ? " pp" : unit ? " " + unit : "", digits }));
+  box.append(head, val, el("small", source, "kpiNote"));
+  if (note) box.append(el("small", note, "kpiNote"));
+  box.append(delta(cur, prev, { better, unit: unit === "%" ? " pp" : unit ? " " + unit : "", digits }));
   // Tendința are sens de la două săptămâni cu date.
   if (series && series.filter((v) => v != null).length >= 2) box.append(sparkline(series, { baseline, better }));
-  if (note) box.append(el("small", note, "kpiNote"));
   return box;
 }
 
@@ -117,30 +119,36 @@ export function analysisView(c) {
   const sq = card("Indicatorii săptămânii (SQDCP)", "sqdcp");
   const grid = el("div", "", "kpiGrid");
   const k = cur.kpis, pk = prev.kpis;
-  const noNumbers = !cur.records.some((r) => r.plan != null || r.produced != null);
+  const transferSource = (key) => {
+    const { complete, hasData } = k.coverage[key];
+    const coverage = coverageLabel(k.shifts, complete, hasData);
+    return "Fișe de predare · " + (coverage || complete + (complete === 1 ? " fișă cu date" : " fișe cu date"));
+  };
+  const safetySource = "Registrul de siguranță · " + (cur.safety.total
+    ? cur.safety.total + (cur.safety.total === 1 ? " raportare" : " raportări") : "Fără raportări");
+  const weeklyIncidents = (week) => week.safety.total ? week.safety.incidents : null;
   grid.append(
-    kpi({ area: "S", title: "Incidente", value: cur.safety.incidents, cur: cur.safety.incidents, prev: prev.safety.incidents, better: "down", digits: 0,
-      series: trend.map((w) => w.safety.incidents), note: cur.safety.nearMiss + " near-miss · " + cur.safety.observations + " observații" }),
-    kpi({ area: "Q", title: "Rebut", value: k.scrapPct, unit: "%", cur: k.scrapPct, prev: pk.scrapPct, better: "down",
-      series: trend.map((w) => w.kpis.scrapPct), note: k.produced ? fmt(k.scrap, 0) + " buc rebut" : null }),
-    kpi({ area: "D", title: "Plan realizat", value: k.planPct, unit: "%", cur: k.planPct, prev: pk.planPct, better: "up",
+    kpi({ area: "S", title: "Incidente", value: weeklyIncidents(cur), cur: weeklyIncidents(cur), prev: weeklyIncidents(prev), source: safetySource, better: "down", digits: 0,
+      series: trend.map(weeklyIncidents), note: cur.safety.total ? cur.safety.nearMiss + " near-miss · " + cur.safety.observations + " observații" : "" }),
+    kpi({ area: "Q", title: "Rebut", source: transferSource("scrap"), value: k.scrapPct, unit: "%", cur: k.scrapPct, prev: pk.scrapPct, better: "down",
+      series: trend.map((w) => w.kpis.scrapPct), note: k.scrapPct != null ? fmt(k.scrap, 0) + " buc rebut" : null }),
+    kpi({ area: "D", title: "Plan realizat", source: transferSource("plan"), value: k.planPct, unit: "%", cur: k.planPct, prev: pk.planPct, better: "up",
       series: trend.map((w) => w.kpis.planPct), baseline: base.planPct?.start ?? null,
-      note: k.plan ? fmt(k.produced, 0) + " din " + fmt(k.plan, 0) + " buc" + (base.planPct?.start != null ? " · pornire " + fmt(base.planPct.start) + "%" : "") : null }),
-    kpi({ area: "C", title: "Minute de oprire", value: k.downtime, unit: "min", cur: k.downtime, prev: pk.downtime, better: "down", digits: 0,
+      note: k.coverage.plan.complete ? fmt(k.produced, 0) + " din " + fmt(k.plan, 0) + " buc" + (k.plan === 0 ? " · procent nedefinit" : "") + (base.planPct?.start != null ? " · pornire " + fmt(base.planPct.start) + "%" : "") : null }),
+    kpi({ area: "C", title: "Minute de oprire", source: transferSource("downtime"), value: k.downtime, unit: "min", cur: k.downtime, prev: pk.downtime, better: "down", digits: 0,
       series: trend.map((w) => w.kpis.downtime) }),
-    kpi({ area: "P", title: "Absențe", value: k.absencePct, unit: "%", cur: k.absencePct, prev: pk.absencePct, better: "down",
+    kpi({ area: "P", title: "Absențe", source: transferSource("staffing"), value: k.absencePct, unit: "%", cur: k.absencePct, prev: pk.absencePct, better: "down",
       series: trend.map((w) => w.kpis.absencePct), baseline: base.absencePct?.start ?? null,
       note: k.planned ? fmt(k.present, 0) + " prezenți din " + fmt(k.planned, 0) + " planificați" : null }),
   );
   sq.append(grid);
-  if (noNumbers)
-    sq.append(el("p", "Completează „Cifrele schimbului” în predare (plan, realizat, rebut, minute de oprire, efectiv) ca să apară indicatorii de calitate, livrare, cost și oameni.", "formHelp"));
   sq.append(el("p", "Procentele se calculează din totalurile săptămânii. Linia punctată din grafic e valoarea de pornire din pagina Indicatori.", "kpiNote"));
   view.append(sq);
 
   // ——— Pe schimburi ———
   if (cur.records.length) {
     const sh = card("Pe schimburi", "shifts");
+    sh.append(el("p", "Sursă · Fișe de predare", "kpiNote"));
     const items = cur.records.map((r) => ({ label: roDate(r.date, { weekday: "short" }) + " " + r.shift, ...recordKpis(r) }));
     sh.append(el("h3", "Plan realizat (%)"),
       bars(items.map((i) => ({ label: i.label, value: i.planPct })), { ref: 100, unit: "%", label: "Plan realizat pe schimb", warnBelow: 100 }),

@@ -220,3 +220,15 @@
   .todayQuickActions > button, .todayActions > summary { font-size: .82rem; }
   .todayContext h1 { margin-bottom: 10px; }
 }
+
+.attentionRegion { display: grid; gap: 8px; }
+.criticalAttention {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  padding-inline: 12px;
+}
+.criticalAttention > :first-child { border-top: 0; }
+.attentionRow[data-level="critical"] h3 { color: var(--danger); }
+.shiftNext .attentionLabel { margin-bottom: 6px; }
+.shiftNext h2 { margin-bottom: 8px; }
