@@ -9,7 +9,7 @@ import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
 import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
 import { commitments } from "./metrics.js";
-const VERSION = "3.0";
+const VERSION = "3.1";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
   settingsButton = document.querySelector("#open-settings");

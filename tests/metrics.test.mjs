@@ -190,3 +190,16 @@ test("sfat de final de schimb și raportul de 90 de zile", () => {
   assert.equal(n.inDays, 9);
   assert.equal(m.weekSummary(d, ctx(), "2026-11-16").number, 47);
 });
+
+test("progres: problemele rămase deschise la final de săptămână", () => {
+  const d = seed();
+  const a = problem(d, { date: "2026-11-03", text: "Veche", owner: "Ion", due: "2026-11-05", status: "Închis" });
+  a.closedAt = new Date("2026-11-12T10:00").toISOString();
+  problem(d, { date: "2026-11-10", text: "Nouă", owner: "Ana", due: "2026-11-30" });
+  const [w45, w46, w47] = m.weekTrend(d, ctx(), 3);
+  assert.equal(w45.backlog, 1, "săpt. 45: prima problemă încă deschisă");
+  assert.equal(w46.backlog, 1, "săpt. 46: prima închisă, a doua deschisă");
+  assert.equal(w46.problemsOpened, 1);
+  assert.equal(w46.problemsClosed, 1);
+  assert.equal(w47.backlog, 1);
+});

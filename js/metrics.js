@@ -394,6 +394,8 @@ export function weekSummary(data, ctx, start) {
     },
     problemsOpened: probs.filter((x) => inRange(x.opened, start, end)).length,
     problemsClosed: probs.filter((x) => inRange(x.closedOn, start, end)).length,
+    // Probleme încă deschise la sfârșitul săptămânii (restanța de lucru).
+    backlog: probs.filter((x) => x.opened && x.opened <= end && !(x.closedOn && x.closedOn <= end)).length,
     audit: auditRates(data, start, end),
   };
 }

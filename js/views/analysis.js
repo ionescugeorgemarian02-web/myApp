@@ -10,8 +10,9 @@ import { advice } from "../advice.js";
 import { adviceSection } from "./advice.js";
 import { bars, sparkline, ranking, fmt } from "../charts.js";
 import { weekReport, share } from "../logic.js";
+import { progressView } from "./progress.js";
 
-let offset = 0, allAdvice = false;
+let offset = 0, allAdvice = false, tab = "week";
 
 function card(title, cls = "") {
   const s = el("section", "", "card anaCard " + cls);
@@ -69,7 +70,24 @@ export function analysisView(c) {
     const text = weekReport(cur, prev);
     if (await confirmShare(text, "Raportul săptămânii")) await share(text);
   }, "primary", "send");
-  head.append(titles, nav, send);
+  // Două vederi: săptămâna aleasă sau progresul în timp.
+  const tabs = el("div", "", "segmented light anaTabs");
+  tabs.setAttribute("role", "tablist");
+  for (const [key, label] of [["week", "Săptămâna"], ["progress", "Progres"]]) {
+    const b = btn(label, () => { tab = key; app.render(); }, tab === key ? "on" : "", key === "week" ? "today" : "chart");
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(tab === key));
+    tabs.append(b);
+  }
+  if (tab === "progress") {
+    titles.firstChild.textContent = "Evoluția în timp";
+    head.append(titles, tabs);
+    view.append(head);
+    progressView(view, c);
+    main.append(view);
+    return;
+  }
+  head.append(titles, tabs, nav, send);
   view.append(head);
 
   // ——— Sfaturi (doar pentru săptămâna curentă) ———
@@ -273,5 +291,6 @@ export function analysisView(c) {
 }
 export function resetAnalysisWeek() {
   offset = 0;
+  tab = "week";
   allAdvice = false;
 }
