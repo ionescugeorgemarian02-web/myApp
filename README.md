@@ -21,33 +21,31 @@ Aplicația este o pagină web care se instalează ca aplicație (PWA). Nu are ne
 4. Deschide caietul din pictogramă. Verifică o dată în modul avion că se deschide.
 5. În **Azi**, verifică schimbul curent. Poți alege alt schimb atingând numărul lui. În **Setări** poți modifica ora de început a fiecărui schimb. Sfârșitul unui schimb este începutul următorului. Schimbul de noapte aparține zilei în care a început.
 
-## Ce e nou în versiunea 1.1
+## Cum e organizată aplicația (versiunea 2.0)
 
-- **Predarea schimbului pe pagina Azi:** buton care creează intrarea de predare pentru schimbul curent, cu data și schimbul completate.
-- **✉ Trimite rezumatul către șef:** generează un text cu predarea, rutina (ce nu s-a făcut), problemele deschise și termenele depășite și îl trimite direct în WhatsApp, e-mail sau SMS (pe calculator îl copiază).
-- **Termene restante:** pe Azi apar și termenele depășite (cu roșu), nu doar cele de azi. Rândurile închise sau rezolvate nu mai apar.
-- **Probleme deschise:** lista problemelor cu stare diferită de „Închis”, direct pe Azi.
-- **Meniurile rămân deschise** după o bifă sau o modificare (înainte se închideau la fiecare bifă).
-- **Jurnalul** arată intrările noi primele, iar butonul **+ Intrare nouă** este sus.
-- **Export CSV** cu numele tabelului și data în numele fișierului.
-- **Setări → Aplicația pe telefon:** buton de instalare, starea stocării și data ultimului backup.
-- Aplicația caută singură versiuni noi când o redeschizi.
+Jos ai trei file: **Azi**, **Pagini** și **Setări**.
 
-## Folosire în timpul schimbului
+**Azi** – tot ce-ți trebuie în schimb:
+- schimbul curent, orele și un cerc cu progresul rutinei; atingi 1 / 2 / 3 ca să alegi alt schimb;
+- trei butoane rapide: **Predare** (deschide predarea schimbului curent, cu data și schimbul completate), **Rezumat** (trimite rezumatul către șef pe WhatsApp, e-mail sau SMS) și **Problemă** (notează o problemă nouă);
+- rutina schimbului de bifat; la **⋯** scrii notițe sau pui termen;
+- **De urmărit**: termenele depășite (cu roșu), cele de azi și problemele deschise.
 
-- Bifează punctele din rutină. La **Detalii** poți scrie notițe, stabili termenul și marca prioritatea. Așteaptă indicatorul **Salvat** înainte de a închide caietul.
-- La schimbarea schimbului, rutina pornește cu bife noi. Găsești **Istoricul schimburilor** în **Pagini → Rutina schimbului**.
-- În **Pagini**, deschide o pagină sau adaugă una nouă. **Organizare** permite redenumirea, duplicarea, mutarea și ștergerea. Poți arhiva o pagină sau o poți salva ca șablon. Șabloanele păstrează și conținutul paginii copiate.
-- **Adaugă bloc** permite combinarea notițelor, listelor, tabelelor și jurnalelor. La tabele și jurnale, **Configurează câmpurile** stabilește ce completezi. Poți schimba tipul și numele câmpurilor. Închide meniul pentru a vedea modificările. Pentru Excel, folosește **Export CSV** (UTF-8, separator punct și virgulă).
-- Ultima ștergere poate fi anulată în aceeași sesiune. **Căutare** caută și în paginile arhivate.
+**Pagini** – caietul, pe grupe: *În schimb*, *Echipa*, *Primele 90 de zile*. Sus e căutarea în tot caietul. Jos: pagină nouă, șabloane și paginile arhivate.
+
+În tabele (Echipa, Probleme, Predare…) fiecare rând apare pe scurt; atingi rândul ca să-l deschizi și să-l completezi.
+
+**Editează** (sus, pe fiecare pagină) – abia aici apar butoanele de organizare: redenumire, pictogramă, grup, mutare, duplicare, ștergere, configurarea câmpurilor, export CSV, adăugare de blocuri. Apasă **Gata** când termini. După o ștergere ai câteva secunde butonul **Anulează**.
+
+**Setări** – orele schimburilor, tema (luminoasă / întunecată), copia de siguranță și instalarea pe telefon.
 
 ## Backup și recuperare
 
-În **Setări → Exportă JSON**, salvează copia completă în Fișiere sau Descărcări. După șapte zile, caietul îți amintește să faci următoarea copie. Pentru recuperare, deschide **Setări → Importă un fișier JSON**, alege fișierul și confirmă înlocuirea. Pentru a păstra și caietul curent, exportă-l înainte. Resetarea din Setări necesită două confirmări.
+În **Setări → Salvează copia**, salvează copia completă în Fișiere sau Descărcări. După șapte zile, caietul îți amintește să faci următoarea copie. Pentru recuperare, deschide **Setări → Încarcă o copie**, alege fișierul și confirmă înlocuirea. Pentru a păstra și caietul curent, exportă-l înainte. Resetarea din Setări necesită două confirmări.
 
 Înregistrările sunt păstrate în browserul telefonului, în IndexedDB. Aplicația cere stocare persistentă, iar telefonul decide dacă o acordă. Ștergerea datelor browserului, pierderea telefonului sau folosirea altui browser poate duce la pierderea accesului la caiet. Fișierele exportate conțin datele completate. Păstrează-le într-un loc privat și nu le încărca în repository.
 
-Când apare **Versiune nouă – reîncarcă**, apasă butonul pentru actualizare. Aplicația finalizează salvarea înainte de reîncărcare.
+Când apare **Versiune nouă disponibilă – actualizează**, apasă butonul. Datele rămân neatinse. Aplicația finalizează salvarea înainte de reîncărcare.
 
 ## Cum ceri modificări
 

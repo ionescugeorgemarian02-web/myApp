@@ -15,10 +15,41 @@ export function block(type, title) {
     }[type] || {}),
   };
 }
-export const page = (title, blocks = []) => ({
+export const GROUPS = [
+  "În schimb",
+  "Echipa",
+  "Primele 90 de zile",
+  "Paginile mele",
+];
+const KNOWN = {
+  "Rutina schimbului": ["✅", 0],
+  "Predare schimb": ["🔁", 0],
+  "Probleme și acțiuni": ["⚠️", 0],
+  "Notițe libere": ["📝", 0],
+  Echipa: ["👥", 1],
+  "Unu la unu": ["💬", 1],
+  Contacte: ["📞", 1],
+  "Săptămâna 1": ["🗓️", 2],
+  "Plan 30-60-90": ["🎯", 2],
+  Indicatori: ["📊", 2],
+};
+// Paginile fără grup primesc grupul și pictograma potrivite (și în caietele vechi).
+export function organize(data) {
+  let changed = false;
+  for (const p of [...data.pages, ...data.templates])
+    if (typeof p.group !== "string") {
+      const k = KNOWN[p.title];
+      p.group = GROUPS[k ? k[1] : 3];
+      if (k && !p.emoji) p.emoji = k[0];
+      changed = true;
+    }
+  return changed;
+}
+export const page = (title, blocks = [], group = GROUPS[3]) => ({
   id: id(),
   title,
   emoji: "",
+  group,
   order: 0,
   archived: false,
   blocks,
@@ -176,7 +207,6 @@ export function seed() {
     return page(title, [b]);
   }
   let pages = [
-    week,
     list("Rutina schimbului", "routine", [
       "Preiau schimbul de la colegul anterior.",
       "Ședința de început (5–10 min): ținta zilei, avertismente de siguranță și calitate, cine unde lucrează.",
@@ -254,9 +284,16 @@ export function seed() {
       ["Stare", "select", ["Deschis", "În lucru", "Închis"]],
     ]),
     page("Notițe libere", [block("note", "Notițe libere")]),
+    week,
   ];
-  pages.forEach((p, i) => (p.order = i));
-  return {
+  // Ordinea: întâi ce folosești zilnic, apoi echipa, apoi planul de început.
+  const order = Object.keys(KNOWN);
+  pages.sort((a, b) => order.indexOf(a.title) - order.indexOf(b.title));
+  pages.forEach((p, i) => {
+    p.order = i;
+    delete p.group;
+  });
+  const out = {
     schemaVersion: 1,
     pages,
     templates: [],
@@ -266,4 +303,6 @@ export function seed() {
       backup: Date.now(),
     },
   };
+  organize(out);
+  return out;
 }

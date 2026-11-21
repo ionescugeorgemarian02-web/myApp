@@ -1,2 +1,3 @@
 import { el } from "../ui.js";
-export const section = (b) => el("hr");
+// Titlul secțiunii e afișat de pagină; blocul nu are conținut propriu.
+export const section = () => el("div");

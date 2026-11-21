@@ -1,7 +1,7 @@
 import { input, now } from "../ui.js";
 export function note(b, c) {
-  return input(
-    "Textul notiței",
+  let f = input(
+    "",
     b.text,
     (v) => {
       b.text = v;
@@ -10,4 +10,8 @@ export function note(b, c) {
     },
     "area",
   );
+  f.classList.add("noteField");
+  f.querySelector("textarea").placeholder = "Scrie aici…";
+  f.querySelector("textarea").setAttribute("aria-label", b.title);
+  return f;
 }
