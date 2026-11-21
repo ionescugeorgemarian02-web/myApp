@@ -1030,3 +1030,6 @@ main:has(.noteFilters, .settingsGrid, .searchBox) { max-width: 920px; }
 .leadershipView > * + * { margin-block-start: .75rem; }
 .leadershipGuide h3, .leadershipGuide p { margin: .5rem .75rem; }
 .leadershipGuide p:last-child { margin-block-end: 1rem; }
+.kpiDefinition { padding: .75rem; border-block-start: 1px solid var(--line); }
+.kpiDefinition p { padding: 0; }
+.kpiDefinition > * + * { margin-block-start: .5rem; }

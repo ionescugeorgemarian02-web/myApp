@@ -84,3 +84,29 @@ test("ghidurile de leadership au toate componentele, iar SBAR marchează câmpur
   assert.equal(plan.blocks.length, 4);
   assert.ok(plan.blocks.every((block) => block.items.every((task) => !task.checked && task.due === "" && task.notes === "")));
 });
+
+test("exportul de instruire nu se poate restaura în caietul principal", async () => {
+  globalThis.document ||= { addEventListener() {} };
+  const { restore } = await import("../js/store.js");
+  const data = seed();
+  data.intervals = [interval];
+  const file = (value) => new Blob([JSON.stringify(value)]);
+  assert.deepEqual((await restore(file(data))).intervals, [interval]);
+  await assert.rejects(restore(file({ ...data, training: true })), /modul/);
+  assert.equal((await restore(file({ ...data, training: true }), true)).training, true);
+  await assert.rejects(restore(file({ ...data, intervals: [interval, { ...interval, id: "dup" }] })), /suprapuse/);
+  await assert.rejects(restore(file({ ...data, settings: { ...data.settings,
+    skillConfig: { labels: ["a", "b"], requirements: [] } } })), /competențelor/);
+});
+
+test("service worker include toate modulele aplicației pentru utilizarea offline", async () => {
+  const { readdir, readFile } = await import("node:fs/promises");
+  const root = new URL("../", import.meta.url);
+  const sw = await readFile(new URL("sw.js", root), "utf8");
+  for (const file of await readdir(new URL("js/", root), { recursive: true })) {
+    if (file.endsWith(".js")) assert.ok(sw.includes(`"./js/${file}"`), file);
+  }
+  const html = await readFile(new URL("index.html", root), "utf8");
+  for (const asset of html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g))
+    assert.ok(sw.includes(`"${asset[1]}"`), asset[1]);
+});

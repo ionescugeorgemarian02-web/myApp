@@ -125,6 +125,16 @@ function fieldsConfig(b, c) {
   });
   for (const col of b.cols) {
     let d = details(col.name, "col-" + col.id, "colCfg");
+    const managedKey = (colByKey(b, "prepared") || colByKey(b, "problem")) &&
+      (col.key || ["actiune", "stare", "data", "schimb"].includes(norm(col.name)));
+    if (managedKey) {
+      d.append(el("p", "Câmp folosit de fluxul operațional.", "formHelp"));
+      settings.append(d);
+      continue;
+    }
+    const affectsHandover = colByKey(b, "prepared") && b.rows.some((row) =>
+      row.values[colByKey(b, "prepared").id] === true &&
+      handoverStatus({ ...b, cols: b.cols.filter((candidate) => candidate !== col) }, row, "prepared"));
     d.append(
       input("Nume", col.name, (v) => {
         col.name = v;
@@ -132,7 +142,7 @@ function fieldsConfig(b, c) {
         changed = true;
         c.save();
       }),
-      input(
+      ...(!affectsHandover ? [input(
         "Tip",
         Object.keys(types).find((k) => types[k] === col.type),
         (v) => {
@@ -141,7 +151,7 @@ function fieldsConfig(b, c) {
         },
         "select",
         Object.keys(types),
-      ),
+      )] : []),
     );
     if (col.type === "select")
       d.append(
@@ -151,7 +161,8 @@ function fieldsConfig(b, c) {
           c.save();
         }),
       );
-    d.append(btn("Șterge câmpul", () => c.remove(b.cols, col), "danger", "trash"));
+    if (!affectsHandover)
+      d.append(btn("Șterge câmpul", () => c.remove(b.cols, col), "danger", "trash"));
     settings.append(d);
   }
   settings.append(
@@ -239,7 +250,7 @@ function recordField(b, col, r, c, { classic = false, changed } = {}) {
     const candidate = { ...r, values: { ...r.values, [col.id]: v } };
     const closed = isClosed(b, candidate);
     let error = "";
-    if (control.validity.badInput || (SHIFT_KEYS.has(col.key) && v !== "" && nonnegative(v) === null))
+    if (control.validity.badInput || ((SHIFT_KEYS.has(col.key) || col.key === "stopMinutes") && v !== "" && nonnegative(v) === null))
       error = "Introdu o valoare numerică pozitivă sau zero.";
     if (!error && v === true && ["prepared", "received"].includes(col.key))
       error = handoverStatus(b, candidate, col.key);
@@ -305,6 +316,7 @@ function record(b, r, c, groups) {
   d.classList.toggle("closed", isClosed(b, r));
   const summary = d.firstElementChild;
   function updateSummary() {
+    c.onProblemEdit?.();
     summary.replaceChildren(summaryOf(b, r, c));
     d.classList.toggle("closed", isClosed(b, r));
   }
@@ -367,7 +379,7 @@ export function table(b, c) {
     () => {
       const r = newRow(b, c);
       c.refresh();
-      const target = document.querySelector(`[data-key="row-${r.id}"]`);
+      const target = document.querySelector(`[data-key="row-${CSS.escape(r.id)}"]`);
       (target?.querySelector("summary, input, select") || target)?.focus({ preventScroll: true });
       target?.scrollIntoView({ block: "start" });
     },
@@ -433,12 +445,12 @@ export function table(b, c) {
   } else {
     let list = el("div", "", "records");
     const groups = fieldGroups(b);
-    for (const r of rows) list.append(record(b, r, c, groups));
+    let update;
     if (managed) {
       let query = "", filter = "Toate";
       const empty = el("p", "Nicio problemă pentru acest filtru.", "empty");
       empty.hidden = true;
-      function update() {
+      update = () => {
         let visible = 0;
         for (const [index, row] of rows.entries()) {
           const show = problemMatches(b, row, query, filter, c.date);
@@ -446,13 +458,14 @@ export function table(b, c) {
           if (show) visible++;
         }
         empty.hidden = visible !== 0;
-      }
+      };
       const filters = el("div", "", "recordFields");
       filters.append(input("Caută probleme și acțiuni", "", (value) => { query = value; update(); }, "search"),
         input("Filtrează", "Toate", (value) => { filter = value; update(); }, "select",
           ["Toate", "Deschise", "Închise", "Restante", "Urgente / critice"]));
       out.append(filters, empty);
     }
+    for (const r of rows) list.append(record(b, r, { ...c, onProblemEdit: update }, groups));
     out.append(list);
   }
 

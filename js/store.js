@@ -1,6 +1,6 @@
-import { validInterval } from "./operations.js";
+import { closureError, handoverStatus, readKey, validInterval } from "./operations.js";
 import { takeLegacyPageNotes } from "./notes.js";
-import { norm, validDate } from "./ui.js";
+import { norm, validDate, toast } from "./ui.js";
 
 let db,
   writing,
@@ -31,15 +31,17 @@ export function migrate(data) {
   )
     throw Error("Format de caiet necunoscut.");
   const str = (x) => typeof x === "string";
+  const safeId = (x) => str(x) && x.length > 0 && !["__proto__", "constructor", "prototype"].includes(x);
+  const unique = (items) => new Set(items.map((item) => item.id)).size === items.length;
   const isObject = (x) => !!x && typeof x === "object" && !Array.isArray(x);
   const validItem = (i) =>
     i &&
-    ["id", "title", "details", "ready", "notes", "due"].every((k) =>
+    safeId(i.id) && ["title", "details", "ready", "notes", "due"].every((k) =>
       str(i[k]),
     ) &&
     typeof i.checked === "boolean";
   const validBlock = (b) => {
-    if (!b || !str(b.title) || !str(b.id)) return false;
+    if (!b || !str(b.title) || !safeId(b.id)) return false;
     switch (b.type) {
       case "section":
         return true;
@@ -54,7 +56,7 @@ export function migrate(data) {
         )
           return false;
       case "checklist":
-        return Array.isArray(b.items) && b.items.every(validItem);
+        return Array.isArray(b.items) && b.items.every(validItem) && unique(b.items);
       case "journal":
       case "table":
         return (
@@ -62,25 +64,29 @@ export function migrate(data) {
           b.cols.every(
             (c) =>
               c &&
-              str(c.id) &&
+              safeId(c.id) &&
               str(c.name) &&
               ["text", "number", "date", "checkbox", "select"].includes(
                 c.type,
               ) &&
               Array.isArray(c.options) && c.options.every(str),
           ) &&
-          Array.isArray(b.rows) &&
+          unique(b.cols) && Array.isArray(b.rows) &&
           b.rows.every(
-            (r) => r && str(r.id) && r.values && typeof r.values === "object" &&
+            (r) => r && safeId(r.id) && r.values && typeof r.values === "object" &&
               !Array.isArray(r.values) &&
               Object.values(r.values).every((v) =>
                 v == null || ["string", "boolean"].includes(typeof v) || Number.isFinite(v),
               ),
-          )
+          ) && unique(b.rows) &&
+          b.rows.every((r) =>
+            (!r.verifiedClosure || !closureError(b, r)) &&
+            (readKey(b, r, "prepared") !== true || !handoverStatus(b, r, "prepared")) &&
+            (readKey(b, r, "received") !== true || !handoverStatus(b, r, "received")))
         );
       case "audit":
-        return Array.isArray(b.items) && b.items.every((i) => i && str(i.id) && str(i.title)) &&
-          isObject(b.runs) && Object.values(b.runs).every((run) => isObject(run) &&
+        return Array.isArray(b.items) && b.items.every((i) => i && safeId(i.id) && str(i.title)) &&
+          unique(b.items) && isObject(b.runs) && Object.values(b.runs).every((run) => isObject(run) &&
             Object.values(run).every((v) => isObject(v) && ["ok", "nok"].includes(v.s) &&
               (v.problem === undefined || str(v.problem))));
       case "skills":
@@ -94,14 +100,29 @@ export function migrate(data) {
     ![...data.pages, ...data.templates].every(
       (p) =>
         p &&
-        str(p.id) &&
+        safeId(p.id) &&
         str(p.title) &&
         Array.isArray(p.blocks) &&
-        p.blocks.every(validBlock),
+        p.blocks.every(validBlock) && unique(p.blocks),
     ) ||
-    !hasThreeTimes(data.settings.hours)
+    !hasThreeTimes(data.settings.hours) || !unique(data.pages) || !unique(data.templates)
   )
     throw Error("Structură incompletă.");
+  const kpis = data.settings.kpis;
+  if (kpis !== undefined && (!isObject(kpis) || !Object.values(kpis).every((kpi) =>
+    isObject(kpi) && (kpi.target === null || Number.isFinite(kpi.target)) &&
+    ["min", "max"].includes(kpi.direction) && typeof kpi.confirmed === "boolean" &&
+    (!kpi.confirmed || kpi.target !== null) && str(kpi.reference))))
+    throw Error("Configurația indicatorilor este nevalidă.");
+  const skillConfig = data.settings.skillConfig;
+  if (skillConfig !== undefined && (!isObject(skillConfig) ||
+      !Array.isArray(skillConfig.labels) || skillConfig.labels.length !== 4 ||
+      !skillConfig.labels.every((value) => str(value) && value.trim()) ||
+      !Array.isArray(skillConfig.requirements) || !skillConfig.requirements.every((r) =>
+        isObject(r) && str(r.post) && r.post.trim() && [1, 2, 3].includes(r.shift) &&
+        [1, 2, 3].includes(r.level) && Number.isSafeInteger(r.count) && r.count >= 0) ||
+      new Set(skillConfig.requirements.map((r) => JSON.stringify([r.shift, r.post]))).size !== skillConfig.requirements.length))
+    throw Error("Configurația competențelor este nevalidă.");
   if (data.settings.zone !== undefined && !str(data.settings.zone))
     throw Error("Zona este nevalidă.");
   if (data.intervals !== undefined) {
@@ -218,7 +239,8 @@ async function writePending() {
     }
     status("Salvat", "saved");
   } catch (error) {
-    status(error.message || "Salvare eșuată", "error");
+    status("Salvare eșuată", "error");
+    toast(error.message || "Salvarea locală a eșuat.");
     throw error;
   }
 }

@@ -271,7 +271,10 @@ export function people(data) {
   const t = teamBlock(data);
   if (!t) return [];
   const nameCol = colByKey(t.b, "name") || colByName(t.b, "nume");
-  return t.b.rows.map((r) => ({ id: r.id, name: String(r.values[nameCol.id] || "").trim(), row: r, p: t.p }))
+  const shift = colByKey(t.b, "teamShift");
+  return t.b.rows.map((r) => ({
+    id: r.id, name: String(r.values[nameCol.id] || "").trim(), shift: Number(r.values[shift?.id]) || null, row: r, p: t.p,
+  }))
     .filter((x) => x.name);
 }
 export function oneOnOnes(data, ctx) {
@@ -280,7 +283,7 @@ export function oneOnOnes(data, ctx) {
   if (!o) return { team: team.map((x) => ({ ...x, last: null, days: null })), promisesOpen: 0, promisesLate: 0 };
   const { b } = o;
   const dateCol = b.cols.find((c) => c.type === "date" && norm(c.name) === "data");
-  const nameCol = colByName(b, "nume");
+  const nameCol = colByName(b, "nume") || colByName(b, "identificator neutru");
   const dueCol = b.cols.find((c) => c.type === "date" && norm(c.name).includes("termen"));
   const promise = colByName(b, "ce am promis");
   const last = new Map();
@@ -304,19 +307,25 @@ export function oneOnOnes(data, ctx) {
   };
 }
 export const SKILL_LEVELS = ["Neinstruit", "Cu supraveghere", "Autonom", "Poate instrui"];
-export function skillsCoverage(data) {
+export function skillsCoverage(data, shift) {
   const s = skillsBlock(data);
   const posts = equipmentList(data), team = people(data);
   const levels = s?.b.levels || {};
+  const config = data.settings.skillConfig;
+  const eligible = team.filter((person) => person.shift === shift);
   const coverage = posts.map((post) => {
-    const autonomous = team.filter((x) => (levels[x.id]?.[post] ?? 0) >= 2).length;
-    return { post, autonomous };
+    const requirement = config?.requirements.find((r) => r.shift === shift && r.post === post);
+    const minimum = requirement?.level ?? 2;
+    const autonomous = eligible.filter((person) =>
+      (Object.hasOwn(levels, person.id) && Object.hasOwn(levels[person.id], post) ? levels[person.id][post] : 0) >= minimum).length;
+    return { post, autonomous, requirement, gap: Boolean(requirement && autonomous < requirement.count) };
   });
+  const configured = coverage.filter((entry) => entry.requirement);
   return {
-    block: s, posts, team,
-    gaps: coverage.filter((c) => c.autonomous < 2),
+    block: s, posts, team, eligible,
+    gaps: configured.filter((entry) => entry.gap),
     coverage,
-    index: posts.length ? (coverage.filter((c) => c.autonomous >= 2).length / posts.length) * 100 : null,
+    index: configured.length ? configured.filter((entry) => !entry.gap).length / configured.length * 100 : null,
   };
 }
 

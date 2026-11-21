@@ -47,6 +47,7 @@ function kpi({ area, title, value, unit = "", note, cur, prev, better, series, b
 
 export function analysisView(c) {
   const main = document.querySelector("main");
+  main.append(btn("Indicatori operaționali și praguri", () => (location.hash = "Indicatori"), "todayMore", "chart"));
   const data = app.data;
   const start = addDays(weekStart(c.date), 7 * offset);
   const cur = weekSummary(data, c, start);
@@ -218,14 +219,14 @@ export function analysisView(c) {
   // ——— Echipa ———
   const tm = card("Echipa", "teamCard");
   const one = oneOnOnes(data, c);
-  const skills = skillsCoverage(data);
+  const skills = skillsCoverage(data, c.shift);
   const team = el("div", "", "statusRow");
   const met = one.team.filter((x) => x.days != null && x.days <= 30).length;
   for (const [n, label, bad] of [
     [one.team.length ? met + "/" + one.team.length : "–", "1:1 în ultimele 30 de zile", one.team.length && met < one.team.length],
     [String(one.promisesOpen), "Promisiuni deschise", false],
     [String(one.promisesLate), "Promisiuni restante", one.promisesLate > 0],
-    [skills.index == null ? "–" : fmt(skills.index, 0) + "%", "Posturi cu ≥2 autonomi", skills.gaps.length > 0],
+    [skills.index == null ? "–" : fmt(skills.index, 0) + "%", "Posturi configurate și acoperite", skills.gaps.length > 0],
   ]) {
     const chip = el("span", "", "statusCount" + (bad ? " bad" : ""));
     chip.append(el("strong", n), el("span", label));

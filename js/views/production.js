@@ -78,9 +78,13 @@ async function editInterval(c, existing, selection) {
   }
 }
 
-let selection;
+let selection, selectionNotebook;
 export function productionView(c) {
-  selection ||= { date: c.workDay, shift: c.shift, zone: app.data.settings.zone || "" };
+  const context = c.key + "/" + (app.data.settings.zone || "");
+  if (!selection || selectionNotebook !== app.data || selection.context !== context) {
+    selectionNotebook = app.data;
+    selection = { context, date: c.workDay, shift: c.shift, zone: app.data.settings.zone || "" };
+  }
   const main = document.querySelector("main");
   const box = el("section", "", "card productionView");
   const list = el("div", "", "records");
@@ -113,7 +117,8 @@ export function productionView(c) {
       const k = productionKpis(row);
       const card = details(row.start.replace("T", " ") + " → " + row.end.slice(-5) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");
       card.append(el("p", "Plan " + amount(row.plan) + " · realizat " + amount(row.produced) + " · abatere " + amount(k.variance)),
-        el("p", "Bune " + amount(row.good) + " · rebut " + amount(row.scrap) + " · oprire " + amount(row.downtime, " min")),
+        el("p", "Bune " + amount(row.good) + " · rebut " + amount(row.scrap) + " · reprelucrare " + amount(row.rework)),
+        el("p", "Timp planificat " + amount(row.plannedTime, " min") + " · oprire " + amount(row.downtime, " min") + " · FPY " + amount(k.fpy, "%")),
         el("p", "Echipament: " + (row.equipment || noData) + " · cauză: " + (row.cause || noData)),
         el("p", "Acțiune: " + (row.action || noData)));
       const registry = problemsBlock(app.data);

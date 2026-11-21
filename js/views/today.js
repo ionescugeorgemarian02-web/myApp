@@ -7,7 +7,7 @@ import { compareNotes, needsReminder } from "../notes.js";
 import { noteEditor, noteRow } from "./notes.js";
 import { newRow } from "../blocks/table.js";
 import { active, deadlines, openProblems, problemsTable, handover, previousHandover, report, share } from "../logic.js";
-import { shiftRecords, recordKpis, safetyEvents, auditStatus, problems, addDays } from "../metrics.js";
+import { shiftRecords, recordKpis, safetyEvents, auditStatus, problems, addDays, skillsCoverage } from "../metrics.js";
 import { advice } from "../advice.js";
 import { adviceSection, newSafetyEvent, runAction } from "./advice.js";
 import { fmt } from "../charts.js";
@@ -231,14 +231,15 @@ function shiftStrip(c) {
   const incidents = events.filter((e) => e.type === "incident").length;
   const tour = auditStatus(app.data, c.key)[0];
   const openHandover = () => runAction({ kind: "handover" });
+  const openNumbers = intervalData ? () => { location.hash = "Producție"; } : openHandover;
   const tiles = [
     ["S", "Siguranță", incidents ? incidents + (incidents === 1 ? " incident" : " incidente") : events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : noData,
       tour ? "Tur " + tour.checked + "/" + tour.total + (tour.nok.length ? " · " + tour.nok.length + " NOK" : "") : "", incidents ? "bad" : "",
       () => (tour ? app.openPage(tour.p) : newSafetyEvent())],
-    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : noData, rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openHandover],
+    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : noData, rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openNumbers],
     ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "%" : noData, rec?.plan != null && rec.produced != null ? fmt(rec.produced) + "/" + fmt(rec.plan) + " · Δ " + fmt(k.variance) : "",
-      k.planPct != null && k.planPct < 100 ? "warn" : "", openHandover],
-    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : noData, "", "", openHandover],
+      k.planPct != null && k.planPct < 100 ? "warn" : "", openNumbers],
+    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : noData, "", "", openNumbers],
     ["P", "Prezenți", legacy?.planned != null && legacy?.present != null ? fmt(legacy.present, 0) + "/" + fmt(legacy.planned, 0) : noData,
       staffing.absencePct ? fmt(staffing.absencePct, 0) + "% absențe" : "", "", openHandover],
   ];
@@ -259,7 +260,7 @@ function shiftStrip(c) {
   section.append(grid);
   if (intervalData) section.append(el("p", "Calitate, livrare și opriri din " + intervals.length + " intervale raportate pentru zona curentă. Efectivul vine din predare.", "formHelp"));
   else if (legacy) section.append(el("p", "Cifre din predare. Verifică aria la care se referă.", "formHelp"));
-  if (!rec || (rec.plan == null && rec.produced == null))
+  if (!intervalData && (!rec || (rec.plan == null && rec.produced == null)))
     section.append(btn("Completează cifrele schimbului", () => runAction({ kind: "handover" }), "todayMore", "chevron"));
   return section;
 }
@@ -270,6 +271,11 @@ export function today(c) {
   const grid = el("div", "", "todayGrid");
   grid.append(header(c), shiftPanel(c));
   const work = el("div", "", "todayWork");
+  const skills = skillsCoverage(app.data, c.shift);
+  if (skills.gaps.length) work.append(btn("Competențe sub necesar · " + skills.gaps.map((entry) => entry.post).join(", "),
+    () => app.openPage(skills.block.p), "todayMore"));
+  else if (!skills.coverage.some((entry) => entry.requirement))
+    work.append(el("p", "Necesar de competențe · Neconfigurat", "formHelp"));
   const agenda = el("section", "", "todayAgenda");
   const updateDeadlines = () => drawAgenda(agenda, c);
   updateDeadlines();

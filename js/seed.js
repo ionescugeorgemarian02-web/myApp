@@ -1,3 +1,4 @@
+import { AUDIT_TEMPLATES } from "./quality.js";
 import { DEVELOPMENT } from "./leadership.js";
 import { HANDOVER_FIELDS, PROBLEM_FIELDS, ROUTINE } from "./operations.js";
 import { id, day, norm } from "./ui.js";
@@ -54,6 +55,7 @@ export function organize(data) {
   if (upgrade(data)) changed = true;
   if (addOperations(data)) changed = true;
   if (addDevelopment(data)) changed = true;
+  if (addQuality(data)) changed = true;
   for (const p of [...data.pages, ...data.templates])
     if (typeof p.group !== "string") {
       const k = KNOWN[p.title];
@@ -203,6 +205,47 @@ function addDevelopment(data) {
   return true;
 }
 
+function addQuality(data) {
+  if (data.settings.qualityVersion >= 1) return false;
+  const registry = findTable(data, (b) => b.type === "table" && b.cols.some((c) => c.key === "problem"));
+  if (registry && !registry.cols.some((c) => c.key === "defectCategory"))
+    registry.cols.push(column("Categorie defect", "text", [], "defectCategory"));
+  const people = findTable(data, (b) => b.type === "table" && b.cols.some((c) => c.key === "name"));
+  if (people && !people.cols.some((c) => c.key === "teamShift"))
+    people.cols.push(column("Schimb alocat", "select", ["1", "2", "3"], "teamShift"));
+  const audits = page("Audituri și verificări personale", AUDIT_TEMPLATES.map(([kind, title, items]) => {
+    const checklist = block("audit", title);
+    checklist.auditKind = kind;
+    checklist.items = items.map((title) => ({ id: id(), title }));
+    return checklist;
+  }), GROUPS[0]);
+  audits.emoji = "🔍";
+  data.pages.push(audits,
+    grid("Registrul opririlor", "table", [
+      ["Data", "date", [], "stopDate"],
+      ["Schimb", "select", ["1", "2", "3"]],
+      ["Echipament", "text", [], "stopEquipment"],
+      ["Cauză declarată", "text", [], "stopCause"],
+      ["Minute de oprire", "number", [], "stopMinutes"],
+      "Măsură luată",
+    ], GROUPS[0]),
+    grid("Dezvoltarea echipei", "table", [
+      ["Data", "date", [], "learningDate"],
+      ["Tip", "select", ["Instruire", "Coaching", "Idee"], "learningKind"],
+      "Identificator neutru sau rol", "Post / operație", "Acțiune sau propunere",
+      "Rol responsabil", ["Termen", "date"],
+      ["Rezultat verificat", "text", [], "learningOutcome"],
+      ["Data finalizării", "date", [], "learningClosedDate"],
+      ["Stare", "select", ["Deschis", "În lucru", "Închis"]],
+    ], GROUPS[1]),
+    grid("Dicționar KPI local", "table", [
+      "Indicator", "Definiție operațională", "Formulă validată", "Unitate",
+      "Sursa autorizată", "Perioadă", "Prag propus", ["Validat intern", "checkbox"],
+    ], GROUPS[2]));
+  data.settings.qualityVersion = 1;
+  return true;
+}
+
 export function seed() {
   function list(title, type, rows) {
     let b = block(type, title);
@@ -228,17 +271,17 @@ export function seed() {
       "Priorități pentru schimbul următor",
     ]),
     grid("Echipa", "table", [
-      "Nume",
+      ["Identificator neutru", "text", [], "name"],
       "Post",
       "Instruit pe posturile",
       "Observații",
     ]),
     grid("Unu la unu", "table", [
       ["Data", "date"],
-      "Nume",
-      "Ce îl încurcă",
-      "Ce aș schimba / ce n-aș schimba",
-      "Ce îl motivează",
+      "Identificator neutru",
+      "Blocaj operațional",
+      "Schimbare convenită",
+      "Sprijin necesar",
       "Ce am promis",
       ["Termen promisiune", "date"],
       ["Rezolvat", "checkbox"],
