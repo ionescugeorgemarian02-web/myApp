@@ -237,3 +237,67 @@
   background: transparent;
 }
 .snippet.figures { color: var(--accent); font-family: var(--mono); font-size: .76rem; }
+
+/* ——— Progres: grafice mari ——— */
+:root { --c1: var(--accent); --c2: #7cc4ff; --c3: #f3a86b; --c4: #c7a6ff; }
+:root[data-theme="Luminoasă"] { --c1: #3f7a17; --c2: #1f6fb2; --c3: #b4581c; --c4: #7048c2; }
+.anaTabs { max-width: 360px; }
+.anaTabs button { gap: 7px; }
+.anaTabs .icon { width: 16px; height: 16px; }
+.periodPick { max-width: 420px; margin-top: -4px; }
+.periodText { margin: 0; }
+.chartGrid { display: grid; gap: 16px; }
+@media (min-width: 760px) {
+  .analysis > .periodText, .analysis > .periodPick, .analysis > .ringsCard, .analysis > .chartGrid { grid-column: 1 / -1; }
+  .chartGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.chartCard { display: grid; gap: 10px; align-content: start; }
+.chartHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.chartHead h2 { margin: 0; }
+.chartHelp { font-size: .8rem; color: var(--muted); margin-top: 3px; max-width: 34ch; }
+.chartNow { display: grid; justify-items: end; gap: 2px; text-align: right; flex: none; }
+.chartNow strong { font: 600 1.7rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.chartNow .kpiDelta { white-space: nowrap; }
+.chartEmpty { color: var(--muted); font-size: .88rem; padding: 18px 14px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; }
+.chartBox { margin: 0; }
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font: 9.5px var(--mono); }
+.chart .value { fill: var(--ink); font: 700 10.5px var(--mono); }
+.chart .value.small { font-size: 9px; font-weight: 600; }
+.chart .refLabel { font: 8.5px var(--mono); fill: var(--muted); }
+.chart .refMain { stroke: var(--muted); stroke-dasharray: 2 3; }
+.chart .refBase { stroke: var(--c2); stroke-dasharray: 5 4; }
+.chart .refTarget { stroke: var(--c1); stroke-dasharray: 1 3; stroke-width: 1.6; }
+.chart text.refBase { fill: var(--c2); stroke: none; }
+.chart text.refTarget { fill: var(--c1); stroke: none; }
+.chart .line { fill: none; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { stroke: none; opacity: .14; }
+.chart .dot { stroke: var(--surface); stroke-width: 1.5; }
+.chart .dot.last { stroke-width: 2.5; }
+.chart .s1 { stroke: var(--c1); } .chart .dot.s1, .chart .col.s1, .chart .area.s1 { fill: var(--c1); }
+.chart .s2 { stroke: var(--c2); } .chart .dot.s2, .chart .col.s2, .chart .area.s2 { fill: var(--c2); }
+.chart .s3 { stroke: var(--c3); } .chart .dot.s3, .chart .col.s3, .chart .area.s3 { fill: var(--c3); }
+.chart .s4 { stroke: var(--c4); } .chart .dot.s4, .chart .col.s4, .chart .area.s4 { fill: var(--c4); }
+.chart .col { stroke: none; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0; margin: 6px 0 0; font-size: .76rem; color: var(--muted); }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--muted); }
+.swatch.s1 { background: var(--c1); } .swatch.s2 { background: var(--c2); } .swatch.s3 { background: var(--c3); } .swatch.s4 { background: var(--c4); }
+.swatch.refBase { height: 0; border-top: 2px dashed var(--c2); background: none; border-radius: 0; }
+.swatch.refTarget { height: 0; border-top: 2px dotted var(--c1); background: none; border-radius: 0; }
+
+/* Inele */
+.ringGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 14px 8px; margin-top: 6px; }
+.ring { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.ringGraphic { position: relative; width: 84px; height: 84px; }
+.ringGraphic svg { width: 100%; height: 100%; }
+.ringTrack { fill: none; stroke: var(--surface-2); stroke-width: 8; }
+.ringValue { fill: none; stroke: var(--c2); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset .5s ease-out; }
+.ring.accent .ringValue { stroke: var(--c1); }
+.ringText { position: absolute; inset: 0; display: grid; place-items: center; }
+.ringText strong { font: 600 1.3rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.ringLabel { font-size: .8rem; font-weight: 600; }
+.ringSub { font-size: .7rem; color: var(--muted); }
+.anaTabs { min-width: 260px; }
+.anaTabs button { white-space: nowrap; }

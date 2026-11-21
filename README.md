@@ -37,6 +37,11 @@ Jos ai patru secțiuni: **Azi**, **Analiză**, **Notițe** și **Caiet**. **Set�
 - Grafice pe schimburi, problemele cele mai vechi, clasamentul pe posturi, rutina și turul, echipa (discuții 1:1, promisiuni, polivalență), siguranța.
 - **Revizuirea săptămânii**: 3 priorități și ce ai învățat. **Raport pentru șef** trimite tot rezumatul pe WhatsApp sau e-mail.
 - Săgețile din antet te duc la săptămânile anterioare.
+- Fila **Progres** (lângă „Săptămâna”) arată evoluția în timp pe 4, 8 sau 13 săptămâni:
+  - inele pentru ziua din cele 90, angajamentele închise la termen, rutina bifată, posturile acoperite și discuțiile 1:1;
+  - grafice pentru plan realizat (cu linia de 100%, valoarea de pornire și ținta), rebut, minute de oprire, absențe, disciplina de execuție, probleme (noi, închise, rămase deschise) și siguranță.
+
+  Fiecare grafic arată valoarea actuală și cât s-a schimbat în perioadă (verde dacă e mai bine, roșu dacă e mai rău).
 
 ### Despre sfaturi
 Sfaturile sunt calculate pe telefon, din regulile de management aplicate datelor tale: siguranța întâi, probleme repetate pe același post, planul ratat repetat, rebut și opriri în creștere, restanțe vechi, probleme fără responsabil sau termen, discuții 1:1 lipsă, posturi fără înlocuitor, puncte din rutină sărite des. Datele nu sunt trimise nicăieri și aplicația funcționează fără internet.
