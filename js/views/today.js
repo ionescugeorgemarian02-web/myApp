@@ -51,6 +51,7 @@ function shiftActions(c) {
     app.openPage(ho.p, "row-" + ho.r.id);
   });
   const pt = problemsTable();
+  add("Leadership și comunicare", "chat", () => (location.hash = "Leadership"));
   add("Plan versus realizat", "chart", () => (location.hash = "Producție"));
   if (pt) add("Problemă", "alert", () => {
     const row = newRow(pt.b, c);

@@ -1,3 +1,4 @@
+import { leadershipView } from "./views/leadership.js";
 import { productionView } from "./views/production.js";
 import { app } from "./state.js";
 import { el, btn, id, day, icon, toast, confirmAsk } from "./ui.js";
@@ -198,9 +199,10 @@ function render() {
   else if (route === "Notițe") notesView(c);
   else if (route === "Analiză") analysisView(c);
   else if (route === "Setări") settings(VERSION);
+  else if (route === "Leadership") leadershipView();
   else if (route === "Producție") productionView(c);
   else today(c);
-  const tab = route.startsWith("p/") ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
+  const tab = route.startsWith("p/") || route === "Leadership" ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
   updateBadge();
   for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;

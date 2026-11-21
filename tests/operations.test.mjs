@@ -72,3 +72,15 @@ test("migrarea operațională păstrează rândurile, coloanele și rutina veche
   assert.deepEqual(data.pages.find((p) => p.title === "Rutina schimbului"), routine);
   assert.ok(b.cols.some((c) => c.key === "prepared"));
 });
+
+test("ghidurile de leadership au toate componentele, iar SBAR marchează câmpurile goale", async () => {
+  const { TECHNIQUES, SBAR, sbarText } = await import("../js/leadership.js");
+  assert.equal(TECHNIQUES.length, 14);
+  assert.ok(TECHNIQUES.every((entry) => entry.length === 7 && entry.every((value) => value.trim())));
+  assert.equal(SBAR.length, 10);
+  assert.equal(sbarText("Predare", [" Oprire ", "", "Impact local", "Sprijin"]),
+    "Predare\nSituație · Oprire\nContext · De completat\nEvaluare · Impact local\nSolicitare / acțiune · Sprijin");
+  const plan = seed().pages.find((page) => page.professionalPlan);
+  assert.equal(plan.blocks.length, 4);
+  assert.ok(plan.blocks.every((block) => block.items.every((task) => !task.checked && task.due === "" && task.notes === "")));
+});

@@ -49,7 +49,7 @@ export function runAction(a) {
       break;
     }
     case "plan": {
-      const p = findPage((x) => x.title === "Plan 30-60-90") || findPage((x) => x.group === "Primele 90 de zile");
+      const p = findPage((x) => x.professionalPlan) || findPage((x) => x.title === "Plan 30-60-90") || findPage((x) => x.group === "Primele 90 de zile");
       if (p) app.openPage(p);
       break;
     }

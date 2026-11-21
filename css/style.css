@@ -1025,3 +1025,8 @@ main:has(.noteFilters, .settingsGrid, .searchBox) { max-width: 920px; }
 .intervalFields { max-height: 55vh; overflow-y: auto; padding: .25rem; }
 .productionView .recordFields { margin-block: .75rem; }
 .productionView input, .productionView select, .productionView button { min-height: 44px; }
+
+.leadershipView { margin-block: .75rem; }
+.leadershipView > * + * { margin-block-start: .75rem; }
+.leadershipGuide h3, .leadershipGuide p { margin: .5rem .75rem; }
+.leadershipGuide p:last-child { margin-block-end: 1rem; }
