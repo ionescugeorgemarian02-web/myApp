@@ -1,7 +1,8 @@
+import { csvCell, nonnegative, productionKpis } from "../production.js";
 import { el, input, btn, id, details, now, norm, ask, roDate, iconBtn } from "../ui.js";
 import { app } from "../state.js";
 import { download } from "../store.js";
-import { isClosed, rowLabel, column, trackLifecycle, num } from "../records.js";
+import { isClosed, rowLabel, column, trackLifecycle } from "../records.js";
 import { equipmentList } from "../metrics.js";
 export { isClosed, rowLabel, column };
 const types = {
@@ -37,14 +38,14 @@ const fileName = (t) =>
   new Date().toISOString().slice(0, 10) +
   ".csv";
 function exportCsv(b) {
-  let cells = (v) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
   let rows = [
     b.cols.map((x) => x.name),
     ...b.rows.map((r) => b.cols.map((x) => r.values[x.id])),
   ];
+  if (app.training) rows.unshift(["INSTRUIRE · DATE FICTIVE"]);
   download(
-    fileName(b.title),
-    "﻿" + rows.map((r) => r.map(cells).join(";")).join("\r\n"),
+    fileName((app.training ? "INSTRUIRE-" : "") + b.title),
+    "﻿" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n"),
     "text/csv;charset=utf-8",
   );
 }
@@ -52,14 +53,15 @@ function exportCsv(b) {
 export function shiftFigures(b, r) {
   const v = (key) => {
     const col = b.cols.find((c) => c.key === key);
-    return col ? num(r.values[col.id]) : null;
+    return col ? nonnegative(r.values[col.id]) : null;
   };
   const fmt = (x) => (Math.round(x * 10) / 10).toLocaleString("ro");
   const out = [];
   const plan = v("plan"), produced = v("produced"), scrap = v("scrap"), down = v("downtime");
-  if (plan > 0 && produced != null) out.push("Plan " + fmt((produced / plan) * 100) + "%");
-  if (produced > 0 && scrap != null) out.push("Rebut " + fmt((scrap / produced) * 100) + "%");
-  if (down != null) out.push(fmt(down) + " min oprire");
+  const kpis = productionKpis({ plan, produced, scrap, downtime: down });
+  if (kpis.planPct != null) out.push("Plan " + fmt(kpis.planPct) + "%");
+  if (kpis.scrapPct != null) out.push("Rebut " + fmt(kpis.scrapPct) + "%");
+  if (kpis.downtime != null) out.push(fmt(kpis.downtime) + " min oprire");
   return out.join(" · ");
 }
 // Rezumatul unui rând închis: titlu + etichete (dată, stare, bifă).

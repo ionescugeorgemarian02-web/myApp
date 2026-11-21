@@ -4,7 +4,9 @@ import { validDate } from "./ui.js";
 let db,
   writing,
   pending,
-  revision = 0;
+  revision = 0,
+  notebookKey,
+  storedRevision;
 function status(text, state) {
   const label = document.querySelector("#status");
   if (label.textContent !== text) label.textContent = text;
@@ -71,7 +73,7 @@ export function migrate(data) {
             (r) => r && str(r.id) && r.values && typeof r.values === "object" &&
               !Array.isArray(r.values) &&
               Object.values(r.values).every((v) =>
-                v == null || ["string", "boolean", "number"].includes(typeof v),
+                v == null || ["string", "boolean"].includes(typeof v) || Number.isFinite(v),
               ),
           )
         );
@@ -99,6 +101,8 @@ export function migrate(data) {
     !hasThreeTimes(data.settings.hours)
   )
     throw Error("Structură incompletă.");
+  if (data.settings.privacyAcknowledged !== undefined && data.settings.privacyAcknowledged !== true)
+    throw Error("Preferința de confidențialitate este nevalidă.");
   if (data.settings.equipment !== undefined &&
       (!Array.isArray(data.settings.equipment) || !data.settings.equipment.every(str)))
     throw Error("Lista posturilor este nevalidă.");
@@ -123,18 +127,24 @@ export function migrate(data) {
   }
   return data;
 }
-export async function load(seed) {
+export async function load(seed, training = false) {
+  notebookKey = training ? "instruire" : "caiet";
   db = await new Promise((ok, no) => {
     let r = indexedDB.open("caiet-sef-schimb", 1);
     r.onupgradeneeded = () => r.result.createObjectStore("local");
     r.onsuccess = () => ok(r.result);
     r.onerror = () => no(r.error);
   });
-  let data = await new Promise((ok, no) => {
-    let r = db.transaction("local").objectStore("local").get("caiet");
-    r.onsuccess = () => ok(r.result);
-    r.onerror = () => no(r.error);
+  const [stored, token] = await new Promise((resolve, reject) => {
+    const tx = db.transaction("local");
+    const store = tx.objectStore("local");
+    const data = store.get(notebookKey);
+    const version = store.get(notebookKey + "-revision");
+    tx.oncomplete = () => resolve([data.result, version.result]);
+    tx.onabort = () => reject(tx.error);
   });
+  storedRevision = token;
+  let data = stored;
   const previousCount = data?.notes?.length;
   data = migrate(data === undefined ? seed() : data);
   if (data.notes.length !== previousCount) {
@@ -158,9 +168,26 @@ export function flush() {
 function writeNotebook(data) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("local", "readwrite");
-    tx.objectStore("local").put(data, "caiet");
-    tx.oncomplete = resolve;
-    tx.onabort = () => reject(tx.error);
+    const store = tx.objectStore("local");
+    const nextRevision = crypto.randomUUID();
+    const token = store.get(notebookKey + "-revision");
+    let conflict = false;
+    token.onsuccess = () => {
+      if (token.result !== storedRevision) {
+        conflict = true;
+        tx.abort();
+        return;
+      }
+      store.put(data, notebookKey);
+      store.put(nextRevision, notebookKey + "-revision");
+    };
+    tx.oncomplete = () => {
+      storedRevision = nextRevision;
+      resolve();
+    };
+    tx.onabort = () => reject(conflict
+      ? Error("Caietul a fost modificat în altă filă. Descarcă o copie a acestei sesiuni, apoi reîncarcă pagina.")
+      : tx.error || Error("Scrierea locală a fost întreruptă."));
   });
 }
 // Confirmă înlocuirea pe disc înainte ca interfața să afișeze alt caiet.
@@ -177,7 +204,7 @@ async function writePending() {
     }
     status("Salvat", "saved");
   } catch (error) {
-    status("Salvare eșuată", "error");
+    status(error.message || "Salvare eșuată", "error");
     throw error;
   }
 }
@@ -195,14 +222,16 @@ export function download(name, text, type) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
-export function backup(data) {
+export function backup(data, training = false) {
   download(
-    "caiet-" + new Date().toISOString().slice(0, 10) + ".json",
-    JSON.stringify(data, null, 2),
+    (training ? "caiet-INSTRUIRE-" : "caiet-") + new Date().toISOString().slice(0, 10) + ".json",
+    JSON.stringify(training ? { ...data, training: true } : data, null, 2),
     "application/json",
   );
 }
-export async function restore(file) {
+export async function restore(file, training = false) {
+  if (file.size > 32 * 1024 * 1024)
+    throw Error("Copia depășește limita de import de 32 MB.");
   const contents = await file.text();
   let parsed;
   try {
@@ -210,6 +239,8 @@ export async function restore(file) {
   } catch {
     throw Error("Alege fișierul JSON descărcat din caiet.");
   }
+  if (parsed && parsed.training !== (training ? true : undefined))
+    throw Error("Deschide copia în modul în care a fost exportată.");
   const notebook = migrate(parsed);
   if (!validHours(notebook.settings.hours))
     throw Error("Orele schimburilor din copie trebuie să fie în ordine crescătoare.");

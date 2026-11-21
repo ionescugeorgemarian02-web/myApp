@@ -127,15 +127,9 @@ export function report() {
   }
   return lines.join("\n");
 }
-// Pe telefon deschide lista de aplicații (WhatsApp, e-mail…); altfel copiază.
+// Copiere explicită, cu selecție manuală dacă browserul refuză clipboardul.
 export async function share(text) {
-  if (navigator.share)
-    try {
-      await navigator.share({ text });
-      return;
-    } catch (e) {
-      if (e.name === "AbortError") return;
-    }
+  if (app.training) text = "INSTRUIRE · DATE FICTIVE\n\n" + text;
   try {
     await navigator.clipboard.writeText(text);
     toast("Rezumat copiat – lipește-l în mesaj");

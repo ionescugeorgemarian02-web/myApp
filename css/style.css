@@ -1009,3 +1009,12 @@ header small:is([data-state="pending"], [data-state="error"])::before { backgrou
 main:has(.noteFilters, .settingsGrid, .searchBox) { max-width: 920px; }
 .directoryGroup[open], .settingsSection[open] { border-color: var(--muted); }
 .noteField:focus-within { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+.privacyNotice, .practiceBanner {
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: .65rem;
+  margin: 0 0 1rem;
+  overflow-wrap: anywhere;
+}
+.practiceBanner { font-weight: 700; }

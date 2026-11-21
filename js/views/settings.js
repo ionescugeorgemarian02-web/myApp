@@ -167,11 +167,12 @@ function backupCard(data) {
     const selected = file.files[0];
     if (!selected) return;
     try {
-      const next = await restore(selected);
+      const next = await restore(selected, app.training);
       const pages = next.pages.length;
       if (await confirmAsk("Înlocuiești caietul?",
         "Fișierul „" + selected.name + "” conține " + pages + (pages === 1 ? " pagină." : " pagini.") +
         " Restaurarea înlocuiește toate datele din caietul deschis.", "Înlocuiește", true)) {
+        next.settings.privacyAcknowledged = data.settings.privacyAcknowledged;
         await switchNotebook(next);
         toast("Copie restaurată");
       }
@@ -184,7 +185,7 @@ function backupCard(data) {
   const actions = el("div", "", "btnRow");
   actions.append(btn("Salvează copia", () => {
     const date = Date.now();
-    backup({ ...data, settings: { ...data.settings, backup: date } });
+    backup({ ...data, settings: { ...data.settings, backup: date } }, app.training);
     data.settings.backup = date;
     app.refresh();
   }, "primary", "download"), btn("Încarcă o copie", () => file.click(), "", "upload"), file);
@@ -208,6 +209,22 @@ export function settings(version) {
   addSection(lineCard(data.settings), "line");
   addSection(appearance(data.settings), "appearance");
   addSection(backupCard(data), "backup");
+
+  const privacy = card("Confidențialitate și instruire");
+  privacy.append(el("p", "Introdu informații interne doar dacă angajatorul permite. Datele și copiile descărcate nu sunt criptate de aplicație. Folosește identificatori neutri.", "hint"),
+    btn(app.training ? "Revino la caietul personal" : "Deschide modul de instruire", async () => {
+      try {
+        await flush();
+        const url = new URL(location.href);
+        if (app.training) url.searchParams.delete("mod");
+        else url.searchParams.set("mod", "instruire");
+        url.hash = "";
+        location.href = url.href;
+      } catch (error) {
+        toast(error.message);
+      }
+    }, "primary"));
+  addSection(privacy, "privacy");
 
   const access = card("Deschiderea caietului");
   access.append(el("p", "Revino la același link în același browser pentru a continua unde ai rămas.", "hint"));

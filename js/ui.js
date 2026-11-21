@@ -207,11 +207,11 @@ export async function confirmAsk(title, text = "", ok = "Confirmă", danger) {
   return r === "ok";
 }
 export async function confirmShare(text, title = "Rezumatul schimbului") {
-  const preview = el("pre", text, "reportPreview");
+  const preview = el("pre", (app.training ? "INSTRUIRE · DATE FICTIVE\n\n" : "") + text, "reportPreview");
   return (await openDialog(() => [
     el("h2", title),
     preview,
-    actions(navigator.share ? "Distribuie" : "Copiază", false),
+    actions("Copiază"),
   ])) === "ok";
 }
 export async function showText(title, text) {

@@ -3,6 +3,8 @@
 import { norm, day, validDate } from "./ui.js";
 import { isClosed, rowLabel, colByKey, colByName, statusOf, num } from "./records.js";
 
+import { nonnegative, productionKpis } from "./production.js";
+
 // ——— Date calendaristice ———
 const DAY = 86400000;
 const toDate = (iso) => new Date(iso + "T12:00");
@@ -80,29 +82,27 @@ export function shiftRecords(data) {
     const rec = { date, shift, key: date + " · Schimb " + shift, row: r, p, b };
     for (const [key] of SHIFT_FIELDS) {
       const col = colByKey(b, key);
-      rec[key] = col ? num(r.values[col.id]) : null;
+      rec[key] = col ? nonnegative(r.values[col.id]) : null;
     }
     byKey.set(rec.key, rec);
   }
   return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
-export function recordKpis(r) {
-  return {
-    planPct: r.plan > 0 && r.produced != null ? (r.produced / r.plan) * 100 : null,
-    scrapPct: r.produced > 0 && r.scrap != null ? (r.scrap / r.produced) * 100 : null,
-    downtime: r.downtime,
-    absencePct: r.planned > 0 && r.present != null ? (Math.max(0, r.planned - r.present) / r.planned) * 100 : null,
-  };
-}
+export const recordKpis = productionKpis;
 // Totaluri pe o listă de schimburi: procentele se calculează din sume, nu din medii.
 export function aggregate(records) {
+  records = records.map((record) => Object.fromEntries(
+    SHIFT_FIELDS.map(([key]) => [key, nonnegative(record[key])]),
+  ));
   const sum = (key, filter) => records.filter(filter).reduce((s, r) => s + r[key], 0);
-  const withPlan = (r) => r.plan > 0 && r.produced != null;
-  const withScrap = (r) => r.produced > 0 && r.scrap != null;
+  const withPlan = (r) => r.plan != null && r.produced != null;
+  const withScrap = (r) => r.produced > 0 && r.scrap != null && r.scrap <= r.produced;
   const withStaff = (r) => r.planned > 0 && r.present != null;
   const plan = sum("plan", withPlan), producedForPlan = sum("produced", withPlan);
   const produced = sum("produced", withScrap), scrap = sum("scrap", withScrap);
   const planned = sum("planned", withStaff), present = sum("present", withStaff);
+  const uncovered = records.filter(withStaff)
+    .reduce((total, row) => total + Math.max(0, row.planned - row.present), 0);
   const downRecords = records.filter((r) => r.downtime != null);
   return {
     shifts: records.length,
@@ -112,7 +112,7 @@ export function aggregate(records) {
     scrapPct: produced > 0 ? (scrap / produced) * 100 : null,
     scrap,
     downtime: downRecords.length ? downRecords.reduce((s, r) => s + r.downtime, 0) : null,
-    absencePct: planned > 0 ? (Math.max(0, planned - present) / planned) * 100 : null,
+    absencePct: planned > 0 ? (uncovered / planned) * 100 : null,
     planned, present,
   };
 }
