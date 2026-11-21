@@ -3,6 +3,8 @@
 import { norm, day, validDate } from "./ui.js";
 import { isClosed, rowLabel, colByKey, colByName, statusOf, num } from "./records.js";
 
+import { nonnegative, productionKpis } from "./production.js";
+
 // ——— Date calendaristice ———
 const DAY = 86400000;
 const toDate = (iso) => new Date(iso + "T12:00");
@@ -80,29 +82,27 @@ export function shiftRecords(data) {
     const rec = { date, shift, key: date + " · Schimb " + shift, row: r, p, b };
     for (const [key] of SHIFT_FIELDS) {
       const col = colByKey(b, key);
-      rec[key] = col ? num(r.values[col.id]) : null;
+      rec[key] = col ? nonnegative(r.values[col.id]) : null;
     }
     byKey.set(rec.key, rec);
   }
   return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
-export function recordKpis(r) {
-  return {
-    planPct: r.plan > 0 && r.produced != null ? (r.produced / r.plan) * 100 : null,
-    scrapPct: r.produced > 0 && r.scrap != null ? (r.scrap / r.produced) * 100 : null,
-    downtime: r.downtime,
-    absencePct: r.planned > 0 && r.present != null ? (Math.max(0, r.planned - r.present) / r.planned) * 100 : null,
-  };
-}
+export const recordKpis = productionKpis;
 // Totaluri pe o listă de schimburi: procentele se calculează din sume, nu din medii.
 export function aggregate(records) {
+  records = records.map((record) => Object.fromEntries(
+    SHIFT_FIELDS.map(([key]) => [key, nonnegative(record[key])]),
+  ));
   const sum = (key, filter) => records.filter(filter).reduce((s, r) => s + r[key], 0);
-  const withPlan = (r) => r.plan > 0 && r.produced != null;
-  const withScrap = (r) => r.produced > 0 && r.scrap != null;
+  const withPlan = (r) => r.plan != null && r.produced != null;
+  const withScrap = (r) => r.produced > 0 && r.scrap != null && r.scrap <= r.produced;
   const withStaff = (r) => r.planned > 0 && r.present != null;
   const plan = sum("plan", withPlan), producedForPlan = sum("produced", withPlan);
   const produced = sum("produced", withScrap), scrap = sum("scrap", withScrap);
   const planned = sum("planned", withStaff), present = sum("present", withStaff);
+  const uncovered = records.filter(withStaff)
+    .reduce((total, row) => total + Math.max(0, row.planned - row.present), 0);
   const downRecords = records.filter((r) => r.downtime != null);
   return {
     shifts: records.length,
@@ -112,7 +112,7 @@ export function aggregate(records) {
     scrapPct: produced > 0 ? (scrap / produced) * 100 : null,
     scrap,
     downtime: downRecords.length ? downRecords.reduce((s, r) => s + r.downtime, 0) : null,
-    absencePct: planned > 0 ? (Math.max(0, planned - present) / planned) * 100 : null,
+    absencePct: planned > 0 ? (uncovered / planned) * 100 : null,
     planned, present,
   };
 }
@@ -123,11 +123,12 @@ export function safetyEvents(data) {
   if (!s) return [];
   const { b, p } = s;
   const dateCol = b.cols.find((c) => c.type === "date" && norm(c.name) === "data");
-  const type = colByKey(b, "safetyType"), eq = colByKey(b, "equipment");
+  const type = colByKey(b, "safetyType"), eq = colByKey(b, "equipment"), shift = colByName(b, "schimb");
   return b.rows.map((r) => ({
     r, p, b,
     date: dateCol ? r.values[dateCol.id] : "",
     type: norm(r.values[type.id]),
+    shift: Number(r.values[shift?.id]) || null,
     equipment: eq ? r.values[eq.id] || "" : "",
     label: rowLabel(b, r),
     closed: isClosed(b, r),
@@ -270,7 +271,10 @@ export function people(data) {
   const t = teamBlock(data);
   if (!t) return [];
   const nameCol = colByKey(t.b, "name") || colByName(t.b, "nume");
-  return t.b.rows.map((r) => ({ id: r.id, name: String(r.values[nameCol.id] || "").trim(), row: r, p: t.p }))
+  const shift = colByKey(t.b, "teamShift");
+  return t.b.rows.map((r) => ({
+    id: r.id, name: String(r.values[nameCol.id] || "").trim(), shift: Number(r.values[shift?.id]) || null, row: r, p: t.p,
+  }))
     .filter((x) => x.name);
 }
 export function oneOnOnes(data, ctx) {
@@ -279,7 +283,7 @@ export function oneOnOnes(data, ctx) {
   if (!o) return { team: team.map((x) => ({ ...x, last: null, days: null })), promisesOpen: 0, promisesLate: 0 };
   const { b } = o;
   const dateCol = b.cols.find((c) => c.type === "date" && norm(c.name) === "data");
-  const nameCol = colByName(b, "nume");
+  const nameCol = colByName(b, "nume") || colByName(b, "identificator neutru");
   const dueCol = b.cols.find((c) => c.type === "date" && norm(c.name).includes("termen"));
   const promise = colByName(b, "ce am promis");
   const last = new Map();
@@ -303,19 +307,25 @@ export function oneOnOnes(data, ctx) {
   };
 }
 export const SKILL_LEVELS = ["Neinstruit", "Cu supraveghere", "Autonom", "Poate instrui"];
-export function skillsCoverage(data) {
+export function skillsCoverage(data, shift) {
   const s = skillsBlock(data);
   const posts = equipmentList(data), team = people(data);
   const levels = s?.b.levels || {};
+  const config = data.settings.skillConfig;
+  const eligible = team.filter((person) => person.shift === shift);
   const coverage = posts.map((post) => {
-    const autonomous = team.filter((x) => (levels[x.id]?.[post] ?? 0) >= 2).length;
-    return { post, autonomous };
+    const requirement = config?.requirements.find((r) => r.shift === shift && r.post === post);
+    const minimum = requirement?.level ?? 2;
+    const autonomous = eligible.filter((person) =>
+      (Object.hasOwn(levels, person.id) && Object.hasOwn(levels[person.id], post) ? levels[person.id][post] : 0) >= minimum).length;
+    return { post, autonomous, requirement, gap: Boolean(requirement && autonomous < requirement.count) };
   });
+  const configured = coverage.filter((entry) => entry.requirement);
   return {
-    block: s, posts, team,
-    gaps: coverage.filter((c) => c.autonomous < 2),
+    block: s, posts, team, eligible,
+    gaps: configured.filter((entry) => entry.gap),
     coverage,
-    index: posts.length ? (coverage.filter((c) => c.autonomous >= 2).length / posts.length) * 100 : null,
+    index: configured.length ? configured.filter((entry) => !entry.gap).length / configured.length * 100 : null,
   };
 }
 

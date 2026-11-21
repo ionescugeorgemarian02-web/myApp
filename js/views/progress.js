@@ -67,8 +67,8 @@ export function progressView(view, c) {
   const routineTotal = trend.flatMap((w) => w.routine.list);
   const routineRate = routineTotal.length ? (routineTotal.reduce((s, x) => s + x.done, 0) / routineTotal.reduce((s, x) => s + x.total, 0)) * 100 : null;
   grid.append(ring(routineRate, { label: "Rutină bifată", sub: routineTotal.length + " schimburi" }));
-  const sk = skillsCoverage(data);
-  grid.append(ring(sk.index, { label: "Posturi acoperite", sub: sk.posts.length ? "≥2 autonomi" : "adaugă posturi" }));
+  const sk = skillsCoverage(data, c.shift);
+  grid.append(ring(sk.index, { label: "Posturi acoperite", sub: sk.index === null ? "neconfigurat" : "cerințe pe schimb" }));
   const team = oneOnOnes(data, c).team;
   const met = team.filter((x) => x.days != null && x.days <= 30).length;
   grid.append(ring(team.length ? (met / team.length) * 100 : null, { label: "Discuții 1:1", sub: team.length ? met + " din " + team.length + " în 30 de zile" : "adaugă echipa" }));

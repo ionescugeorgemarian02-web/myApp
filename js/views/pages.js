@@ -83,7 +83,7 @@ export function pages() {
   }, "primary small", "plus");
   const heading = el("div", "", "directoryHead");
   heading.append(el("h1", "Caiet", "title"), create);
-  main.append(heading);
+  main.append(heading, btn("Leadership și comunicare", () => (location.hash = "Leadership"), "todayMore", "chat"));
   // Căutare.
   let box = el("label", "", "searchBox"),
     q = el("input"),

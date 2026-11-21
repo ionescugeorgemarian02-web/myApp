@@ -1,5 +1,8 @@
+import { kpiView } from "./views/kpis.js";
+import { leadershipView } from "./views/leadership.js";
+import { productionView } from "./views/production.js";
 import { app } from "./state.js";
-import { el, btn, id, day, icon, toast } from "./ui.js";
+import { el, btn, id, day, icon, toast, confirmAsk } from "./ui.js";
 import { load, save, flush, persist } from "./store.js";
 import { seed, organize } from "./seed.js";
 import { today } from "./views/today.js";
@@ -9,11 +12,12 @@ import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
 import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
 import { commitments } from "./metrics.js";
-const VERSION = "3.1";
+const VERSION = "3.2";
+app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
   settingsButton = document.querySelector("#open-settings");
-app.data = await load(seed).catch((e) => {
+app.data = await load(seed, app.training).catch((e) => {
   main.textContent = "Caietul nu poate fi deschis. " + e.message;
   throw e;
 });
@@ -95,8 +99,10 @@ app.refresh = () => {
   app.save();
   render();
 };
-app.remove = (a, x) => {
-  let pos = a.indexOf(x);
+app.remove = async (a, x) => {
+  if (!(await confirmAsk("Ștergi această înregistrare?", "", "Șterge", true))) return;
+  const pos = a.indexOf(x);
+  if (pos < 0) return;
   a.splice(pos, 1);
   app.undo = () => {
     a.splice(pos, 0, x);
@@ -118,6 +124,11 @@ app.clone = (source) => {
         if (!ids.has(item.id)) ids.set(item.id, id());
         item.id = ids.get(item.id);
       }
+    }
+    if (block.runs) {
+      block.runs = Object.fromEntries(Object.entries(block.runs).map(([key, values]) => [
+        key, Object.fromEntries(Object.entries(values).map(([itemId, result]) => [ids.get(itemId) || itemId, result])),
+      ]));
     }
     const columns = new Map();
     for (const col of block.cols || []) {
@@ -153,6 +164,19 @@ function render() {
   if (route === "Căutare" || route === "Pagini") route = "Caiet";
   const y = scrollY;
   main.replaceChildren();
+  if (app.training) main.append(el("p", "INSTRUIRE · Folosește numai date fictive.", "practiceBanner"));
+  if (!app.data.settings.privacyAcknowledged) {
+    const warning = el("section", "", "privacyNotice");
+    warning.append(el("h1", "Înainte de prima utilizare"),
+      el("p", "Introdu date interne ale companiei numai dacă politica angajatorului permite utilizarea acestui caiet și a dispozitivului personal."),
+      el("p", "Datele sunt stocate în browser, fără criptare proprie. Politica angajatorului se aplică și copiilor descărcate sau copiate."),
+      btn("Am înțeles", () => {
+        app.data.settings.privacyAcknowledged = true;
+        app.refresh();
+      }, "primary"));
+    main.append(warning);
+    return;
+  }
 
   const c = {
     ...app.current,
@@ -181,8 +205,11 @@ function render() {
   else if (route === "Notițe") notesView(c);
   else if (route === "Analiză") analysisView(c);
   else if (route === "Setări") settings(VERSION);
+  else if (route === "Indicatori") kpiView(c);
+  else if (route === "Leadership") leadershipView();
+  else if (route === "Producție") productionView(c);
   else today(c);
-  const tab = route.startsWith("p/") ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
+  const tab = route === "Indicatori" ? "Analiză" : route.startsWith("p/") || route === "Leadership" ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
   updateBadge();
   for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;
@@ -210,12 +237,8 @@ for (const [name, symbol] of [["Azi", "today"], ["Analiză", "chart"], ["Notițe
 app.render = render;
 window.addEventListener("hashchange", () => {
   if (location.hash !== "#p/" + app.editing) app.editing = null;
-  if (decodeURIComponent(location.hash) !== "#Analiză") resetAnalysisWeek();
+  if (location.hash !== "#" + encodeURIComponent("Analiză")) resetAnalysisWeek();
   render();
-  if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
-    main.animate([{ opacity: .8, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }], {
-      duration: 180, easing: "ease-out",
-    });
   const detail = targetDetail && [...main.querySelectorAll("[data-key]")].find(
     (d) => d.dataset.key === targetDetail,
   );
@@ -256,8 +279,12 @@ if ("serviceWorker" in navigator) {
         btn(
           "Versiune nouă disponibilă – actualizează",
           async () => {
-            await flush();
-            waiting.postMessage("activate");
+            try {
+              await flush();
+              waiting.postMessage("activate");
+            } catch (error) {
+              toast(error.message);
+            }
           },
           "banner",
           "download",
@@ -272,8 +299,12 @@ if ("serviceWorker" in navigator) {
   watchWorker();
   navigator.serviceWorker.addEventListener("controllerchange", async () => {
     if (hadController) {
-      await flush();
-      location.reload();
+      try {
+        await flush();
+        location.reload();
+      } catch (error) {
+        toast(error.message);
+      }
     } else hadController = true;
   });
   document.addEventListener("visibilitychange", () => {

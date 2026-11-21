@@ -49,7 +49,7 @@ function autoIndicators(c) {
     chip.append(el("strong", value), el("span", label + (b != null ? " · pornire " + fmt(b) : "")));
     grid.append(chip);
   }
-  box.append(grid, el("p", "Sursa: cifrele din predarea schimbului și registrul de siguranță. Completează în tabel valoarea de pornire și ținta; tabelul rămâne pentru cifrele oficiale (ex. OEE din SAP).", "formHelp"));
+  box.append(grid, el("p", "Sursa: cifrele din predarea schimbului și registrul de siguranță. Completează în tabel valoarea de pornire și ținta; tabelul rămâne pentru cifrele oficiale.", "formHelp"));
   return box;
 }
 // Parcursul primelor 90 de zile și raportul de progres.
@@ -58,7 +58,7 @@ function ninetyBanner(c) {
   if (!n) return null;
   const box = el("section", "", "card ninety");
   const head = el("div", "", "cardHead");
-  head.append(el("h2", n.done ? "Ai trecut de ziua 90" : "Ziua " + n.day + " din 90"),
+  head.append(el("h2", n.done ? "Ai trecut de ziua 90" : n.day < 1 ? "Înainte de prima zi" : "Ziua " + n.day + " din 90"),
     el("span", n.next ? "reper: ziua " + n.next : "complet", "count"));
   const bar = el("progress", "", "routineBar");
   bar.max = 90;

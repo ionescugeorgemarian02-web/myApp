@@ -1,7 +1,10 @@
-import { el, input, btn, id, details, now, norm, ask, roDate, iconBtn } from "../ui.js";
+import { HANDOVER_FIELDS, PROBLEM_FIELDS, closureError, handoverStatus, problemMatches } from "../operations.js";
+import { csvCell, nonnegative, productionKpis } from "../production.js";
+import { el, input, btn, id, details, now, norm, ask, roDate, iconBtn, toast, confirmShare } from "../ui.js";
 import { app } from "../state.js";
 import { download } from "../store.js";
-import { isClosed, rowLabel, column, trackLifecycle, num } from "../records.js";
+import { share } from "../logic.js";
+import { isClosed, rowLabel, column, trackLifecycle, colByKey } from "../records.js";
 import { equipmentList } from "../metrics.js";
 export { isClosed, rowLabel, column };
 const types = {
@@ -37,14 +40,14 @@ const fileName = (t) =>
   new Date().toISOString().slice(0, 10) +
   ".csv";
 function exportCsv(b) {
-  let cells = (v) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
   let rows = [
     b.cols.map((x) => x.name),
     ...b.rows.map((r) => b.cols.map((x) => r.values[x.id])),
   ];
+  if (app.training) rows.unshift(["INSTRUIRE · DATE FICTIVE"]);
   download(
-    fileName(b.title),
-    "﻿" + rows.map((r) => r.map(cells).join(";")).join("\r\n"),
+    fileName((app.training ? "INSTRUIRE-" : "") + b.title),
+    "﻿" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n"),
     "text/csv;charset=utf-8",
   );
 }
@@ -52,14 +55,15 @@ function exportCsv(b) {
 export function shiftFigures(b, r) {
   const v = (key) => {
     const col = b.cols.find((c) => c.key === key);
-    return col ? num(r.values[col.id]) : null;
+    return col ? nonnegative(r.values[col.id]) : null;
   };
   const fmt = (x) => (Math.round(x * 10) / 10).toLocaleString("ro");
   const out = [];
   const plan = v("plan"), produced = v("produced"), scrap = v("scrap"), down = v("downtime");
-  if (plan > 0 && produced != null) out.push("Plan " + fmt((produced / plan) * 100) + "%");
-  if (produced > 0 && scrap != null) out.push("Rebut " + fmt((scrap / produced) * 100) + "%");
-  if (down != null) out.push(fmt(down) + " min oprire");
+  const kpis = productionKpis({ plan, produced, scrap, downtime: down });
+  if (kpis.planPct != null) out.push("Plan " + fmt(kpis.planPct) + "%");
+  if (kpis.scrapPct != null) out.push("Rebut " + fmt(kpis.scrapPct) + "%");
+  if (kpis.downtime != null) out.push(fmt(kpis.downtime) + " min oprire");
   return out.join(" · ");
 }
 // Rezumatul unui rând închis: titlu + etichete (dată, stare, bifă).
@@ -121,6 +125,16 @@ function fieldsConfig(b, c) {
   });
   for (const col of b.cols) {
     let d = details(col.name, "col-" + col.id, "colCfg");
+    const managedKey = (colByKey(b, "prepared") || colByKey(b, "problem")) &&
+      (col.key || ["actiune", "stare", "data", "schimb"].includes(norm(col.name)));
+    if (managedKey) {
+      d.append(el("p", "Câmp folosit de fluxul operațional.", "formHelp"));
+      settings.append(d);
+      continue;
+    }
+    const affectsHandover = colByKey(b, "prepared") && b.rows.some((row) =>
+      row.values[colByKey(b, "prepared").id] === true &&
+      handoverStatus({ ...b, cols: b.cols.filter((candidate) => candidate !== col) }, row, "prepared"));
     d.append(
       input("Nume", col.name, (v) => {
         col.name = v;
@@ -128,7 +142,7 @@ function fieldsConfig(b, c) {
         changed = true;
         c.save();
       }),
-      input(
+      ...(!affectsHandover ? [input(
         "Tip",
         Object.keys(types).find((k) => types[k] === col.type),
         (v) => {
@@ -137,7 +151,7 @@ function fieldsConfig(b, c) {
         },
         "select",
         Object.keys(types),
-      ),
+      )] : []),
     );
     if (col.type === "select")
       d.append(
@@ -147,7 +161,8 @@ function fieldsConfig(b, c) {
           c.save();
         }),
       );
-    d.append(btn("Șterge câmpul", () => c.remove(b.cols, col), "danger", "trash"));
+    if (!affectsHandover)
+      d.append(btn("Șterge câmpul", () => c.remove(b.cols, col), "danger", "trash"));
     settings.append(d);
   }
   settings.append(
@@ -176,8 +191,9 @@ function fieldGroups(b) {
     sections = [
       ["Data și schimbul", (name) => ["data", "schimb"].includes(name)],
       ["Cifrele schimbului", (name) => SHIFT_KEYS.has(keyed.get(name))],
-      ["Desfășurarea schimbului", (name) => name !== "de urmarit"],
-      ["Pentru schimbul următor", () => true],
+      ["Verificarea predării", (name) => ["prepared", "received"].includes(keyed.get(name))],
+      ["Pentru schimbul următor", (name) => ["handoverActions", "handoverEscalation", "nextChecks"].includes(keyed.get(name)) || name.includes("schimbul urmator") || name === "de urmarit"],
+      ["Desfășurarea schimbului", () => true],
     ];
   } else if (b.cols.some((col) => col.key === "safetyType")) {
     sections = [
@@ -187,7 +203,8 @@ function fieldGroups(b) {
   } else if (names.includes("problema") && names.includes("stare")) {
     sections = [
       ["Problema și acțiunea", (name) => ["problema", "post / masina", "cauza (5 de ce)", "actiune"].includes(name)],
-      ["Urmărirea problemei", () => true],
+      ["Impact și măsură imediată", (name) => ["impact", "urgency", "containment", "escalation"].includes(keyed.get(name))],
+      ["Urmărirea și închiderea", () => true],
     ];
   } else if (names.includes("ce am promis")) {
     sections = [
@@ -200,6 +217,11 @@ function fieldGroups(b) {
     const index = sections.findIndex(([, matches]) => matches(norm(col.name)));
     groups[index][1].push(col);
   }
+  if (b.type === "journal" && names.includes("schimb"))
+    groups.sort(([a], [b]) => {
+      const order = ["Data și schimbul", "Cifrele schimbului", "Desfășurarea schimbului", "Pentru schimbul următor", "Verificarea predării"];
+      return order.indexOf(a) - order.indexOf(b);
+    });
   return groups.filter(([, cols]) => cols.length);
 }
 const SHIFT_KEYS = new Set(["plan", "produced", "scrap", "downtime", "planned", "present"]);
@@ -214,15 +236,52 @@ function recordField(b, col, r, c, { classic = false, changed } = {}) {
   const value = r.values[col.id];
   let type = col.type;
   if (type === "text" && name === "telefon") type = "tel";
-  if (!classic && type === "text" && longFields.has(name)) type = "area";
+  if (!classic && type === "text" && (longFields.has(name) ||
+      [...HANDOVER_FIELDS, ...PROBLEM_FIELDS].some(([key]) => key === col.key && key !== "handoverZone") ||
+      /^(situatia productiei|echipamente oprite|lipsuri de personal|prioritati pentru schimbul)/.test(name))) type = "area";
   // „Post / mașină” folosește lista din Setări → Linia mea.
   const source = col.key === "equipment" ? equipmentList(app.data) : col.options;
   const options = type === "select" ? ["", ...source.filter(Boolean)] : [];
   // O opțiune scoasă din configurare rămâne vizibilă în fișele deja completate.
   if (type === "select" && value && !options.includes(value)) options.push(value);
+  let control;
   const field = input(classic ? "" : col.name, value, (v) => {
     const wasClosed = isClosed(b, r);
+    const candidate = { ...r, values: { ...r.values, [col.id]: v } };
+    const closed = isClosed(b, candidate);
+    let error = "";
+    if (control.validity.badInput || ((SHIFT_KEYS.has(col.key) || col.key === "stopMinutes") && v !== "" && nonnegative(v) === null))
+      error = "Introdu o valoare numerică pozitivă sau zero.";
+    if (!error && v === true && ["prepared", "received"].includes(col.key))
+      error = handoverStatus(b, candidate, col.key);
+    if (!error && colByKey(b, "problem") && closed && (!wasClosed || r.closedAt && r.verifiedClosure))
+      error = closureError(b, candidate);
+    if (error) {
+      if (type === "checkbox") control.checked = Boolean(r.values[col.id]);
+      else if (type === "select") control.value = r.values[col.id] ?? "";
+      else {
+        control.setCustomValidity(error);
+        control.reportValidity();
+      }
+      toast(error);
+      return;
+    }
+    control.setCustomValidity("");
     r.values[col.id] = v;
+    if (colByKey(b, "prepared") && col.key !== "received") {
+      for (const key of (col.key === "prepared" ? ["received"] : ["prepared", "received"])) {
+        if (col.key === "prepared" && v === true) break;
+        const checkCol = colByKey(b, key);
+        if (!checkCol || r.values[checkCol.id] !== true) continue;
+        r.values[checkCol.id] = false;
+        const form = field.closest(".recBody");
+        const check = [...(form?.querySelectorAll("input[data-handover-check]") || [])]
+          .find((input) => input.dataset.handoverCheck === key);
+        if (check) check.checked = false;
+      }
+    }
+    if (colByKey(b, "problem") && closed && !wasClosed) r.verifiedClosure = true;
+    if (wasClosed && !closed) delete r.verifiedClosure;
     trackLifecycle(b, r, wasClosed, now());
     c.save();
     changed?.();
@@ -235,7 +294,13 @@ function recordField(b, col, r, c, { classic = false, changed } = {}) {
     }, "fieldLink");
     field.append(setup);
   }
-  const control = field.lastElementChild;
+  control = field.querySelector("input, textarea, select");
+  if (["prepared", "received"].includes(col.key)) control.dataset.handoverCheck = col.key;
+  if (type === "number") control.addEventListener("blur", () => {
+    if (!control.validationMessage) return;
+    control.value = r.values[col.id] ?? "";
+    control.setCustomValidity("");
+  });
   if (classic) control.setAttribute("aria-label", col.name);
   if (type === "select") control.options[0].text = "Alege…";
   if (type === "area") field.classList.add("wideField");
@@ -251,6 +316,7 @@ function record(b, r, c, groups) {
   d.classList.toggle("closed", isClosed(b, r));
   const summary = d.firstElementChild;
   function updateSummary() {
+    c.onProblemEdit?.();
     summary.replaceChildren(summaryOf(b, r, c));
     d.classList.toggle("closed", isClosed(b, r));
   }
@@ -282,6 +348,22 @@ function record(b, r, c, groups) {
       }, "small", "check"),
       btn("Șterge", () => c.remove(b.rows, r), "danger small", "trash"),
     );
+    if (colByKey(b, "prepared")) {
+      body.prepend(el("p", "Fișă personală de sprijin. Revizuiește situația, acțiunile și riscurile înainte să confirmi predarea sau preluarea.", "formHelp"));
+      foot.prepend(btn("Rezumatul acestei fișe", async () => {
+        const text = [b.title, ...b.cols.map((col) => {
+          const value = r.values[col.id];
+          return col.name + " · " + (value === true ? "Verificată" : col.type === "checkbox" ? "În așteptare" : value === "" || value == null ? "Date indisponibile" : value);
+        })].join("\n");
+        if (await confirmShare(text, "Rezumat predare–primire")) await share(text);
+      }, "small"));
+    }
+    if (colByKey(b, "problem")) {
+      const guide = details("Ghid 5 Why și 8D");
+      guide.append(el("p", "5 Why · Pornește de la abaterea observată. Întreabă de ce, verifică fiecare răspuns la post și oprește-te la o cauză demonstrabilă, asupra căreia poți interveni."),
+        el("p", "8D · Formează echipa, definește problema, limitează impactul, verifică de ce a apărut și de ce a trecut de control, alege și validează corecția, aplic-o, previno reapariția și documentează închiderea. Folosește 8D complet când este justificat sau cerut local."));
+      body.prepend(guide);
+    }
     body.append(foot);
     d.append(body);
   }
@@ -297,7 +379,7 @@ export function table(b, c) {
     () => {
       const r = newRow(b, c);
       c.refresh();
-      const target = document.querySelector(`[data-key="row-${r.id}"]`);
+      const target = document.querySelector(`[data-key="row-${CSS.escape(r.id)}"]`);
       (target?.querySelector("summary, input, select") || target)?.focus({ preventScroll: true });
       target?.scrollIntoView({ block: "start" });
     },
@@ -306,7 +388,7 @@ export function table(b, c) {
   );
   if (c.editing) {
     let tools = el("div", "", "toolbar");
-    if (!journal)
+    if (!journal && !colByKey(b, "problem"))
       tools.append(
         btn(
           b.classic ? "Vedere listă" : "Vedere tabel",
@@ -321,7 +403,8 @@ export function table(b, c) {
     tools.append(btn("Export CSV", () => exportCsv(b), "small", "download"));
     out.append(tools, fieldsConfig(b, c));
   }
-  const classic = b.classic && !journal;
+  const managed = Boolean(colByKey(b, "problem"));
+  const classic = b.classic && !journal && !managed;
   const help = classic ? "Glisează tabelul lateral pentru a vedea toate coloanele."
     : journal ? "Atinge o intrare pentru a o completa. Modificările se salvează automat."
       : "Deschide o fișă pentru a completa câmpurile. Modificările se salvează automat.";
@@ -362,7 +445,27 @@ export function table(b, c) {
   } else {
     let list = el("div", "", "records");
     const groups = fieldGroups(b);
-    for (const r of rows) list.append(record(b, r, c, groups));
+    let update;
+    if (managed) {
+      let query = "", filter = "Toate";
+      const empty = el("p", "Nicio problemă pentru acest filtru.", "empty");
+      empty.hidden = true;
+      update = () => {
+        let visible = 0;
+        for (const [index, row] of rows.entries()) {
+          const show = problemMatches(b, row, query, filter, c.date);
+          list.children[index].hidden = !show;
+          if (show) visible++;
+        }
+        empty.hidden = visible !== 0;
+      };
+      const filters = el("div", "", "recordFields");
+      filters.append(input("Caută probleme și acțiuni", "", (value) => { query = value; update(); }, "search"),
+        input("Filtrează", "Toate", (value) => { filter = value; update(); }, "select",
+          ["Toate", "Deschise", "Închise", "Restante", "Urgente / critice"]));
+      out.append(filters, empty);
+    }
+    for (const r of rows) list.append(record(b, r, { ...c, onProblemEdit: update }, groups));
     out.append(list);
   }
 

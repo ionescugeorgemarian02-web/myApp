@@ -36,8 +36,8 @@ test("săptămâna ISO și datele", () => {
 
 test("caietul nou are modulele versiunii 3 și migrarea rulează o singură dată", () => {
   const d = seed();
-  assert.ok(m.safetyBlock(d) && m.skillsBlock(d) && m.auditBlocks(d).length === 1);
-  assert.deepEqual(m.handoverBlock(d).b.cols.filter((c) => c.key).map((c) => c.key),
+  assert.ok(m.safetyBlock(d) && m.skillsBlock(d) && m.auditBlocks(d).some(({ b }) => b.auditKind === "safety"));
+  assert.deepEqual(m.handoverBlock(d).b.cols.filter((c) => m.SHIFT_FIELDS.some(([key]) => key === c.key)).map((c) => c.key),
     ["plan", "produced", "scrap", "downtime", "planned", "present"]);
   assert.ok(m.problemsBlock(d).b.cols.find((c) => c.name === "Stare").options.includes("Verificare"));
   assert.equal(upgrade(d), false);
@@ -52,6 +52,7 @@ test("un caiet vechi (2.4) primește câmpurile noi fără să piardă datele", 
   // Simulăm caietul vechi: fără chei, fără module noi, cu o predare scrisă.
   const ho = m.handoverBlock(d).b;
   ho.cols = ho.cols.filter((c) => !c.key);
+  byName(ho, "Situația producției / probleme").name = "Probleme";
   ho.rows.push({ id: "x", values: { [byName(ho, "Probleme").id]: "Robot oprit" } });
   d.pages = d.pages.filter((p) => !["Siguranță", "Tur pe linie", "Polivalență"].includes(p.title));
   for (const c of m.problemsBlock(d).b.cols) delete c.key;
@@ -137,7 +138,7 @@ test("rutina: puncte sărite des în schimburile lucrate", () => {
   rb.key = "2026-11-21 · Schimb 1";
   const s = m.skippedItems(d, ctx());
   assert.equal(s.length, 1);
-  assert.equal(s[0].title, "Trimit rezumatul către șef.");
+  assert.equal(s[0].title, rb.items[6].title);
   assert.equal(m.routineShifts(d).length, 7);
 });
 
@@ -148,14 +149,19 @@ test("echipa: discuții 1:1, promisiuni și polivalență", () => {
   const nume = team.cols.find((c) => c.key === "name");
   team.rows.push({ id: "p1", values: { [nume.id]: "Ana Pop" } }, { id: "p2", values: { [nume.id]: "Ion" } });
   const o = m.oneOnOneBlock(d).b;
-  o.rows.push({ id: "o1", values: { [byName(o, "Data").id]: "2026-11-01", [byName(o, "Nume").id]: "ana pop",
+  o.rows.push({ id: "o1", values: { [byName(o, "Data").id]: "2026-11-01", [byName(o, "Identificator neutru").id]: "ana pop",
     [byName(o, "Ce am promis").id]: "Scaun nou", [byName(o, "Termen promisiune").id]: "2026-11-10", [byName(o, "Rezolvat").id]: false } });
   const one = m.oneOnOnes(d, ctx());
   assert.equal(one.team.find((x) => x.name === "Ana Pop").days, 20);
   assert.equal(one.team.find((x) => x.name === "Ion").days, null);
   assert.equal(one.promisesLate, 1);
   m.skillsBlock(d).b.levels = { p1: { "Post 1": 2, "Post 2": 3 }, p2: { "Post 1": 3 } };
-  const cov = m.skillsCoverage(d);
+  const shift = team.cols.find((column) => column.key === "teamShift");
+  for (const row of team.rows) row.values[shift.id] = "1";
+  d.settings.skillConfig = { labels: [...m.SKILL_LEVELS], requirements: d.settings.equipment.map((post) =>
+    ({ shift: 1, post, count: 2, level: 2 })) };
+  const cov = m.skillsCoverage(d, 1);
+  assert.equal(m.skillsCoverage(d, 2).index, null);
   assert.equal(cov.index, 50);
   assert.deepEqual(cov.gaps.map((g) => g.post), ["Post 2"]);
 });

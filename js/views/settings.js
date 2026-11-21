@@ -38,6 +38,7 @@ function schedule(preferences) {
   const apply = btn("Aplică programul", async () => {
     if (!validHours(draft)) return;
     preferences.hours = [...draft];
+    preferences.scheduleConfirmed = true;
     delete preferences.slot;
     delete preferences.shift;
     hoursDrafts.delete(preferences);
@@ -53,7 +54,7 @@ function schedule(preferences) {
   function validate() {
     const changed = draft.some((h, i) => h !== preferences.hours[i]);
     const valid = validHours(draft);
-    apply.disabled = !valid || !changed;
+    apply.disabled = !valid || (!changed && preferences.scheduleConfirmed === true);
     message.textContent = !valid
       ? "Completează cele trei ore în ordine crescătoare."
       : changed ? "Program modificat. Apasă „Aplică programul” pentru salvare." : "";
@@ -83,12 +84,12 @@ function schedule(preferences) {
 // Posturile și mașinile liniei: folosite la probleme, siguranță și polivalență.
 function lineCard(preferences) {
   const section = card("Linia mea");
-  section.append(el("p", "Scrie câte un post sau o mașină pe rând (ex. Robot sudură 2). Lista apare la „Post / mașină” în probleme și siguranță și în matricea de polivalență.", "hint"));
+  section.append(el("p", "Scrie câte un post sau o mașină pe rând. Lista apare la „Post / mașină” în probleme și siguranță și în matricea de polivalență.", "hint"));
   const list = el("textarea");
   list.rows = 5;
   list.value = (preferences.equipment || []).join("\n");
   list.setAttribute("aria-label", "Posturi și mașini, câte unul pe rând");
-  list.placeholder = "Post 1\nRobot sudură 2\nPresa 3";
+  list.placeholder = "Post 1\nPost 2\nPost 3";
   const status = el("p", "", "settingsMetadata");
   const count = () => {
     const n = (preferences.equipment || []).length;
@@ -113,7 +114,10 @@ function lineCard(preferences) {
     preferences.startDate = value;
     app.save();
   }, "date");
-  section.append(list, status, start);
+  section.append(input("Zona sau linia curentă", preferences.zone || "", (value) => {
+    preferences.zone = value.trim();
+    app.save();
+  }), list, status, start);
   return section;
 }
 
@@ -167,11 +171,12 @@ function backupCard(data) {
     const selected = file.files[0];
     if (!selected) return;
     try {
-      const next = await restore(selected);
+      const next = await restore(selected, app.training);
       const pages = next.pages.length;
       if (await confirmAsk("Înlocuiești caietul?",
         "Fișierul „" + selected.name + "” conține " + pages + (pages === 1 ? " pagină." : " pagini.") +
         " Restaurarea înlocuiește toate datele din caietul deschis.", "Înlocuiește", true)) {
+        next.settings.privacyAcknowledged = data.settings.privacyAcknowledged;
         await switchNotebook(next);
         toast("Copie restaurată");
       }
@@ -184,7 +189,7 @@ function backupCard(data) {
   const actions = el("div", "", "btnRow");
   actions.append(btn("Salvează copia", () => {
     const date = Date.now();
-    backup({ ...data, settings: { ...data.settings, backup: date } });
+    backup({ ...data, settings: { ...data.settings, backup: date } }, app.training);
     data.settings.backup = date;
     app.refresh();
   }, "primary", "download"), btn("Încarcă o copie", () => file.click(), "", "upload"), file);
@@ -208,6 +213,22 @@ export function settings(version) {
   addSection(lineCard(data.settings), "line");
   addSection(appearance(data.settings), "appearance");
   addSection(backupCard(data), "backup");
+
+  const privacy = card("Confidențialitate și instruire");
+  privacy.append(el("p", "Introdu informații interne doar dacă angajatorul permite. Datele și copiile descărcate nu sunt criptate de aplicație. Folosește identificatori neutri.", "hint"),
+    btn(app.training ? "Revino la caietul personal" : "Deschide modul de instruire", async () => {
+      try {
+        await flush();
+        const url = new URL(location.href);
+        if (app.training) url.searchParams.delete("mod");
+        else url.searchParams.set("mod", "instruire");
+        url.hash = "";
+        location.href = url.href;
+      } catch (error) {
+        toast(error.message);
+      }
+    }, "primary"));
+  addSection(privacy, "privacy");
 
   const access = card("Deschiderea caietului");
   access.append(el("p", "Revino la același link în același browser pentru a continua unde ai rămas.", "hint"));

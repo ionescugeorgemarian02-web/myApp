@@ -30,6 +30,8 @@ export function runAction(a) {
       if (!ho) return;
       if (!ho.r) {
         ho.r = newRow(ho.b, c);
+        const zone = colByKey(ho.b, "handoverZone");
+        if (zone && app.data.settings.zone) ho.r.values[zone.id] = app.data.settings.zone;
         app.save();
       }
       app.openPage(ho.p, "row-" + ho.r.id);
@@ -47,7 +49,7 @@ export function runAction(a) {
       break;
     }
     case "plan": {
-      const p = findPage((x) => x.title === "Plan 30-60-90") || findPage((x) => x.group === "Primele 90 de zile");
+      const p = findPage((x) => x.professionalPlan) || findPage((x) => x.title === "Plan 30-60-90") || findPage((x) => x.group === "Primele 90 de zile");
       if (p) app.openPage(p);
       break;
     }

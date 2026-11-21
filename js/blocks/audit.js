@@ -19,7 +19,7 @@ function createProblem(b, item, run, c) {
 
 export function audit(b, c) {
   const box = el("div", "", "audit");
-  const run = (b.runs[c.key] ||= {});
+  const run = (b.runs[c.key] || {});
   const checked = b.items.filter((i) => run[i.id]).length;
   const nok = b.items.filter((i) => run[i.id]?.s === "nok").length;
   const head = el("p", "", "auditStatus");
@@ -31,6 +31,7 @@ export function audit(b, c) {
   bar.max = b.items.length || 1;
   bar.value = checked;
   bar.setAttribute("aria-label", "Progresul turului");
+  box.append(el("p", "Listă personală de sprijin · De confirmat intern", "formHelp"));
   box.append(el("p", "Turul schimbului " + c.shift + " · " + roDate(c.workDay, { weekday: "short", day: "numeric", month: "short" }) + ". Bifele pornesc de la zero la fiecare schimb.", "formHelp"), head, bar);
   const list = el("div", "", "auditList");
   const pb = problemsBlock(app.data);
@@ -47,6 +48,7 @@ export function audit(b, c) {
       const button = btn(label, () => {
         if (on) delete run[item.id];
         else run[item.id] = { s };
+        b.runs[c.key] = run;
         c.refresh();
       }, on ? "on " + s : s);
       button.setAttribute("aria-pressed", String(on));
@@ -87,7 +89,7 @@ export function audit(b, c) {
       const bad = b.items.filter((i) => r[i.id]?.s === "nok").map((i) => i.title);
       history.append(
         el("h4", key + " · " + values.length + " verificate · " + bad.length + " NOK"),
-        el("p", bad.length ? "NOK: " + bad.join(" • ") : "Totul OK", "desc"),
+        el("p", bad.length ? "NOK: " + bad.join(" • ") : "Niciun NOK raportat", "desc"),
       );
     }
     box.append(history);

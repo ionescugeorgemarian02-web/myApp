@@ -1,11 +1,13 @@
+import { intervalTotals, readKey } from "../operations.js";
+import { zoneIntervals, noData } from "./production.js";
 import { app } from "../state.js";
-import { el, btn, icon, roDate, confirmShare, details } from "../ui.js";
+import { el, btn, icon, roDate, confirmShare, details, norm } from "../ui.js";
 import { routine } from "../blocks/routine.js";
 import { compareNotes, needsReminder } from "../notes.js";
 import { noteEditor, noteRow } from "./notes.js";
 import { newRow } from "../blocks/table.js";
-import { active, deadlines, openProblems, problemsTable, handover, report, share } from "../logic.js";
-import { shiftRecords, recordKpis, safetyEvents, auditStatus } from "../metrics.js";
+import { active, deadlines, openProblems, problemsTable, handover, previousHandover, report, share } from "../logic.js";
+import { shiftRecords, recordKpis, safetyEvents, auditStatus, problems, addDays, skillsCoverage } from "../metrics.js";
 import { advice } from "../advice.js";
 import { adviceSection, newSafetyEvent, runAction } from "./advice.js";
 import { fmt } from "../charts.js";
@@ -42,11 +44,15 @@ function shiftActions(c) {
   if (ho) add("Predare", "handover", () => {
     if (!ho.r) {
       ho.r = newRow(ho.b, c);
+      const zone = ho.b.cols.find((col) => col.key === "handoverZone");
+      if (zone && app.data.settings.zone) ho.r.values[zone.id] = app.data.settings.zone;
       app.save();
     }
     app.openPage(ho.p, "row-" + ho.r.id);
   });
   const pt = problemsTable();
+  add("Leadership și comunicare", "chat", () => (location.hash = "Leadership"));
+  add("Plan versus realizat", "chart", () => (location.hash = "Producție"));
   if (pt) add("Problemă", "alert", () => {
     const row = newRow(pt.b, c);
     app.save();
@@ -56,6 +62,9 @@ function shiftActions(c) {
     add("Siguranță", "shield", () => newSafetyEvent());
   const tour = auditStatus(app.data, c.key)[0];
   if (tour) add("Tur pe linie", "audit", () => app.openPage(tour.p));
+  const stops = app.data.pages.find((page) => !page.archived && page.blocks.some((block) =>
+    block.cols?.some((column) => column.key === "stopEquipment")));
+  if (stops) add("Registrul opririlor", "clock", () => app.openPage(stops));
   add("Rezumat", "send", async () => {
     const text = report();
     if (await confirmShare(text)) await share(text);
@@ -81,6 +90,7 @@ function header(c) {
     weekday: "long", day: "numeric", month: "long",
   })));
   title.append(date, el("h1", "Panou de schimb"), btn("Notiță nouă", () => noteEditor(), "primary", "plus"));
+  title.append(el("p", "Zonă / linie · " + (app.data.settings.zone || "Neconfigurat"), "formHelp"));
   head.append(title);
   return head;
 }
@@ -99,6 +109,11 @@ function shiftPanel(c) {
     schedule.append(row);
   });
   tools.append(schedule, shiftActions(c));
+  if (!app.data.settings.scheduleConfirmed)
+    tools.append(el("p", "Program orientativ · De confirmat intern", "formHelp"));
+  const previous = previousHandover(c);
+  if (previous?.r)
+    tools.append(btn("Preia schimbul anterior", () => app.openPage(previous.p, "row-" + previous.r.id), "todayMore", "handover"));
   if (c.workDay !== c.date) {
     const date = el("span", "Schimb început pe " + roDate(c.workDay), "shiftStartDate");
     tools.append(date);
@@ -156,14 +171,27 @@ function drawAgenda(section, c) {
   const notes = app.data.notes.filter((n) => needsReminder(n, c.date, c.time));
   const due = deadlines().filter((d) => d.due <= c.date);
   const seen = new Set(due.map((d) => d.p.id + "/" + d.key));
-  const problems = openProblems().filter((d) => !seen.has(d.p.id + "/" + d.key));
-  const records = [...due, ...problems];
+  const open = openProblems().filter((d) => !seen.has(d.p.id + "/" + d.key));
+  const registry = new Map(problems(app.data, c).map((p) => ["row-" + p.r.id, p]));
+  const priorShift = c.shift === 1 ? 3 : c.shift - 1;
+  const priorDay = c.shift === 1 ? addDays(c.workDay, -1) : c.workDay;
+  const records = [...due, ...open].map((entry) => {
+    const problem = registry.get(entry.key);
+    if (!problem) return entry;
+    return {
+      ...entry,
+      urgency: readKey(problem.b, problem.r, "urgency"),
+      inherited: !problem.closed && problem.opened === priorDay &&
+        Number(readKey(problem.b, problem.r, "incidentShift")) === priorShift,
+    };
+  });
   const entries = [
     ...notes.map((note) => ({ note, sortKey: note })),
     ...records.map((entry) => ({ entry, sortKey: {
-      due: entry.due || "", done: false, priority: "normal", createdAt: "", id: entry.key,
+      due: entry.due || "", done: false, priority: entry.urgency === "Urgentă" || entry.urgency === "Critică" ? "important" : "normal", createdAt: "", id: entry.key,
     } })),
-  ].sort((a, b) => compareNotes(a.sortKey, b.sortKey, c.date, c.time));
+  ].sort((a, b) => Number(b.entry?.urgency === "Critică") - Number(a.entry?.urgency === "Critică") ||
+    compareNotes(a.sortKey, b.sortKey, c.date, c.time));
   section.replaceChildren();
   section.hidden = !entries.length;
   if (!entries.length) return;
@@ -174,7 +202,7 @@ function drawAgenda(section, c) {
     if (note) return noteRow(note, c);
     const late = entry.due && entry.due < c.date;
     const tag = late ? "Restant · " + roDate(entry.due) : entry.due ? "Azi" : entry.kind || "Problemă deschisă";
-    return link(entry.text, tag, late ? "chip late" : "chip", () => app.openPage(entry.p, entry.key));
+    return link(entry.text, [entry.urgency !== "Obișnuită" && entry.urgency, entry.inherited && "Schimb anterior", tag].filter(Boolean).join(" · "), late || entry.urgency === "Critică" ? "chip late" : "chip", () => app.openPage(entry.p, entry.key));
   }
   section.append(...entries.slice(0, 3).map(row));
   if (entries.length > 3) {
@@ -196,22 +224,27 @@ function shiftStrip(c) {
   const head = el("div", "", "todaySectionHead");
   head.append(el("h2", "Tura mea"), el("span", "Schimbul " + c.shift, "agendaCount"));
   section.append(head);
-  const rec = shiftRecords(app.data).find((r) => r.key === c.key);
+  const legacy = shiftRecords(app.data).find((r) => r.key === c.key);
+  const intervals = zoneIntervals(app.data, c.workDay, c.shift, app.data.settings.zone || "");
+  const intervalData = intervals.length ? intervalTotals(intervals) : null;
+  const rec = intervalData || legacy;
+  const staffing = legacy ? recordKpis(legacy) : {};
   const k = rec ? recordKpis(rec) : {};
-  const events = safetyEvents(app.data).filter((e) => e.date === c.workDay);
+  const events = safetyEvents(app.data).filter((e) => e.date === c.workDay && e.shift === c.shift);
   const incidents = events.filter((e) => e.type === "incident").length;
   const tour = auditStatus(app.data, c.key)[0];
   const openHandover = () => runAction({ kind: "handover" });
+  const openNumbers = intervalData ? () => { location.hash = "Producție"; } : openHandover;
   const tiles = [
-    ["S", "Siguranță", incidents ? incidents + (incidents === 1 ? " incident" : " incidente") : events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : "0 incidente",
+    ["S", "Siguranță", incidents ? incidents + (incidents === 1 ? " incident" : " incidente") : events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : noData,
       tour ? "Tur " + tour.checked + "/" + tour.total + (tour.nok.length ? " · " + tour.nok.length + " NOK" : "") : "", incidents ? "bad" : "",
       () => (tour ? app.openPage(tour.p) : newSafetyEvent())],
-    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : "–", rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openHandover],
-    ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "%" : "–", rec?.plan != null ? fmt(rec.produced ?? 0, 0) + "/" + fmt(rec.plan, 0) : "",
-      k.planPct != null && k.planPct < 100 ? "warn" : "", openHandover],
-    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : "–", "", "", openHandover],
-    ["P", "Prezenți", rec?.planned != null && rec?.present != null ? fmt(rec.present, 0) + "/" + fmt(rec.planned, 0) : "–",
-      k.absencePct ? fmt(k.absencePct, 0) + "% absențe" : "", "", openHandover],
+    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : noData, rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openNumbers],
+    ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "%" : noData, rec?.plan != null && rec.produced != null ? fmt(rec.produced) + "/" + fmt(rec.plan) + " · Δ " + fmt(k.variance) : "",
+      k.planPct != null && k.planPct < 100 ? "warn" : "", openNumbers],
+    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : noData, "", "", openNumbers],
+    ["P", "Prezenți", legacy?.planned != null && legacy?.present != null ? fmt(legacy.present, 0) + "/" + fmt(legacy.planned, 0) : noData,
+      staffing.absencePct ? fmt(staffing.absencePct, 0) + "% absențe" : "", "", openHandover],
   ];
   const grid = el("div", "", "stripGrid");
   for (const [area, name, value, sub, state, run] of tiles) {
@@ -228,7 +261,9 @@ function shiftStrip(c) {
     grid.append(tile);
   }
   section.append(grid);
-  if (!rec || (rec.plan == null && rec.produced == null))
+  if (intervalData) section.append(el("p", "Calitate, livrare și opriri din " + intervals.length + " intervale raportate pentru zona curentă. Efectivul vine din predare.", "formHelp"));
+  else if (legacy) section.append(el("p", "Cifre din predare. Verifică aria la care se referă.", "formHelp"));
+  if (!intervalData && (!rec || (rec.plan == null && rec.produced == null)))
     section.append(btn("Completează cifrele schimbului", () => runAction({ kind: "handover" }), "todayMore", "chevron"));
   return section;
 }
@@ -239,10 +274,29 @@ export function today(c) {
   const grid = el("div", "", "todayGrid");
   grid.append(header(c), shiftPanel(c));
   const work = el("div", "", "todayWork");
+  const skills = skillsCoverage(app.data, c.shift);
+  if (skills.gaps.length) work.append(btn("Competențe sub necesar · " + skills.gaps.map((entry) => entry.post).join(", "),
+    () => app.openPage(skills.block.p), "todayMore"));
+  else if (!skills.coverage.some((entry) => entry.requirement))
+    work.append(el("p", "Necesar de competențe · Neconfigurat", "formHelp"));
   const agenda = el("section", "", "todayAgenda");
   const updateDeadlines = () => drawAgenda(agenda, c);
   updateDeadlines();
-  home.append(grid, shiftStrip(c));
+  home.append(grid, shiftStrip(c),
+    btn("Plan versus realizat", () => (location.hash = "Producție"), "todayMore", "chart"));
+  const ho = handover();
+  if (ho?.r) {
+    const detailsFromShift = [
+      ["Echipamente oprite / instabile", ho.b.cols.find((col) => /^(masini oprite|echipamente oprite)/.test(norm(col.name)))],
+      ["Lipsuri de personal / competențe", ho.b.cols.find((col) => /^(absen|lipsuri de personal)/i.test(col.name))],
+      ["Verificări și raportări", ho.b.cols.find((col) => col.key === "nextChecks")],
+    ];
+    const followUp = el("section", "", "shiftStrip");
+    followUp.append(el("h2", "De verificat în schimb"));
+    for (const [label, col] of detailsFromShift)
+      followUp.append(el("p", label + " · " + (ho.r.values[col?.id] || noData)));
+    home.append(followUp);
+  }
   const all = advice(app.data, c);
   const tips = all.filter((a) => a.level !== "good");
   const shown = tips.length ? tips : all.slice(0, 1);
