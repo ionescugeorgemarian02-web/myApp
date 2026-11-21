@@ -6,30 +6,25 @@ Caiet personal în limba română pentru lucru în trei schimburi. Include zece 
 
 Aplicația este o pagină web care se instalează ca aplicație (PWA). Nu are nevoie de Magazin Play sau App Store și merge și fără internet după prima deschidere.
 
-**O singură dată, pe GitHub (de pe calculator sau telefon):**
-
-1. Unește pull request-ul în ramura **main** (butonul **Merge pull request**).
-2. Deschide repository-ul **myApp → Settings → Pages**.
-3. La **Source** alege **Deploy from a branch**, apoi ramura **main** și folderul **/ (root)** și apasă **Save**.
-4. Așteaptă 1–2 minute. Adresa aplicației va fi: **https://ionescugeorgemarian02-web.github.io/myApp/**
+[Deschide Caietul Șefului de Schimb](https://ionescugeorgemarian02-web.github.io/myApp/).
 
 **Pe telefon:**
 
 1. Deschide adresa de mai sus (cu internet, prima dată).
-2. **Android (Chrome):** apare butonul **⤓ Instalează caietul pe telefon** pe pagina Azi. Dacă nu apare: **⋮ → Adaugă pe ecranul de pornire → Instalează**.
+2. **Android (Chrome):** apare butonul **⤓ Instalează caietul pe telefon** în Setări. Dacă nu apare: **⋮ → Adaugă pe ecranul de pornire → Instalează**.
 3. **iPhone (Safari):** **Partajare → Adaugă pe ecranul principal**.
 4. Deschide caietul din pictogramă. Verifică o dată în modul avion că se deschide.
 5. În **Azi**, verifică schimbul curent. Poți alege alt schimb atingând numărul lui. În **Setări** poți modifica ora de început a fiecărui schimb. Sfârșitul unui schimb este începutul următorului. Schimbul de noapte aparține zilei în care a început.
 
-## Cum e organizată aplicația (versiunea 2.0)
+## Cum e organizată aplicația (versiunea 2.1)
 
 Jos ai trei file: **Azi**, **Pagini** și **Setări**.
 
 **Azi** – tot ce-ți trebuie în schimb:
 - schimbul curent, orele și un cerc cu progresul rutinei; atingi 1 / 2 / 3 ca să alegi alt schimb;
-- trei butoane rapide: **Predare** (deschide predarea schimbului curent, cu data și schimbul completate), **Rezumat** (trimite rezumatul către șef pe WhatsApp, e-mail sau SMS) și **Problemă** (notează o problemă nouă);
+- trei butoane rapide: **Predare** (deschide predarea schimbului curent, cu data și schimbul completate), **Rezumat** (citești mesajul, apoi îl distribui sau îl copiezi) și **Problemă** (notează o problemă nouă);
 - rutina schimbului de bifat; la **⋯** scrii notițe sau pui termen;
-- **De urmărit**: termenele depășite (cu roșu), cele de azi și problemele deschise.
+- **De urmărit**: termenele depășite (cu roșu), cele de azi și problemele deschise. Atinge un termen pentru a deschide punctul sau înregistrarea. Sunt incluse și termenele rutinei.
 
 **Pagini** – caietul, pe grupe: *În schimb*, *Echipa*, *Primele 90 de zile*. Sus e căutarea în tot caietul. Jos: pagină nouă, șabloane și paginile arhivate.
 

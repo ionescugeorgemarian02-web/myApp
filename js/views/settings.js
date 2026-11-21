@@ -1,7 +1,7 @@
 import { app } from "../state.js";
 import { el, btn, input, confirmAsk, toast } from "../ui.js";
 import { backup, restore, flush } from "../store.js";
-import { seed } from "../seed.js";
+import { seed, organize } from "../seed.js";
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 function card(title) {
   let s = el("section", "", "card");
@@ -79,6 +79,7 @@ export function settings(version) {
           true,
         )
       ) {
+        organize(next);
         app.data = next;
         app.undo = null;
         app.refresh();

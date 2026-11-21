@@ -300,7 +300,8 @@ export function seed() {
     settings: {
       theme: "Automat",
       hours: ["06:00", "14:00", "22:00"],
-      backup: Date.now(),
+      createdAt: Date.now(),
+      backup: null,
     },
   };
   organize(out);

@@ -28,25 +28,30 @@ export function checklist(b, c, compact = false) {
       c.refresh();
     };
     text.append(el("span", i.title, "taskTitle"));
-    let meta = [];
-    if (i.priority === "important") meta.push(["★ important", "chip warn"]);
-    if (i.due && !i.checked)
-      meta.push([
-        roDate(i.due),
-        i.due < c.date ? "chip late" : i.due === c.date ? "chip today" : "chip",
-      ]);
-    if (i.notes) meta.push(["notițe", "chip"]);
-    if (meta.length) {
-      let m = el("span", "", "meta");
-      for (let [t, cls] of meta) m.append(el("span", t, cls));
-      text.append(m);
+    function updateMeta() {
+      text.querySelector(".meta")?.remove();
+      let meta = [];
+      if (i.priority === "important") meta.push(["★ important", "chip warn"]);
+      if (i.due && !i.checked)
+        meta.push([
+          roDate(i.due),
+          i.due < c.date ? "chip late" : i.due === c.date ? "chip today" : "chip",
+        ]);
+      if (i.notes) meta.push(["notițe", "chip"]);
+      if (meta.length) {
+        let m = el("span", "", "meta");
+        for (let [t, cls] of meta) m.append(el("span", t, cls));
+        text.append(m);
+      }
     }
+    updateMeta();
     label.append(tick, text);
     row.append(label);
     const summary = el("span", "", "moreIcon");
     summary.append(icon("more"));
     summary.setAttribute("aria-label", "Detalii");
     const d = details(summary, "item-" + i.id, "more");
+    d.querySelector("summary").setAttribute("aria-label", "Detalii pentru " + i.title);
     const body = el("div", "", "moreBody");
     if (!c.editing) {
       if (i.details) body.append(el("p", i.details, "desc"));
@@ -74,6 +79,8 @@ export function checklist(b, c, compact = false) {
             i[key] = v;
             if (key === "notes") i.updated = now();
             if (key === "title") text.firstChild.textContent = v;
+            updateMeta();
+            if (key === "due") c.updateDeadlines?.();
             c.save();
           },
           type,

@@ -94,6 +94,7 @@ export function input(label, value, change, type = "text", options = []) {
   if (type === "area") {
     n.rows = 2;
     const grow = () => {
+      if (!n.getClientRects().length) return;
       n.style.height = "auto";
       n.style.height = n.scrollHeight + 2 + "px";
     };
@@ -167,6 +168,7 @@ function openDialog(build) {
     form.method = "dialog";
     form.replaceChildren(...build());
     d.returnValue = "";
+    d.setAttribute("aria-label", form.querySelector("h2").textContent);
     d.onclose = () => resolve(d.returnValue);
     d.showModal();
     form.querySelector("input, textarea")?.focus();
@@ -185,6 +187,7 @@ function actions(ok, danger) {
 export async function ask(title, value = "", ok = "Salvează") {
   let f = el("input");
   f.value = value;
+  f.setAttribute("aria-label", title);
   const r = await openDialog(() => [el("h2", title), f, actions(ok)]);
   return r === "ok" ? f.value : null;
 }
@@ -195,6 +198,14 @@ export async function confirmAsk(title, text = "", ok = "Confirmă", danger) {
     actions(ok, danger),
   ]);
   return r === "ok";
+}
+export async function confirmShare(text) {
+  const preview = el("pre", text, "reportPreview");
+  return (await openDialog(() => [
+    el("h2", "Rezumatul schimbului"),
+    preview,
+    actions(navigator.share ? "Distribuie" : "Copiază", false),
+  ])) === "ok";
 }
 export async function showText(title, text) {
   let f = el("textarea");

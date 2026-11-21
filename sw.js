@@ -1,6 +1,6 @@
 // Instalarea reușește numai dacă toate resursele sunt disponibile.
 const prefix = "caiet-" + self.registration.scope + "-",
-  cache = prefix + "v3";
+  cache = prefix + "v4";
 const files = [
   "./",
   "./manifest.json",
@@ -27,7 +27,7 @@ const files = [
   "./js/blocks/section.js",
 ];
 self.addEventListener("install", (e) =>
-  e.waitUntil(caches.open(cache).then((c) => c.addAll(files))),
+  e.waitUntil(caches.open(cache).then((c) => c.addAll(files.map((url) => new Request(url, { cache: "reload" }))))),
 );
 self.addEventListener("message", (e) => {
   if (e.data === "activate") self.skipWaiting();

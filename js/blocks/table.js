@@ -18,7 +18,7 @@ const types = {
 export function isClosed(b, r) {
   return b.cols.some(
     (col) =>
-      (col.type === "checkbox" && r.values[col.id] === true) ||
+      (col.type === "checkbox" && ["rezolvat", "inchis", "finalizat"].includes(norm(col.name)) && r.values[col.id] === true) ||
       (col.type === "select" &&
         norm(col.name) === "stare" &&
         ["inchis", "rezolvat"].includes(norm(r.values[col.id]))),

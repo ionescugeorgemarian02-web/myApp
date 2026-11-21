@@ -1,8 +1,12 @@
 let db,
-  timer,
+  writing,
   pending,
   revision = 0;
-const status = (text) => (document.querySelector("#status").textContent = text);
+function status(text, state) {
+  const label = document.querySelector("#status");
+  if (label.textContent !== text) label.textContent = text;
+  label.parentElement.dataset.state = state;
+}
 export function migrate(data) {
   // Fiecare versiune viitoare va transforma aici copia anterioară.
   if (
@@ -96,28 +100,31 @@ export async function load(seed) {
 export function save(data) {
   pending = data;
   revision++;
-  status("Se salvează…");
-  clearTimeout(timer);
-  timer = setTimeout(() => flush().catch(() => {}), 300);
+  status("Se salvează…", "pending");
+  flush().catch(() => {});
 }
-export async function flush() {
-  clearTimeout(timer);
-  if (!pending) return;
-  let version = revision;
+export function flush() {
+  if (!writing && pending) {
+    writing = writePending().finally(() => { writing = null; });
+  }
+  return writing || Promise.resolve();
+}
+async function writePending() {
   try {
-    await new Promise((ok, no) => {
-      let tx = db.transaction("local", "readwrite");
-      tx.objectStore("local").put(pending, "caiet");
-      tx.oncomplete = ok;
-      tx.onabort = () => no(tx.error);
-    });
-    if (version === revision) {
-      pending = null;
-      status("Salvat");
+    while (pending) {
+      const version = revision;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("local", "readwrite");
+        tx.objectStore("local").put(pending, "caiet");
+        tx.oncomplete = resolve;
+        tx.onabort = () => reject(tx.error);
+      });
+      if (version === revision) pending = null;
     }
-  } catch (e) {
-    status("Salvare eșuată");
-    throw e;
+    status("Salvat", "saved");
+  } catch (error) {
+    status("Salvare eșuată", "error");
+    throw error;
   }
 }
 document.addEventListener("visibilitychange", () => {

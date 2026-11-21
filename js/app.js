@@ -6,7 +6,7 @@ import { today } from "./views/today.js";
 import { pages } from "./views/pages.js";
 import { pageView } from "./views/page.js";
 import { settings } from "./views/settings.js";
-const VERSION = "2.0";
+const VERSION = "2.1";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav");
 app.data = await load(seed).catch((e) => {
@@ -106,7 +106,12 @@ app.clone = (x) => {
   v.id = id();
   return v;
 };
-app.openPage = (p) => (location.hash = "p/" + p.id);
+let targetDetail = null;
+app.openPage = (p, detailKey) => {
+  targetDetail = detailKey;
+  if (detailKey) app.open.add(detailKey);
+  location.hash = "p/" + p.id;
+};
 // ——— Desenarea ecranului ———
 function render() {
   sync();
@@ -124,12 +129,12 @@ function render() {
     remove: app.remove,
   };
   if (
-    Date.now() - (app.data.settings.backup || 0) > 7 * 86400000 &&
+    Date.now() - (app.data.settings.backup || app.data.settings.createdAt || 0) > 7 * 86400000 &&
     route !== "Setări"
   )
     main.append(
       btn(
-        "Au trecut 7 zile de la ultimul backup",
+        "Salvează o copie a caietului",
         () => (location.hash = "Setări"),
         "banner",
         "download",
@@ -157,9 +162,17 @@ function render() {
 }
 app.render = render;
 window.addEventListener("hashchange", () => {
-  app.editing = null;
+  if (location.hash !== "#p/" + app.editing) app.editing = null;
   render();
-  scrollTo(0, 0);
+  const detail = targetDetail && [...main.querySelectorAll("details")].find(
+    (d) => d.dataset.key === targetDetail,
+  );
+  targetDetail = null;
+  if (detail) {
+    detail.open = true;
+    detail.querySelector("summary").focus({ preventScroll: true });
+    detail.scrollIntoView({ block: "center" });
+  } else scrollTo(0, 0);
 });
 render();
 // Verificăm la fiecare 10 secunde dacă s-a schimbat schimbul sau ziua.

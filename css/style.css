@@ -1,12 +1,12 @@
-/* Caietul Șefului de Schimb – design 2.0 */
+/* Caietul Șefului de Schimb – design 2.1 */
 :root {
   color-scheme: light;
-  --bg: #f3f2ed;
+  --bg: #f5f5f0;
   --surface: #ffffff;
   --surface-2: #f7f7f3;
   --ink: #18261f;
   --muted: #5d6b64;
-  --line: #e2e4dc;
+  --line: #dce1d9;
   --accent: #1d5a49;
   --accent-ink: #ffffff;
   --accent-soft: #e2efe8;
@@ -18,7 +18,7 @@
   --warn: #8a5a00;
   --warn-soft: #fdf1d6;
   --shadow: 0 1px 2px rgb(20 40 30 / 5%), 0 4px 14px rgb(20 40 30 / 5%);
-  --radius: 18px;
+  --radius: 14px;
   --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
   font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     system-ui, sans-serif;
@@ -376,9 +376,7 @@ button.pill.on {
   padding: 18px;
   border-radius: 22px;
   color: #fff;
-  background:
-    radial-gradient(circle at 100% 0, rgb(243 200 91 / 18%), transparent 45%),
-    linear-gradient(135deg, var(--hero-2), var(--hero));
+  background: var(--hero);
 }
 .heroTop {
   display: flex;
@@ -394,8 +392,7 @@ button.pill.on {
   color: var(--yellow);
 }
 .hero h1 {
-  font-size: 32px;
-  font-weight: 750;
+  font: 500 clamp(2.4rem, 6vw, 3.8rem)/1.08 Georgia, serif;
   letter-spacing: -0.03em;
   margin: 2px 0;
 }
@@ -442,7 +439,7 @@ button.pill.on {
 }
 .segmented button {
   flex: 1;
-  min-height: 38px;
+  min-height: 44px;
   border: 0;
   border-radius: 10px;
   background: none;
@@ -470,7 +467,11 @@ button.pill.on {
 .actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 0;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   margin-bottom: 14px;
 }
 .action {
@@ -482,7 +483,10 @@ button.pill.on {
   border-radius: 16px;
   text-align: left;
   box-shadow: var(--shadow);
-  min-height: 104px;
+  min-height: 88px;
+  border: 0;
+  box-shadow: none;
+  border-radius: 9px;
 }
 .actionIcon {
   display: grid;
@@ -1011,4 +1015,60 @@ dialog p {
   .threeCols {
     grid-template-columns: 1fr;
   }
+}
+
+header small[data-state="pending"]::before { background: var(--warn); }
+header small[data-state="error"] { color: var(--danger); }
+header small[data-state="error"]::before { background: currentColor; }
+.follow .card { border-inline-start: 3px solid var(--warn); }
+.moreLinks summary { min-height: 44px; }
+.reportPreview {
+  font: inherit;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 50vh;
+  overflow: auto;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+@media (hover: hover) {
+  .action:hover, .linkRow:hover, .tile:hover { background: var(--accent-soft); }
+}
+@media (min-width: 850px) {
+  header { padding-inline: max(28px, calc((100% - 940px) / 2)); }
+  main:has(.shiftLayout) { max-width: 996px; padding-inline: 28px; }
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 28px;
+    padding: 24px 28px;
+  }
+  .heroTop { flex: 1; gap: 24px; }
+  .hero .segmented { margin: 0; width: 285px; }
+  .shiftLayout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 33%);
+    grid-template-areas: "routine tools";
+    align-items: start;
+    gap: 18px;
+  }
+  .routineList { grid-area: routine; }
+  .shiftTools { grid-area: tools; }
+  .actions { grid-template-columns: 1fr; padding: 6px; }
+  .action {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 12px;
+    min-height: 64px;
+    padding: 10px;
+    align-content: center;
+  }
+  .actionIcon { grid-row: span 2; margin: 0; align-self: center; }
+  .action strong, .action small { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }

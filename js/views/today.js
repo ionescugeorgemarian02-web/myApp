@@ -1,5 +1,5 @@
 import { app } from "../state.js";
-import { el, btn, icon, roDate } from "../ui.js";
+import { el, btn, icon, roDate, confirmShare } from "../ui.js";
 import { routine } from "../blocks/routine.js";
 import { newRow } from "../blocks/table.js";
 import {
@@ -25,6 +25,8 @@ function ring(done, total) {
   s.innerHTML = `<circle cx="32" cy="32" r="${r}" class="ringBg"/><circle cx="32" cy="32" r="${r}" class="ringFg" stroke-dasharray="${len}" stroke-dashoffset="${len * (1 - part)}"/>`;
   const box = el("div", "", "ringBox");
   box.append(s, el("strong", done + "/" + total));
+  box.setAttribute("role", "img");
+  box.setAttribute("aria-label", done + " din " + total + " puncte bifate");
   return box;
 }
 function action(ic, title, sub, fn, cls = "") {
@@ -46,15 +48,13 @@ export function today(c) {
   const top = el("div", "", "heroTop"),
     info = el("div");
   info.append(
-    el("small", "Schimbul curent", "eyebrow"),
+    el("small", roDate(c.workDay, { weekday: "long", day: "numeric", month: "long" }), "eyebrow"),
     el("h1", "Schimbul " + c.shift),
     el(
       "p",
       h[c.shift - 1] +
         " – " +
-        h[c.shift % 3] +
-        " · " +
-        roDate(c.date, { weekday: "long", day: "numeric", month: "short" }),
+        h[c.shift % 3],
     ),
   );
   top.append(info, ring(done, items.length));
@@ -63,7 +63,7 @@ export function today(c) {
   shifts.setAttribute("aria-label", "Alege schimbul");
   for (let i = 1; i <= 3; i++) {
     let b = btn(
-      String(i),
+      "Schimb " + i,
       () => {
         data.settings.slot = c.slot;
         data.settings.shift = i;
@@ -77,10 +77,6 @@ export function today(c) {
   }
   hero.append(top, shifts);
   main.append(hero);
-  if (app.installPrompt && !app.standalone())
-    main.append(
-      btn("Instalează caietul pe telefon", app.install, "banner", "phone"),
-    );
   // Acțiuni rapide.
   const ho = handover(),
     pt = problemsTable(),
@@ -93,58 +89,46 @@ export function today(c) {
         ho.r ? "începută ✓" : "de completat",
         () => {
           if (!ho.r) {
-            newRow(ho.b, c);
+            ho.r = newRow(ho.b, c);
             app.save();
-          } else app.open.add("row-" + ho.r.id);
-          app.openPage(ho.p);
+          }
+          app.openPage(ho.p, "row-" + ho.r.id);
         },
         ho.r ? "" : "todo",
       ),
     );
-  grid.append(action("send", "Rezumat", "trimite șefului", () => share(report())));
+  grid.append(action("send", "Rezumat", "vezi și trimite", async () => {
+    const text = report();
+    if (await confirmShare(text)) await share(text);
+  }));
   if (pt)
     grid.append(
       action("alert", "Problemă", "notează una nouă", () => {
-        newRow(pt.b, c);
+        const r = newRow(pt.b, c);
         app.save();
-        app.openPage(pt.p);
+        app.openPage(pt.p, "row-" + r.id);
       }),
     );
-  main.append(grid);
+
+  const layout = el("div", "", "shiftLayout");
+  const follow = el("div", "", "follow");
+  const routineList = el("div", "", "routineList");
+  const side = el("div", "", "shiftTools");
+  side.append(grid, follow);
+  layout.append(side, routineList);
+  main.append(layout);
+  function updateDeadlines() {
+    follow.replaceChildren();
+    drawFollowUp(follow, c);
+  }
+  updateDeadlines();
   // Rutina.
   for (let b of routines) {
     let s = el("section", "", "card");
     let head = el("div", "", "cardHead");
     head.append(el("h2", b.title), el("span", progress(b.items), "count"));
-    s.append(head, routine(b, c, true));
-    main.append(s);
-  }
-  // De urmărit: termene restante, de azi și probleme deschise.
-  const all = deadlines().filter((d) => d.due <= c.date),
-    seen = new Set(all.map((d) => d.key)),
-    probs = openProblems().filter((p) => !seen.has(p.key));
-  if (all.length || probs.length) {
-    let s = el("section", "", "card");
-    let head = el("div", "", "cardHead");
-    head.append(el("h2", "De urmărit"), el("span", String(all.length + probs.length), "count"));
-    s.append(head);
-    let list = el("div", "", "linkList");
-    for (let d of all)
-      list.append(
-        link(d.text, d.due < c.date ? "restant · " + roDate(d.due) : "azi", d.due < c.date ? "chip late" : "chip today", () => {
-          app.open.add("row-" + d.key);
-          app.openPage(d.p);
-        }),
-      );
-    for (let x of probs.slice(0, 6))
-      list.append(
-        link(x.text, "deschisă", "chip", () => {
-          app.open.add("row-" + x.key);
-          app.openPage(x.p);
-        }),
-      );
-    s.append(list);
-    main.append(s);
+    s.append(head, routine(b, { ...c, updateDeadlines }, true));
+    routineList.append(s);
   }
   // Ultimele notițe.
   let recent = [];
@@ -161,6 +145,40 @@ export function today(c) {
       .sort((a, b) => String(b[0]).localeCompare(String(a[0])))
       .slice(0, 4)
       .forEach(([, v, p]) => list.append(link(v, p.title, "chip", () => app.openPage(p))));
+    s.append(list);
+    main.append(s);
+  }
+}
+function drawFollowUp(main, c) {
+  // De urmărit: termene restante, de azi și probleme deschise.
+  const all = deadlines().filter((d) => d.due <= c.date),
+    seen = new Set(all.map((d) => d.key)),
+    probs = openProblems().filter((p) => !seen.has(p.key));
+  if (all.length || probs.length) {
+    let s = el("section", "", "card");
+    let head = el("div", "", "cardHead");
+    head.append(el("h2", "De urmărit"), el("span", String(all.length + probs.length), "count"));
+    s.append(head);
+    let list = el("div", "", "linkList");
+    for (let d of all)
+      list.append(
+        link(d.text, d.due < c.date ? "restant · " + roDate(d.due) : "azi", d.due < c.date ? "chip late" : "chip today", () => {
+          app.openPage(d.p, d.key);
+        }),
+      );
+    for (let x of probs)
+      list.append(
+        link(x.text, "deschisă", "chip", () => {
+          app.openPage(x.p, x.key);
+        }),
+      );
+    if (list.children.length > 4) {
+      const extra = el("details", "", "moreLinks");
+      const count = list.children.length - 4;
+      extra.append(el("summary", "Încă " + count));
+      while (list.children.length > 4) extra.append(list.children[4]);
+      list.append(extra);
+    }
     s.append(list);
     main.append(s);
   }

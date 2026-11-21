@@ -10,8 +10,8 @@ export function deadlines() {
   for (let p of active())
     for (let b of p.blocks) {
       for (let i of b.items || [])
-        if (i.due && !i.checked && b.type !== "routine")
-          list.push({ due: i.due, text: i.title, p, key: i.id });
+        if (i.due && !i.checked)
+          list.push({ due: i.due, text: i.title, p, key: "item-" + i.id });
       for (let r of b.rows || []) {
         if (isClosed(b, r)) continue;
         for (let col of b.cols)
@@ -24,7 +24,7 @@ export function deadlines() {
               due: r.values[col.id],
               text: rowLabel(b, r),
               p,
-              key: r.id,
+              key: "row-" + r.id,
             });
       }
     }
@@ -45,7 +45,7 @@ export function openProblems() {
       if (b.type === "table" && b.cols.some((c) => norm(c.name) === "stare"))
         for (let r of b.rows)
           if (!isClosed(b, r) && rowLabel(b, r) !== "Rând fără text")
-            list.push({ text: rowLabel(b, r), p, key: r.id });
+            list.push({ text: rowLabel(b, r), p, key: "row-" + r.id });
   return list;
 }
 // Jurnalul de predare (are câmpurile „Data” și „Schimb”) și intrarea curentă.
@@ -101,10 +101,13 @@ export function report() {
   let probs = openProblems();
   if (probs.length) {
     lines.push("", `Probleme deschise (${probs.length}):`);
-    for (let x of probs.slice(0, 5)) lines.push(`  – ${x.text}`);
+    for (let x of probs) lines.push(`  – ${x.text}`);
   }
   let late = deadlines().filter((d) => d.due < c.date);
-  if (late.length) lines.push("", `Termene depășite: ${late.length}`);
+  if (late.length) {
+    lines.push("", `Termene depășite: ${late.length}`);
+    for (const d of late) lines.push(`  – ${d.text} · ${roDate(d.due)}`);
+  }
   return lines.join("\n");
 }
 // Pe telefon deschide lista de aplicații (WhatsApp, e-mail…); altfel copiază.
