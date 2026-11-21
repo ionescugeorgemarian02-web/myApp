@@ -8,6 +8,7 @@ export function el(tag, text = "", cls = "") {
 }
 // Pictograme simple, desenate cu linii (text fix, nu date introduse).
 const ICONS = {
+  notes: '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/>',
   today:
     '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   pages:
@@ -161,7 +162,7 @@ export function toolsFor(a, x, ctx, { rename, copy } = {}) {
 }
 // Ferestre proprii în locul celor ale browserului.
 const dlg = () => document.querySelector("dialog");
-function openDialog(build) {
+export function openDialog(build) {
   return new Promise((resolve) => {
     const d = dlg(),
       form = d.querySelector("form");
@@ -174,11 +175,12 @@ function openDialog(build) {
     form.querySelector("input, textarea")?.focus();
   });
 }
-function actions(ok, danger) {
+export function actions(ok, danger) {
   const row = el("div", "", "dlgActions"),
     cancel = el("button", "Renunță", "ghost"),
     okb = el("button", ok, danger ? "primary dangerFill" : "primary");
   cancel.value = "cancel";
+  cancel.formNoValidate = true;
   okb.value = "ok";
   // „OK” e primul în pagină ca tasta Enter să-l aleagă; CSS îl afișează în dreapta.
   row.append(okb, cancel);

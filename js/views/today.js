@@ -1,6 +1,8 @@
 import { app } from "../state.js";
 import { el, btn, icon, roDate, confirmShare, details } from "../ui.js";
 import { routine } from "../blocks/routine.js";
+import { compareNotes, needsReminder } from "../notes.js";
+import { noteEditor, noteRow } from "./notes.js";
 import { newRow } from "../blocks/table.js";
 import {
   active,
@@ -54,7 +56,7 @@ function shiftHeader(c, done, total) {
   const list = el("ul");
   for (const [lead, text] of [
     ["La început", "Verifică schimbul selectat. Atinge alt interval ca să lucrezi în acel schimb."],
-    ["În timpul schimbului", "Bifează punctele terminate. Deschide detaliile unui punct pentru notițe și termen."],
+    ["În timpul schimbului", "Bifează punctele terminate. Apasă creionul de lângă un punct pentru a adăuga notițe. Le regăsești în fila Notițe."],
     ["La predare", "Completează predarea, apoi deschide rezumatul ca să-l citești și să-l trimiți."],
   ]) {
     const step = el("li");
@@ -107,8 +109,8 @@ function action(ic, title, sub, fn, cls = "") {
 }
 export function today(c) {
   const pages = active();
-  const routines = pages.flatMap((p) => p.blocks.filter((b) => b.type === "routine"));
-  const items = routines.flatMap((b) => b.items);
+  const routines = pages.flatMap((p) => p.blocks.filter((b) => b.type === "routine").map((block) => ({ pageId: p.id, block })));
+  const items = routines.flatMap(({ block }) => block.items);
   const done = items.filter((i) => i.checked).length;
   const main = document.querySelector("main");
   main.append(shiftHeader(c, done, items.length));
@@ -149,7 +151,7 @@ export function today(c) {
   const follow = el("div", "", "follow");
   const routineList = el("div", "", "routineList");
   const side = el("div", "", "shiftTools");
-  side.append(grid, follow);
+  side.append(grid, reminderCard(c), follow);
   layout.append(side, routineList);
   main.append(layout);
   function updateDeadlines() {
@@ -157,34 +159,25 @@ export function today(c) {
     drawFollowUp(follow, c);
   }
   updateDeadlines();
-  // Rutina.
-  for (const b of routines)
-    routineList.append(routineCard(b, { ...c, updateDeadlines }, routines.length > 1));
-  const recent = el("div", "", "recentNotes");
-  main.append(recent);
-  renderNotes();
-  routineList.addEventListener("change", (event) => {
-    if (event.target.matches("textarea")) renderNotes();
-  });
-  function renderNotes() {
-    const notes = [];
-    for (const p of pages)
-      for (const b of p.blocks) {
-        if (b.type === "note" && b.text) notes.push([b.updated, b.text, p]);
-        for (const i of b.items || [])
-          if (i.notes) notes.push([i.updated, i.notes, p, "item-" + i.id]);
-      }
-    recent.replaceChildren();
-    if (!notes.length) return;
-    const section = el("section", "", "card");
-    const list = el("div", "", "linkList");
-    notes
-      .sort((a, b) => String(b[0]).localeCompare(String(a[0])))
-      .slice(0, 4)
-      .forEach(([, text, p, key]) => list.append(link(text, p.title, "chip", () => app.openPage(p, key))));
-    section.append(el("h2", "Ultimele notițe"), list);
-    recent.append(section);
-  }
+  for (const { block, pageId } of routines)
+    routineList.append(routineCard(block, { ...c, pageId, updateDeadlines }, routines.length > 1));
+}
+
+function reminderCard(c) {
+  const section = el("section", "", "card noteReminders");
+  const reminders = app.data.notes.filter((n) => needsReminder(n, c.date)).sort(compareNotes);
+  const head = el("div", "", "cardHead");
+  head.append(el("h2", "Notițe de urmărit"), el("span", String(reminders.length), "count"));
+  section.append(head);
+  if (!reminders.length)
+    section.append(el("p", "Aici apar notițele importante, cele scadente azi și restanțele.", "empty"));
+  for (const note of reminders.slice(0, 3)) section.append(noteRow(note, c));
+  section.append(
+    btn("Adaugă notiță", () => noteEditor(), "pill", "plus"),
+    btn(reminders.length > 3 ? "Toate notițele · " + reminders.length + " de urmărit" : "Toate notițele",
+      () => { location.hash = "Notițe"; }, "ghost", "notes"),
+  );
+  return section;
 }
 function drawFollowUp(main, c) {
   // De urmărit: termene restante, de azi și probleme deschise.

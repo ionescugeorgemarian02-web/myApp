@@ -1,98 +1,111 @@
 .shiftHeader {
   position: relative;
-  padding: clamp(18px, 3vw, 32px);
-  margin: 8px 0 16px;
+  padding: clamp(20px, 4vw, 38px);
+  margin: 6px 0 18px;
+  border: 1px solid #393644;
   border-radius: var(--radius);
-  color: #f5f7f3;
-  background: #17373e;
-  box-shadow: inset 0 3px #d9af63;
+  color: #f6f5fc;
+  background:
+    linear-gradient(90deg, rgb(10 9 18 / 92%), rgb(10 9 18 / 62%) 41%, transparent 88%),
+    #0c0b13 url("../images/shift.webp") 57% 49% / cover;
+  box-shadow: inset 0 1px rgb(255 255 255 / 6%);
 }
 .shiftDate {
-  margin-right: 106px;
-  color: #c4d9d7;
-  font-size: .8rem;
-  font-weight: 650;
+  margin-right: 108px;
+  color: #d1c9ea;
+  font: 500 .76rem/1.45 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .06em;
 }
-.shiftDate::first-letter { text-transform: uppercase; }
 .shiftHeading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-  margin: 9px 0 18px;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin: 9px 0 clamp(22px, 4vw, 36px);
 }
 .shiftHeading h1 {
-  color: inherit;
-  font: 500 clamp(2.1rem, 5vw, 3.6rem)/1.05 Georgia, serif;
-  letter-spacing: -.035em;
+  max-width: 100%;
+  font: 600 clamp(3.2rem, 8vw, 5.25rem)/.99 var(--display);
+  letter-spacing: -.025em;
 }
 .shiftMeter {
-  flex: 0 0 clamp(85px, 18vw, 170px);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e0dce9;
+  font: 500 .78rem/1.4 var(--mono);
 }
 .shiftMeter progress {
-  -webkit-appearance: none;
   appearance: none;
-  display: block;
-  height: 6px;
-  width: 100%;
-  margin-top: 6px;
+  -webkit-appearance: none;
+  width: clamp(55px, 9vw, 90px);
+  height: 4px;
   border: 0;
-  border-radius: 10px;
-  background: #49636a;
-  color: #ecd298;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #434052;
+  color: #c5b9ff;
 }
-.shiftMeter progress::-webkit-progress-bar { background: #49636a; border-radius: 10px; }
-.shiftMeter progress::-webkit-progress-value { background: #ecd298; border-radius: 10px; }
-.shiftMeter progress::-moz-progress-bar { background: #ecd298; border-radius: 10px; }
-.shiftPicker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.shiftMeter progress::-webkit-progress-bar { background: #434052; }
+.shiftMeter progress::-webkit-progress-value { background: #c5b9ff; }
+.shiftMeter progress::-moz-progress-bar { background: #c5b9ff; }
+.shiftPicker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 540px;
+}
 .shiftPicker button {
   display: grid;
   justify-content: start;
   align-content: center;
-  align-items: start;
-  gap: 1px;
+  gap: 3px;
   min-width: 0;
-  min-height: 51px;
+  min-height: 55px;
   text-align: left;
-  padding: 6px clamp(6px, 2vw, 16px);
-  border: 1px solid #537078;
-  border-radius: 9px;
-  background: transparent;
-  color: #e4edeb;
+  padding: 6px clamp(7px, 2vw, 15px);
+  border: 1px solid #585566;
+  border-radius: 10px;
+  background: rgb(20 19 29 / 92%);
+  color: #e6e3ef;
 }
 .shiftPicker button strong { font-size: .9rem; }
-.shiftPicker button small { font-weight: 500; font-size: .75rem; font-variant-numeric: tabular-nums; }
-.shiftPicker button[aria-pressed="true"] { color: #16362e; border-color: #dbe6d9; background: #dbe6d9; }
+.shiftPicker button small { font: 500 clamp(.64rem, 2.4vw, .75rem)/1.3 var(--mono); }
+.shiftPicker button[aria-pressed="true"] {
+  color: #1c1734;
+  background: #c3b8ff;
+  border-color: #d4ccff;
+}
 .shiftGuide > summary {
   position: absolute;
-  top: max(4px, calc(clamp(18px, 3vw, 32px) - 13px));
-  right: clamp(13px, 3vw, 27px);
-  display: inline-flex;
+  top: clamp(10px, 2vw, 22px);
+  right: clamp(10px, 2vw, 22px);
+  display: flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 42px;
   gap: 6px;
   list-style: none;
-  padding: 4px 5px;
-  color: #e7f1ee;
-  font-size: .83rem;
+  padding: 5px 10px;
+  border-radius: 9px;
+  background: rgb(12 11 19 / 88%);
+  color: #f3eefa;
+  font-size: .78rem;
 }
 .shiftGuide > summary::-webkit-details-marker { display: none; }
-.shiftGuide > summary .icon { width: 16px; height: 16px; }
+.shiftGuide > summary .icon { width: 15px; height: 15px; }
 .shiftGuide[open] > summary span { text-decoration: underline; text-underline-offset: 4px; }
 .shiftGuide ul {
   display: grid;
   gap: 12px;
   margin: 16px 0 0;
-  padding: 14px 0 0;
-  border-top: 1px solid #526d72;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgb(16 15 24 / 95%);
   list-style: none;
-  color: #e5edeb;
+  color: #ddd9e8;
   font-size: .86rem;
 }
-.shiftGuide li > strong { display: block; margin-bottom: 2px; color: #f0d69b; }
+.shiftGuide li > strong { display: block; margin-bottom: 2px; color: #c6baff; }
 .shiftLayout .actions {
   gap: 1px;
   padding: 0;
@@ -113,9 +126,9 @@
 }
 .shiftLayout .action:focus-visible { outline-offset: -3px; }
 .shiftLayout .action .actionIcon {
-  width: 28px; height: 28px; border-radius: 7px; margin-bottom: 4px;
+  width: 32px; height: 32px; border-radius: 9px; margin-bottom: 5px;
 }
-.shiftLayout .actionIcon .icon { width: 17px; height: 17px; }
+.shiftLayout .actionIcon .icon { width: 18px; height: 18px; }
 .routineCard > .cardHead { flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .routineCard h2 { flex: 1 1 145px; }
 .routineControls { display: flex; align-items: center; gap: 8px; }
@@ -141,6 +154,8 @@
 .follow .linkText { gap: 3px; }
 @media (hover: hover) {
   .shiftLayout .action:hover { background: var(--accent-soft); }
+  .shiftPicker button[aria-pressed="false"]:hover,
+  .shiftGuide > summary:hover { background: #302a43; color: #fff; }
 }
 @media (min-width: 650px) {
   .shiftGuide ul { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
@@ -150,7 +165,10 @@
   .shiftLayout .action .actionIcon { margin: 0 6px 0 0; width: 38px; height: 38px; }
 }
 @media (max-width: 355px) {
-  .shiftPicker button { padding-inline: 6px; }
+  .shiftHeader { padding-inline: 14px; }
+  .shiftPicker button { padding-inline: 4px; }
+  .shiftPicker button strong { font-size: .8rem; }
+  .shiftPicker button small { font-size: .61rem; }
   .shiftLayout .action { padding: 10px 7px; }
   .shiftLayout .actions { gap: 1px; }
 }

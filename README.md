@@ -6,10 +6,12 @@ Caiet personal în limba română pentru lucru în trei schimburi. Include zece 
 
 [Deschide Caietul Șefului de Schimb în browser](https://ionescugeorgemarian02-web.github.io/myApp/). Revino la același link în același browser pentru a continua cu datele salvate. După prima încărcare completă cu internet, caietul se poate redeschide și offline.
 
-## Cum lucrezi în versiunea 2.2
+## Cum lucrezi în versiunea 2.3
 
 - În **Azi → Ghid rapid** găsești pașii pentru începutul, desfășurarea și predarea schimbului. Alege intervalul orar și bifează punctele terminate. **Doar nebifate** îți arată ce mai ai de făcut.
-- Deschide detaliile unui punct pentru notițe și termen. Atinge o restanță din **De urmărit** pentru a deschide înregistrarea.
+- La **Preiau schimbul de la colegul anterior** sau la orice alt punct, apasă creionul, apoi **Adaugă notiță**. Scrie observația, alege prioritatea și, dacă e nevoie, un termen. Apasă **Salvează**. Poți repeta pentru fiecare lucru de urmărit.
+- În **Notițe** găsești observațiile din toate schimburile. Poți corecta textul sau termenul apăsând pe notiță. Bifează o notiță ca să o muți în **Finalizate**, de unde o poți redeschide. Bifa punctului din rutină este independentă.
+- **Azi → Notițe de urmărit** afișează notițele deschise importante, scadente azi sau restante. Notițele vechi de la punctele de rutină, inclusiv din istoricul schimburilor, sunt preluate la actualizare. Textele din blocurile de notițe au legături către paginile lor în fila **Notițe**.
 - **Predare** deschide formularul schimbului. **Problemă** adaugă o fișă în registru. **Rezumat** îți arată mesajul înainte de copiere sau distribuire.
 - În **Pagini**, alege o pagină sau caută după titlu, notițe ori conținutul unei înregistrări. Apasă **Pagină nouă** pentru a crea una. Folosește **Editează** în interiorul paginii pentru a schimba structura, a adăuga blocuri sau a configura câmpuri.
 - În **Setări**, poți ajusta programul celor trei schimburi. Apasă **Aplică programul** după completarea celor trei ore. Secțiunea **Deschiderea caietului** explică și cum poți adăuga o pictogramă pe telefon.

@@ -5,8 +5,9 @@ import { seed, organize } from "./seed.js";
 import { today } from "./views/today.js";
 import { pages } from "./views/pages.js";
 import { pageView } from "./views/page.js";
-import { settings } from "./views/settings.js";
-const VERSION = "2.2";
+import { settings, applyTheme } from "./views/settings.js";
+import { notesView } from "./views/notes.js";
+const VERSION = "2.3";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav");
 app.data = await load(seed).catch((e) => {
@@ -138,7 +139,7 @@ app.openPage = (p, detailKey) => {
 // ——— Desenarea ecranului ———
 function render() {
   sync();
-  document.documentElement.dataset.theme = app.data.settings.theme;
+  applyTheme(app.data.settings.theme);
   let route = "Azi";
   try {
     route = decodeURIComponent(location.hash.slice(1)) || route;
@@ -173,9 +174,10 @@ function render() {
     app.data.pages.find((x) => x.id === route.slice(2));
   if (p) pageView(p, c);
   else if (route === "Pagini" || route.startsWith("p/")) pages();
+  else if (route === "Notițe") notesView(c);
   else if (route === "Setări") settings(VERSION);
   else today(c);
-  const tab = p || route.startsWith("p/") ? "Pagini" : route === "Setări" || route === "Pagini" ? route : "Azi";
+  const tab = p || route.startsWith("p/") ? "Pagini" : ["Setări", "Pagini", "Notițe"].includes(route) ? route : "Azi";
   for (const button of nav.children) {
     const on = button.dataset.route === tab;
     button.classList.toggle("on", on);
@@ -184,7 +186,7 @@ function render() {
   }
   scrollTo(0, y);
 }
-for (const [name, symbol] of [["Azi", "today"], ["Pagini", "pages"], ["Setări", "settings"]]) {
+for (const [name, symbol] of [["Azi", "today"], ["Notițe", "notes"], ["Pagini", "pages"], ["Setări", "settings"]]) {
   const button = btn("", () => (location.hash = name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));
@@ -194,6 +196,10 @@ app.render = render;
 window.addEventListener("hashchange", () => {
   if (location.hash !== "#p/" + app.editing) app.editing = null;
   render();
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+    main.animate([{ opacity: .8, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }], {
+      duration: 180, easing: "ease-out",
+    });
   const detail = targetDetail && [...main.querySelectorAll("[data-key]")].find(
     (d) => d.dataset.key === targetDetail,
   );

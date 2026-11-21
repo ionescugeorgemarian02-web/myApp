@@ -21,7 +21,7 @@ export function pageView(p, c) {
   const main = document.querySelector("main"),
     data = app.data,
     editing = app.editing === p.id;
-  c = { ...c, editing };
+  c = { ...c, editing, pageId: p.id };
   // Bara de sus: înapoi, titlu, editare.
   const bar = el("div", "", "pageBar");
   bar.append(
@@ -119,6 +119,8 @@ export function pageView(p, c) {
       head.firstChild.textContent = "";
       s.append(head);
     }
+    s.dataset.key = "block-" + b.id;
+    s.tabIndex = -1;
     s.append(renderers[b.type](b, c));
     if (editing) {
       let t = toolsFor(p.blocks, b, c, { rename: true, copy: app.clone });

@@ -5,6 +5,21 @@ import { seed, organize } from "../seed.js";
 
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const hoursDrafts = new WeakMap();
+const deviceTheme = matchMedia("(prefers-color-scheme: dark)");
+
+export function applyTheme(preference) {
+  const light = preference === "Luminoasă" || (preference === "Automat" && !deviceTheme.matches);
+  const root = document.documentElement;
+  const theme = light ? "Luminoasă" : "Întunecată";
+  if (root.dataset.theme === theme) return;
+  root.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]').content =
+    getComputedStyle(root).getPropertyValue("--bg").trim();
+}
+
+deviceTheme.addEventListener("change", () => {
+  if (app.data?.settings.theme === "Automat") applyTheme("Automat");
+});
 
 function card(title) {
   const section = el("section", "", "card");
@@ -70,7 +85,7 @@ function appearance(preferences) {
   const choices = el("div", "", "segmented light");
   choices.setAttribute("role", "group");
   choices.setAttribute("aria-label", "Tema caietului");
-  for (const theme of ["Automat", "Luminoasă", "Întunecată"]) {
+  for (const theme of ["Întunecată", "Luminoasă", "Automat"]) {
     const selected = preferences.theme === theme;
     const choice = btn(theme, () => {
       preferences.theme = theme;

@@ -2,6 +2,8 @@ import { app } from "../state.js";
 import { el, btn, details, ask, norm, icon, iconBtn } from "../ui.js";
 import { page, GROUPS } from "../seed.js";
 import { link } from "./today.js";
+import { noteEditor } from "./notes.js";
+import { takeLegacyPageNotes } from "../notes.js";
 let query = "";
 function tile(p) {
   let items = p.blocks.flatMap((b) => b.items || []),
@@ -19,19 +21,20 @@ function tile(p) {
 // Indexul se construiește la prima căutare și se reface după revenirea dintr-o pagină.
 function searchIndex(pages) {
   const entries = [];
-  function add(p, values, key) {
+  function add(p, values, key, note) {
     const fields = values.filter((v) => (typeof v === "string" && v.trim()) || typeof v === "number")
       .map((v) => ({ text: String(v), normalized: norm(v) }));
-    if (fields.length) entries.push({ p, fields, key });
+    if (fields.length) entries.push({ p, fields, key, note });
   }
   for (const p of pages) {
     add(p, [p.title]);
     for (const b of p.blocks) {
-      add(p, [b.title === p.title ? "" : b.title, b.text]);
+      add(p, [b.title === p.title ? "" : b.title, b.text], "block-" + b.id);
       for (const i of b.items || []) add(p, [i.title, i.notes, i.ready, i.details], "item-" + i.id);
       for (const r of b.rows || []) add(p, b.cols.map((col) => r.values[col.id]), "row-" + r.id);
     }
   }
+  for (const note of app.data.notes) add(null, [note.text], null, note);
   return entries;
 }
 function results(entries, query) {
@@ -46,8 +49,9 @@ function results(entries, query) {
   let shown = 0;
   function more() {
     const next = matches.slice(shown, shown + 20);
-    for (const { p, key, text } of next) {
-      out.append(link(text.slice(0, 140), p.title + (p.archived ? " · arhivată" : ""), "chip", () => app.openPage(p, key)));
+    for (const { p, key, text, note } of next) {
+      if (note) out.append(link(text.slice(0, 140), "Notițe", "chip", () => noteEditor(note.source, note)));
+      else out.append(link(text.slice(0, 140), p.title + (p.archived ? " · arhivată" : ""), "chip", () => app.openPage(p, key)));
     }
     shown += next.length;
     if (shown < matches.length) {
@@ -117,6 +121,7 @@ export function pages() {
               let p = app.clone(t);
               p.archived = false;
               data.pages.push(p);
+              data.notes.push(...takeLegacyPageNotes(p));
               app.refresh();
               app.openPage(p);
             },

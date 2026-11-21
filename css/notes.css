@@ -1,0 +1,73 @@
+.noteEditorOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.noteEditorOptions .field { min-width: 0; margin: 0; }
+.noteEditorOptions input { max-width: 100%; }
+dialog .noteOrigin { margin-block: -4px 14px; }
+.noteList .empty { margin-block: 12px 4px; }
+.noteRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.noteRow + .noteRow, .noteHistory[open] > .noteRow {
+  border-top: 1px solid var(--line);
+}
+.noteCheck {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  min-height: 48px;
+  cursor: pointer;
+}
+.noteCheck input {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: 2px solid var(--muted);
+  border-radius: 7px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.noteCheck input:checked {
+  background: var(--accent) var(--tick) center / 16px no-repeat;
+  border-color: var(--accent);
+}
+.noteEdit {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: start;
+  padding: 12px 8px;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+}
+.noteBody { display: grid; gap: 5px; min-width: 0; }
+.noteText {
+  font-size: .96rem;
+  font-weight: 550;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.noteEdit > .icon { width: 16px; height: 16px; margin-top: 3px; color: var(--muted); }
+.noteMeta { display: flex; flex-wrap: wrap; gap: 4px; }
+.noteOrigin { color: var(--muted); font-size: .8rem; font-weight: 450; overflow-wrap: anywhere; }
+.noteRow.isDone .noteText { color: var(--muted); text-decoration: line-through; }
+.noteHistory { padding-block: 0; }
+.noteHistory > summary { min-height: 48px; font-weight: 650; }
+.pageNote .linkText { min-width: 0; }
+@media (hover: hover) {
+  .noteEdit:hover { background: var(--surface-2); }
+  .noteEdit:hover > .icon { color: var(--accent); }
+}
+@media (max-width: 350px) {
+  .noteEditorOptions { grid-template-columns: 1fr; }
+}

@@ -1,3 +1,6 @@
+import { takeLegacyPageNotes } from "./notes.js";
+import { validDate } from "./ui.js";
+
 let db,
   writing,
   pending,
@@ -15,7 +18,6 @@ export function validHours(hours) {
   return hasThreeTimes(hours) && hours[0] < hours[1] && hours[1] < hours[2];
 }
 export function migrate(data) {
-  // Fiecare versiune viitoare va transforma aici copia anterioară.
   if (
     data?.schemaVersion !== 1 ||
     !Array.isArray(data.pages) ||
@@ -86,6 +88,20 @@ export function migrate(data) {
     !hasThreeTimes(data.settings.hours)
   )
     throw Error("Structură incompletă.");
+  if (data.notes === undefined) data.notes = [];
+  const validSource = (s) => s === null || (s &&
+    ["pageId", "blockId", "itemId", "title", "shiftKey"].every((k) => str(s[k])));
+  const validNote = (n) => n && str(n.id) && n.id.length > 0 &&
+    str(n.text) && n.text.trim().length > 0 && ["normal", "important"].includes(n.priority) &&
+    (n.due === "" || validDate(n.due)) && typeof n.done === "boolean" &&
+    str(n.createdAt) && /^\d{4}-\d{2}-\d{2}T/.test(n.createdAt) &&
+    Number.isFinite(Date.parse(n.createdAt)) && validSource(n.source);
+  if (!Array.isArray(data.notes) || !data.notes.every(validNote) ||
+    new Set(data.notes.map((n) => n.id)).size !== data.notes.length)
+    throw Error("Lista de notițe este incompletă sau nevalidă.");
+  for (const page of data.pages) {
+    for (const note of takeLegacyPageNotes(page)) data.notes.push(note);
+  }
   return data;
 }
 export async function load(seed) {
@@ -100,12 +116,13 @@ export async function load(seed) {
     r.onsuccess = () => ok(r.result);
     r.onerror = () => no(r.error);
   });
-  if (data === undefined) {
-    data = seed();
+  const previousCount = data?.notes?.length;
+  data = migrate(data === undefined ? seed() : data);
+  if (data.notes.length !== previousCount) {
     save(data);
     await flush();
   }
-  return migrate(data);
+  return data;
 }
 export function save(data) {
   pending = data;
