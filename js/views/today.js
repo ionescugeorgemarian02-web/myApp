@@ -62,6 +62,9 @@ function shiftActions(c) {
     add("Siguranță", "shield", () => newSafetyEvent());
   const tour = auditStatus(app.data, c.key)[0];
   if (tour) add("Tur pe linie", "audit", () => app.openPage(tour.p));
+  const stops = app.data.pages.find((page) => !page.archived && page.blocks.some((block) =>
+    block.cols?.some((column) => column.key === "stopEquipment")));
+  if (stops) add("Registrul opririlor", "clock", () => app.openPage(stops));
   add("Rezumat", "send", async () => {
     const text = report();
     if (await confirmShare(text)) await share(text);

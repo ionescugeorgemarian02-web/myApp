@@ -300,7 +300,8 @@ export function seed() {
       ],
       [
         "Accidente și incidente evitate la limită",
-        "Rebut / FPY (%)",
+        "Rată de rebut (%)",
+        "FPY (%)",
         "OEE (%)",
         "Plan realizat (%)",
         "Absențe (%)",
@@ -308,7 +309,7 @@ export function seed() {
     ),
     grid("Contacte", "table", [
       "Departament",
-      "Nume",
+      "Rol de contact",
       "Canal aprobat",
       "Ce cere de la mine",
     ]),

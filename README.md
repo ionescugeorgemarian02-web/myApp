@@ -1,70 +1,61 @@
 # Caietul Șefului de Schimb
 
-Caiet personal în limba română pentru lucru în trei schimburi. Include rutina schimbului, predarea cu cifre, registrul de probleme, siguranță, tur pe linie, echipă și polivalență, indicatori calculați automat, analiza săptămânii și sfaturi generate din datele tale.
+PWA personală, în limba română, pentru coordonarea unui schimb în producție. Aplicația folosește HTML, CSS, module JavaScript și IndexedDB. Rapoartele se pot copia și salva local.
 
-## Deschide caietul
+**Introdu date interne doar dacă politica angajatorului permite utilizarea aplicației și a dispozitivului personal.** Browserul păstrează datele local. Aplicația nu le criptează și nu le sincronizează. Copiile JSON și CSV conțin datele completate. Folosește roluri și identificatori neutri și păstrează copiile într-un loc aprobat. În modul Instruire folosește exclusiv date fictive.
 
-[Deschide Caietul Șefului de Schimb în browser](https://ionescugeorgemarian02-web.github.io/myApp/). Revino la același link în același browser pentru a continua cu datele salvate. După prima încărcare completă cu internet, caietul se poate redeschide și offline.
+## Pe telefon
 
-## Cum lucrezi în versiunea 3.0
+1. Deschide adresa aprobată cu internet și așteaptă încărcarea completă. Pe Android folosește meniul Chrome → **Instalează** sau **Adaugă pe ecranul de pornire**. Pe iPhone folosește Safari → **Partajare → Adaugă pe ecranul principal**.
+2. Pornește cu **Setări → Confidențialitate și instruire → Deschide modul de instruire**. Caietul de instruire este separat. Ecranul, rezumatele și exporturile sunt marcate. După încărcare, activează modul avion și redeschide aplicația pentru a verifica offline pe telefonul tău.
+3. Dacă politica locală permite, revino la caietul personal. În **Setări → Linia mea**, configurează zona și posturile. Confirmă orele în **Programul schimburilor**. Pentru caiete noi, data planului este 23 noiembrie 2026. Caietele existente își păstrează data, editabilă din **Linia mea**.
+4. Deschide același URL și folosește același browser sau aceeași pictogramă pentru a regăsi datele. Verifică persistența după instalare, deoarece platforma poate folosi un spațiu separat pentru aplicația de pe ecranul principal.
 
-Jos ai patru secțiuni: **Azi**, **Analiză**, **Notițe** și **Caiet**. **Setări** se deschide din pictograma din antet.
+## Fluxuri principale
 
-### Prima configurare (2 minute)
-1. **Setări → Linia mea**: scrie posturile și mașinile liniei, câte unul pe rând. Lista apare la „Post / mașină” în probleme și siguranță și în matricea de polivalență. Tot aici alegi **prima zi în funcție**, pentru planul de 90 de zile.
-2. **Caiet → Echipa**: adaugă oamenii schimbului.
-3. **Caiet → Indicatori**: completează valorile de pornire. Aplicația le folosește drept reper în grafice și sfaturi.
+| Ecran | Ce faci |
+| --- | --- |
+| **Azi** | Vezi zona, programul, semnalele SQDCP, prioritățile, verificările și rutina. Urgențele și termenele sunt semnalate distinct. Accesezi predarea, preluarea schimbului anterior, problemele și registrul de siguranță. |
+| **Plan versus realizat** | Adaugi intervale cu început și sfârșit, inclusiv peste miezul nopții, pentru o zonă și un schimb. Înregistrezi plan, realizat, calitate, timp, cauză și acțiune. Poți lega o problemă. Totalurile din acest ecran acoperă numai intervalele afișate și cer valori complete pentru indicatorul calculat. |
+| **Predare schimb** | Completezi cifrele și starea schimbului, apoi confirmi verificarea. Preluarea cere mai întâi o predare verificată. Modificarea fișei invalidează confirmările. Rezumatul poate fi copiat. Fișa personală se folosește în completarea procesului oficial. |
+| **Probleme și acțiuni** | Înregistrezi impact, containment, rol funcțional, termen, escaladare, cauză și corecție. Închiderea cere dovada eficacității și o concluzie. Cauți după text și filtrezi după stare, termene și urgență. |
+| **Caiet** | Deschizi Leadership și SBAR, planul de dezvoltare, echipa, polivalența, audituri personale, registrul opririlor și dicționarul KPI local. Pentru un caiet migrat poți copia modelul cronologic din secțiunea Șabloane. Arhivează rutina precedentă dacă vrei să păstrezi istoricul și să afișezi doar modelul nou. |
+| **Analiză** | Vezi graficele istorice din sursele existente. **Indicatori operaționali și praguri** adaugă perioada editabilă, sursa, formula, unitatea și pragul per KPI. Pentru indicatorii de producție selectează zona. Pentru OEE, MTTR și MTBF rămâne disponibil dicționarul documentar până la definirea datelor necesare. |
 
-### În timpul schimbului (Azi)
-- **Tura mea** arată cifrele schimbului pe structura SQDCP: Siguranță, Calitate (rebut), Livrare (plan), Cost (minute de oprire), Oameni (prezenți). Atinge o plăcuță sau **Completează cifrele schimbului** ca să deschizi predarea.
-- **Sfaturi pentru tura ta**: recomandări generate din datele caietului, fiecare cu un buton care te duce unde trebuie să acționezi.
-- **Acțiuni de schimb**: Predare, Problemă, **Siguranță** (incident, near-miss, observație), **Tur pe linie** și Rezumat.
-- **De urmărit** și rutina funcționează ca înainte.
-
-### Modulele noi din Caiet
-- **Predare schimb** are acum grupul **Cifrele schimbului**: plan, realizat, rebut (buc), minute de oprire, efectiv planificat și prezenți. Fișa arată direct „Plan 96% · Rebut 2,5%”.
-- **Probleme și acțiuni** are **Post / mașină** și etapa **Verificare**. La „Închis” se salvează data închiderii, iar vârsta problemei apare în Analiză.
-- **Siguranță**: registru de incidente, near-miss și observații.
-- **Tur pe linie**: 8 puncte verificate în fiecare schimb cu OK/NOK. Un NOK devine problemă cu o atingere. Punctele se modifică din **Editează**.
-- **Polivalență**: matrice oameni × posturi (– neinstruit, 1 cu supraveghere, 2 autonom, 3 poate instrui). Arată posturile acoperite de mai puțin de 2 oameni autonomi.
-- **Registru de decizii**: șablon în Caiet → Șabloane.
-- Paginile din **Primele 90 de zile** arată „Ziua X din 90” și pot genera un **raport de progres**. Pagina **Indicatori** afișează valorile calculate automat pe ultimele 4 săptămâni.
-
-### Analiză (revizuirea săptămânii)
-- **Sfaturi inteligente**: toate recomandările, ordonate după urgență, cu siguranța pe primul loc.
-- **Angajamente închise la termen**: metrica principală (notițe, puncte din liste, probleme, promisiuni 1:1, decizii).
-- **Indicatorii săptămânii (SQDCP)** cu comparație față de săptămâna trecută și tendința pe 8 săptămâni.
-- Grafice pe schimburi, problemele cele mai vechi, clasamentul pe posturi, rutina și turul, echipa (discuții 1:1, promisiuni, polivalență), siguranța.
-- **Revizuirea săptămânii**: 3 priorități și ce ai învățat. **Raport pentru șef** trimite tot rezumatul pe WhatsApp sau e-mail.
-- Săgețile din antet te duc la săptămânile anterioare.
-- Fila **Progres** (lângă „Săptămâna”) arată evoluția în timp pe 4, 8 sau 13 săptămâni:
-  - inele pentru ziua din cele 90, angajamentele închise la termen, rutina bifată, posturile acoperite și discuțiile 1:1;
-  - grafice pentru plan realizat (cu linia de 100%, valoarea de pornire și ținta), rebut, minute de oprire, absențe, disciplina de execuție, probleme (noi, închise, rămase deschise) și siguranță.
-
-  Fiecare grafic arată valoarea actuală și cât s-a schimbat în perioadă (verde dacă e mai bine, roșu dacă e mai rău).
-
-### Despre sfaturi
-Sfaturile sunt calculate pe telefon, din regulile de management aplicate datelor tale: siguranța întâi, probleme repetate pe același post, planul ratat repetat, rebut și opriri în creștere, restanțe vechi, probleme fără responsabil sau termen, discuții 1:1 lipsă, posturi fără înlocuitor, puncte din rutină sărite des. Datele nu sunt trimise nicăieri și aplicația funcționează fără internet.
-
-### Notițe
-Pentru o problemă de remediat până la ora 20:00, apasă **Notiță nouă**, scrie ce trebuie făcut și introdu **20:00** în câmpul **Oră**. O notiță bifată este mutată la **Finalizate**, iar momentul finalizării contează la „închise la termen”.
+La **Polivalență**, alocă întâi schimbul în **Echipa** și folosește „Niveluri și necesar pe schimb” pentru criterii. Indicatorul arată acoperirea pe post pe baza alocării și nivelului înregistrat, fără a verifica prezența, autorizarea sau conflictele de alocare între posturi. Ghidurile, formularele și orele orientative trebuie verificate față de practica locală.
 
 ## Backup și recuperare
 
-În **Setări → Copie de siguranță → Salvează copia**, salvează copia completă în Fișiere sau Descărcări. După șapte zile, caietul îți amintește să faci următoarea copie. Pentru recuperare, deschide **Setări → Copie de siguranță → Încarcă o copie**, alege fișierul și confirmă înlocuirea. Pentru a păstra și caietul curent, exportă-l înainte. Resetarea din Setări necesită două confirmări.
+- **Setări → Copie de siguranță → Salvează copia** descarcă fișierul JSON complet. Verifică fișierul în Descărcări și păstrează-l separat de telefon dacă politica permite.
+- **Încarcă o copie** validează fișierul și cere confirmarea înlocuirii. Exportă întâi caietul curent. Restaurează copiile de instruire în modul Instruire.
+- În tabelele care permit export, **Editează → Export CSV** descarcă tabelul. Funcția de copiere a rapoartelor folosește clipboardul sau afișează textul selectabil.
+- Folosește o filă pentru editare. Dacă altă filă a salvat între timp, cea veche afișează o eroare și păstrează ciorna în sesiunea deschisă. Exportă sesiunea dacă ai modificări de recuperat, apoi reîncarcă.
+- Datele pot deveni inaccesibile dacă se șterge stocarea browserului, se pierde dispozitivul sau se schimbă originea aplicației. Restaurarea înlocuiește documentul caietului după confirmare.
 
-Înregistrările sunt păstrate în browserul telefonului, în IndexedDB. Aplicația cere stocare persistentă, iar telefonul decide dacă o acordă. Ștergerea datelor browserului, pierderea telefonului sau folosirea altui browser poate duce la pierderea accesului la caiet. Fișierele exportate conțin datele completate. Păstrează-le într-un loc privat și nu le încărca în repository.
+## Dezvoltare și verificare
 
-Când apare **Versiune nouă disponibilă – actualizează**, apasă butonul. Datele rămân neatinse. Aplicația finalizează salvarea înainte de reîncărcare.
+Rulează din directorul proiectului:
 
-## Cum ceri modificări
+```sh
+python3 -m http.server 8124 --bind 127.0.0.1
+node --test tests/*.mjs
+```
 
-În secțiunea **Issues → New issue** a repository-ului, descrie pagina, ce faci acum și ce ai vrea să poți face. Folosește exemple fictive. Nu atașa backupul, date de producție sau nume reale.
+Deschide `http://127.0.0.1:8124/`. Service Worker cere HTTPS sau localhost. Testul opțional de browser folosește Chromium și `playwright-core`. Instalează pachetul în afara repository-ului sau indică un modul disponibil:
 
-## Rulare pe calculator (pentru modificări)
+```sh
+npm install --prefix /tmp/myapp-test playwright-core
+PLAYWRIGHT_MODULE=/tmp/myapp-test/node_modules/playwright-core node tests/browser.cjs
+```
 
-Nu e nevoie de instalare. Din folderul proiectului rulează `python3 -m http.server 8000` și deschide http://localhost:8000.
+Variabile opționale: `MYAPP_TEST_URL`, `CHROMIUM_EXECUTABLE`. Testul folosește un profil izolat și date fictive. La schimbări ale aplicației actualizează versiunea și lista de resurse din `sw.js`. Testele verifică inventarul de resurse.
 
-Testele rulează cu `node --test tests/*.mjs`.
+## Publicare manuală
 
-Pentru mentenanță, sursele sunt HTML, CSS și module JavaScript fără build. Calculele (js/metrics.js) și sfaturile (js/advice.js) nu depind de interfață. La publicarea modificărilor, mărește versiunea cache-ului din sw.js și actualizează lista de fișiere pentru funcționarea offline.
+GitHub Pages este configurat pentru `main`, folderul rădăcină. După aprobarea publicării, revizuiește branchul, verifică impactul pe un URL local și exportă o copie din versiunea curentă dacă politica permite. Integrează branchul în `main` printr-un pull request, apoi verifică etapa Pages și URL-ul public. Pe dispozitiv, acceptă actualizarea Service Worker după ce ai salvat lucrul și testează o redeschidere offline.
+
+## Documentație
+
+- [Audit inițial](docs/audit.md)
+- [Cercetarea publică și verificările interne](docs/cercetare.md)
+- [Prima mea zi, conducerea schimbului și planul pe 90 de zile](docs/ghid-supervizor.md)

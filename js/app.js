@@ -125,6 +125,11 @@ app.clone = (source) => {
         item.id = ids.get(item.id);
       }
     }
+    if (block.runs) {
+      block.runs = Object.fromEntries(Object.entries(block.runs).map(([key, values]) => [
+        key, Object.fromEntries(Object.entries(values).map(([itemId, result]) => [ids.get(itemId) || itemId, result])),
+      ]));
+    }
     const columns = new Map();
     for (const col of block.cols || []) {
       const newId = id();

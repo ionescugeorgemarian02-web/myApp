@@ -4,7 +4,7 @@ import { INTERVAL_NUMBERS, intervalTotals, validInterval } from "../operations.j
 import { nonnegative, productionKpis } from "../production.js";
 import { problemsBlock } from "../metrics.js";
 import { rowLabel } from "../records.js";
-import { fmt } from "../charts.js";
+import { bars, fmt } from "../charts.js";
 
 export const noData = "Date indisponibile";
 const amount = (number, unit = "") => number == null ? noData : fmt(number) + unit;
@@ -113,6 +113,10 @@ export function productionView(c) {
       el("p", "Plan " + amount(total.plan) + " · realizat " + amount(total.produced) + " · abatere " + amount(total.variance) + " · atingere " + amount(total.planPct, "%")),
       el("p", "Rebut " + amount(total.scrapPct, "%") + " · reprelucrare " + amount(total.reworkPct, "%") + " · FPY " + amount(total.fpy, "%")),
       el("p", "Totalurile cer câmpul completat în fiecare interval afișat. FPY folosește piesele bune din prima trecere și totalul comparabil introdus.", "formHelp"));
+    const recent = rows.slice(-6);
+    if (recent.length > 1 && recent.some((row) => productionKpis(row).planPct !== null))
+      list.append(bars(recent.map((row) => ({ label: row.start.slice(-5), value: productionKpis(row).planPct })),
+        { ref: 100, unit: "%", label: "Atingerea planului în ultimele intervale raportate" }));
     for (const row of rows) {
       const k = productionKpis(row);
       const card = details(row.start.replace("T", " ") + " → " + row.end.slice(-5) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");

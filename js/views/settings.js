@@ -84,12 +84,12 @@ function schedule(preferences) {
 // Posturile și mașinile liniei: folosite la probleme, siguranță și polivalență.
 function lineCard(preferences) {
   const section = card("Linia mea");
-  section.append(el("p", "Scrie câte un post sau o mașină pe rând (ex. Robot sudură 2). Lista apare la „Post / mașină” în probleme și siguranță și în matricea de polivalență.", "hint"));
+  section.append(el("p", "Scrie câte un post sau o mașină pe rând. Lista apare la „Post / mașină” în probleme și siguranță și în matricea de polivalență.", "hint"));
   const list = el("textarea");
   list.rows = 5;
   list.value = (preferences.equipment || []).join("\n");
   list.setAttribute("aria-label", "Posturi și mașini, câte unul pe rând");
-  list.placeholder = "Post 1\nRobot sudură 2\nPresa 3";
+  list.placeholder = "Post 1\nPost 2\nPost 3";
   const status = el("p", "", "settingsMetadata");
   const count = () => {
     const n = (preferences.equipment || []).length;

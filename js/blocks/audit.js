@@ -89,7 +89,7 @@ export function audit(b, c) {
       const bad = b.items.filter((i) => r[i.id]?.s === "nok").map((i) => i.title);
       history.append(
         el("h4", key + " · " + values.length + " verificate · " + bad.length + " NOK"),
-        el("p", bad.length ? "NOK: " + bad.join(" • ") : "Totul OK", "desc"),
+        el("p", bad.length ? "NOK: " + bad.join(" • ") : "Niciun NOK raportat", "desc"),
       );
     }
     box.append(history);
