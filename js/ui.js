@@ -33,13 +33,14 @@ export function input(label, value, change, type = "text", options = []) {
   l.append(n);
   return l;
 }
-export function details(label) {
+export function details(label, key) {
   const d = el("details");
+  if (key) d.dataset.key = key;
   d.append(el("summary", label));
   return d;
 }
 export function toolsFor(a, x, ctx, rename, copy) {
-  const d = details("Organizare");
+  const d = details("Organizare", x.id && "org-" + x.id);
   if (rename)
     d.append(
       btn("Redenumește", () => {
@@ -73,3 +74,10 @@ export function toolsFor(a, x, ctx, rename, copy) {
   d.append(btn("Șterge", () => ctx.remove(a, x)));
   return d;
 }
+// Comparare de text fără diacritice și fără majuscule.
+export const norm = (v) =>
+  String(v ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();

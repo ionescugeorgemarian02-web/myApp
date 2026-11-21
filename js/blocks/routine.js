@@ -3,7 +3,7 @@ import { el, details } from "../ui.js";
 export function routine(b, c, compact) {
   let n = checklist(b, c, compact);
   if (!compact) {
-    let d = details("Istoricul schimburilor");
+    let d = details("Istoricul schimburilor", "hist-" + b.id);
     for (let [k, items] of Object.entries(b.history).reverse()) {
       d.append(
         el("h3", k),

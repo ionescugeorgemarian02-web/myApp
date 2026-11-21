@@ -29,7 +29,7 @@ export function checklist(b, c, compact = false) {
       el("span", (i.priority === "important" ? "★ " : "") + i.title),
     );
     row.append(label);
-    const d = details(compact ? "Detalii" : "Editează punctul");
+    const d = details(compact ? "Detalii" : "Editează punctul", "item-" + i.id);
     for (const [key, name, type] of [
       ["title", "Titlu", "text"],
       ["details", "Detalii", "area"],

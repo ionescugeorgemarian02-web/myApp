@@ -2,14 +2,36 @@
 
 Caiet personal în limba română pentru lucru în trei schimburi. Include zece pagini de pornire pentru rutina zilnică, predarea schimbului, echipă, indicatori și primele 90 de zile.
 
-## Deschidere și instalare
+## Cum o pornești pe telefon
 
-Adresa prevăzută după publicarea pe GitHub Pages este [Caietul Șefului de Schimb](https://ionescugeorgemarian02-web.github.io/caietul-sefului-de-schimb/).
+Aplicația este o pagină web care se instalează ca aplicație (PWA). Nu are nevoie de Magazin Play sau App Store și merge și fără internet după prima deschidere.
 
-1. Deschide adresa pe telefon cu internet la prima utilizare.
-2. Pe Android, în Chrome, apasă **⋮ → Adaugă pe ecranul de pornire → Instalează**. Pe iPhone, în Safari, apasă **Partajare → Adaugă pe ecranul principal**.
-3. Deschide caietul din pictogramă și verifică dacă îl poți redeschide în modul avion. Folosește aceeași pictogramă pentru înregistrările zilnice.
-4. În **Azi**, verifică schimbul curent. Poți alege alt schimb atingând numărul lui. În **Setări** poți modifica ora de început a fiecărui schimb. Sfârșitul unui schimb este începutul următorului. Schimbul de noapte aparține zilei în care a început.
+**O singură dată, pe GitHub (de pe calculator sau telefon):**
+
+1. Unește pull request-ul în ramura **main** (butonul **Merge pull request**).
+2. Deschide repository-ul **myApp → Settings → Pages**.
+3. La **Source** alege **Deploy from a branch**, apoi ramura **main** și folderul **/ (root)** și apasă **Save**.
+4. Așteaptă 1–2 minute. Adresa aplicației va fi: **https://ionescugeorgemarian02-web.github.io/myApp/**
+
+**Pe telefon:**
+
+1. Deschide adresa de mai sus (cu internet, prima dată).
+2. **Android (Chrome):** apare butonul **⤓ Instalează caietul pe telefon** pe pagina Azi. Dacă nu apare: **⋮ → Adaugă pe ecranul de pornire → Instalează**.
+3. **iPhone (Safari):** **Partajare → Adaugă pe ecranul principal**.
+4. Deschide caietul din pictogramă. Verifică o dată în modul avion că se deschide.
+5. În **Azi**, verifică schimbul curent. Poți alege alt schimb atingând numărul lui. În **Setări** poți modifica ora de început a fiecărui schimb. Sfârșitul unui schimb este începutul următorului. Schimbul de noapte aparține zilei în care a început.
+
+## Ce e nou în versiunea 1.1
+
+- **Predarea schimbului pe pagina Azi:** buton care creează intrarea de predare pentru schimbul curent, cu data și schimbul completate.
+- **✉ Trimite rezumatul către șef:** generează un text cu predarea, rutina (ce nu s-a făcut), problemele deschise și termenele depășite și îl trimite direct în WhatsApp, e-mail sau SMS (pe calculator îl copiază).
+- **Termene restante:** pe Azi apar și termenele depășite (cu roșu), nu doar cele de azi. Rândurile închise sau rezolvate nu mai apar.
+- **Probleme deschise:** lista problemelor cu stare diferită de „Închis”, direct pe Azi.
+- **Meniurile rămân deschise** după o bifă sau o modificare (înainte se închideau la fiecare bifă).
+- **Jurnalul** arată intrările noi primele, iar butonul **+ Intrare nouă** este sus.
+- **Export CSV** cu numele tabelului și data în numele fișierului.
+- **Setări → Aplicația pe telefon:** buton de instalare, starea stocării și data ultimului backup.
+- Aplicația caută singură versiuni noi când o redeschizi.
 
 ## Folosire în timpul schimbului
 
@@ -27,15 +49,12 @@ Adresa prevăzută după publicarea pe GitHub Pages este [Caietul Șefului de Sc
 
 Când apare **Versiune nouă – reîncarcă**, apasă butonul pentru actualizare. Aplicația finalizează salvarea înainte de reîncărcare.
 
-## Publicare pe GitHub Pages
-
-1. În GitHub, creează un repository public numit **caietul-sefului-de-schimb**. Bifează opțiunea de creare a unui README pentru a inițializa ramura **main**.
-2. Dezarhivează proiectul. În repository, alege **Add file → Upload files** și trage în pagină conținutul folderului dezarhivat, inclusiv folderele css, js și icons. Verifică dacă index.html se află direct în rădăcină. Confirmă cu **Commit changes** pe main.
-3. Deschide **Settings → Pages**, alege **Deploy from a branch**, apoi **main** și **/ (root)** și apasă **Save**.
-4. După publicare, deschide **Visit site** din aceeași secțiune. Dacă folosești alt cont sau alt nume de repository, actualizează adresa de la începutul acestui README.
-
 ## Cum ceri modificări
 
 În secțiunea **Issues → New issue** a repository-ului, descrie pagina, ce faci acum și ce ai vrea să poți face. Folosește exemple fictive. Nu atașa backupul, date de producție sau nume reale.
+
+## Rulare pe calculator (pentru modificări)
+
+Nu e nevoie de instalare. Din folderul proiectului rulează `python3 -m http.server 8000` și deschide http://localhost:8000.
 
 Pentru mentenanță, sursele sunt HTML, CSS și module JavaScript fără build. La publicarea modificărilor, mărește versiunea cache-ului din sw.js și actualizează lista de fișiere pentru funcționarea offline.
