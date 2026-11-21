@@ -30,6 +30,8 @@ export function runAction(a) {
       if (!ho) return;
       if (!ho.r) {
         ho.r = newRow(ho.b, c);
+        const zone = colByKey(ho.b, "handoverZone");
+        if (zone && app.data.settings.zone) ho.r.values[zone.id] = app.data.settings.zone;
         app.save();
       }
       app.openPage(ho.p, "row-" + ho.r.id);

@@ -123,11 +123,12 @@ export function safetyEvents(data) {
   if (!s) return [];
   const { b, p } = s;
   const dateCol = b.cols.find((c) => c.type === "date" && norm(c.name) === "data");
-  const type = colByKey(b, "safetyType"), eq = colByKey(b, "equipment");
+  const type = colByKey(b, "safetyType"), eq = colByKey(b, "equipment"), shift = colByName(b, "schimb");
   return b.rows.map((r) => ({
     r, p, b,
     date: dateCol ? r.values[dateCol.id] : "",
     type: norm(r.values[type.id]),
+    shift: Number(r.values[shift?.id]) || null,
     equipment: eq ? r.values[eq.id] || "" : "",
     label: rowLabel(b, r),
     closed: isClosed(b, r),

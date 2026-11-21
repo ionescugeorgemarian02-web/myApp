@@ -38,6 +38,7 @@ function schedule(preferences) {
   const apply = btn("Aplică programul", async () => {
     if (!validHours(draft)) return;
     preferences.hours = [...draft];
+    preferences.scheduleConfirmed = true;
     delete preferences.slot;
     delete preferences.shift;
     hoursDrafts.delete(preferences);
@@ -53,7 +54,7 @@ function schedule(preferences) {
   function validate() {
     const changed = draft.some((h, i) => h !== preferences.hours[i]);
     const valid = validHours(draft);
-    apply.disabled = !valid || !changed;
+    apply.disabled = !valid || (!changed && preferences.scheduleConfirmed === true);
     message.textContent = !valid
       ? "Completează cele trei ore în ordine crescătoare."
       : changed ? "Program modificat. Apasă „Aplică programul” pentru salvare." : "";
@@ -113,7 +114,10 @@ function lineCard(preferences) {
     preferences.startDate = value;
     app.save();
   }, "date");
-  section.append(list, status, start);
+  section.append(input("Zona sau linia curentă", preferences.zone || "", (value) => {
+    preferences.zone = value.trim();
+    app.save();
+  }), list, status, start);
   return section;
 }
 

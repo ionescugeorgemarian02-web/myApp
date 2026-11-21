@@ -37,7 +37,7 @@ test("săptămâna ISO și datele", () => {
 test("caietul nou are modulele versiunii 3 și migrarea rulează o singură dată", () => {
   const d = seed();
   assert.ok(m.safetyBlock(d) && m.skillsBlock(d) && m.auditBlocks(d).length === 1);
-  assert.deepEqual(m.handoverBlock(d).b.cols.filter((c) => c.key).map((c) => c.key),
+  assert.deepEqual(m.handoverBlock(d).b.cols.filter((c) => m.SHIFT_FIELDS.some(([key]) => key === c.key)).map((c) => c.key),
     ["plan", "produced", "scrap", "downtime", "planned", "present"]);
   assert.ok(m.problemsBlock(d).b.cols.find((c) => c.name === "Stare").options.includes("Verificare"));
   assert.equal(upgrade(d), false);
@@ -52,6 +52,7 @@ test("un caiet vechi (2.4) primește câmpurile noi fără să piardă datele", 
   // Simulăm caietul vechi: fără chei, fără module noi, cu o predare scrisă.
   const ho = m.handoverBlock(d).b;
   ho.cols = ho.cols.filter((c) => !c.key);
+  byName(ho, "Situația producției / probleme").name = "Probleme";
   ho.rows.push({ id: "x", values: { [byName(ho, "Probleme").id]: "Robot oprit" } });
   d.pages = d.pages.filter((p) => !["Siguranță", "Tur pe linie", "Polivalență"].includes(p.title));
   for (const c of m.problemsBlock(d).b.cols) delete c.key;
@@ -137,7 +138,7 @@ test("rutina: puncte sărite des în schimburile lucrate", () => {
   rb.key = "2026-11-21 · Schimb 1";
   const s = m.skippedItems(d, ctx());
   assert.equal(s.length, 1);
-  assert.equal(s[0].title, "Trimit rezumatul către șef.");
+  assert.equal(s[0].title, rb.items[6].title);
   assert.equal(m.routineShifts(d).length, 7);
 });
 

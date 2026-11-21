@@ -1,5 +1,6 @@
+import { validInterval } from "./operations.js";
 import { takeLegacyPageNotes } from "./notes.js";
-import { validDate } from "./ui.js";
+import { norm, validDate } from "./ui.js";
 
 let db,
   writing,
@@ -101,6 +102,19 @@ export function migrate(data) {
     !hasThreeTimes(data.settings.hours)
   )
     throw Error("Structură incompletă.");
+  if (data.settings.zone !== undefined && !str(data.settings.zone))
+    throw Error("Zona este nevalidă.");
+  if (data.intervals !== undefined) {
+    if (!Array.isArray(data.intervals) || data.intervals.some((r) => validInterval(r)) ||
+        new Set(data.intervals.map((r) => r.id)).size !== data.intervals.length)
+      throw Error("Intervalele de producție sunt nevalide.");
+    const endByZone = new Map();
+    for (const r of [...data.intervals].sort((a, b) => a.start.localeCompare(b.start))) {
+      const zone = norm(r.zone);
+      if (r.start < (endByZone.get(zone) || "")) throw Error("Copia conține intervale suprapuse.");
+      endByZone.set(zone, r.end);
+    }
+  }
   if (data.settings.privacyAcknowledged !== undefined && data.settings.privacyAcknowledged !== true)
     throw Error("Preferința de confidențialitate este nevalidă.");
   if (data.settings.equipment !== undefined &&

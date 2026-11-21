@@ -1,3 +1,4 @@
+import { HANDOVER_FIELDS, PROBLEM_FIELDS, ROUTINE } from "./operations.js";
 import { id, day, norm } from "./ui.js";
 import { item } from "./blocks/checklist.js";
 import { column } from "./records.js";
@@ -50,6 +51,7 @@ export function organize(data) {
     changed = true;
   }
   if (upgrade(data)) changed = true;
+  if (addOperations(data)) changed = true;
   for (const p of [...data.pages, ...data.templates])
     if (typeof p.group !== "string") {
       const k = KNOWN[p.title];
@@ -164,6 +166,23 @@ export function upgrade(data) {
     data.templates.push(t);
   }
   s.featuresVersion = FEATURES;
+  return true;
+}
+
+function addOperations(data) {
+  if (data.settings.operationsVersion >= 1) return false;
+  const handover = findTable(data, (b) => b.type === "journal" && named(b, "schimb") && named(b, "data"));
+  const problems = findTable(data, (b) => b.type === "table" && named(b, "stare") && (named(b, "problema") || b.cols.some((col) => col.key === "problem")));
+  for (const [table, fields] of [[handover, HANDOVER_FIELDS], [problems, PROBLEM_FIELDS]]) {
+    if (!table) continue;
+    for (const [key, label, type, options] of fields) {
+      if (!table.cols.some((c) => c.key === key)) table.cols.push(column(label, type, options, key));
+    }
+  }
+  const template = block("routine", "Rutina schimbului · model");
+  template.items = ROUTINE.flatMap(([phase, ...steps]) => steps.map((step) => item(phase + " · " + step)));
+  data.templates.push(page("Rutina cronologică de schimb", [template]));
+  data.settings.operationsVersion = 1;
   return true;
 }
 
@@ -320,28 +339,20 @@ export function seed() {
     return page(title, [b]);
   }
   let pages = [
-    list("Rutina schimbului", "routine", [
-      "Preiau schimbul de la colegul anterior.",
-      "Ședința de început (5–10 min): ținta zilei, avertismente de siguranță și calitate, cine unde lucrează.",
-      "Verific echipamentul de protecție.",
-      "Tur pe linie: siguranță, calitate, plan față de realizat, ordine (5S), oameni.",
-      "Verific producția pe oră față de plan.",
-      "Predau schimbul colegului următor.",
-      "Trimit rezumatul către șef.",
-    ]),
+    list("Rutina schimbului", "routine", ROUTINE.flatMap(([phase, ...steps]) =>
+      steps.map((step) => phase + " · " + step))),
     grid("Predare schimb", "journal", [
       ["Data", "date"],
       ["Schimb", "select", ["1", "2", "3"]],
-      "Probleme",
-      "Mașini oprite",
+      "Situația producției / probleme",
+      "Echipamente oprite sau instabile",
       "Calitate / rebut",
-      "Absențe",
-      "De urmărit",
+      "Lipsuri de personal sau competențe",
+      "Priorități pentru schimbul următor",
     ]),
     grid("Echipa", "table", [
       "Nume",
       "Post",
-      "Telefon",
       "Instruit pe posturile",
       "Observații",
     ]),
@@ -383,7 +394,7 @@ export function seed() {
     grid("Contacte", "table", [
       "Departament",
       "Nume",
-      "Telefon",
+      "Canal aprobat",
       "Ce cere de la mine",
     ]),
     grid("Probleme și acțiuni", "table", [
