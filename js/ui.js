@@ -14,6 +14,7 @@ const ICONS = {
   folder: '<path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   pages:
     '<path d="M4 19.5V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2zm0 0a2 2 0 0 0 2 2h14"/><path d="M8 7h8M8 11h6"/>',
+  chat: '<path d="M4 4h16v12H9l-5 4zM8 8h8M8 12h5"/>',
   settings:
     '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
@@ -90,7 +91,12 @@ export function input(label, value, change, type = "text", options = []) {
     n = el(
       type === "select" ? "select" : type === "area" ? "textarea" : "input",
     );
-  if (label) l.append(el("span", label));
+  if (label) {
+    const caption = el("span", label);
+    caption.id = "label-" + id();
+    n.setAttribute("aria-labelledby", caption.id);
+    l.append(caption);
+  }
   if (type === "select") for (const v of options) n.add(new Option(v, v));
   else if (type !== "area") n.type = type;
   if (type === "checkbox") {
@@ -110,6 +116,21 @@ export function input(label, value, change, type = "text", options = []) {
   n.oninput = () => change(type === "checkbox" ? n.checked : n.value);
   l.append(n);
   return l;
+}
+export function fieldError(control, message) {
+  const field = control.closest(".field");
+  let hint = field.querySelector(".fieldError");
+  if (!hint) {
+    hint = el("span", "", "fieldError");
+    hint.id = "error-" + id();
+    hint.setAttribute("role", "alert");
+    field.append(hint);
+  }
+  hint.hidden = !message;
+  hint.textContent = message;
+  control.setAttribute("aria-invalid", String(Boolean(message)));
+  if (message) control.setAttribute("aria-describedby", hint.id);
+  else control.removeAttribute("aria-describedby");
 }
 // Secțiune care se deschide la atingere; starea se ține minte cât timp
 // aplicația e deschisă, ca să nu se închidă după o bifă.

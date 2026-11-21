@@ -1022,7 +1022,6 @@ main:has(.noteFilters, .settingsGrid, .searchBox) { max-width: 920px; }
 .stripTile strong { overflow-wrap: anywhere; }
 .intervalCard { overflow-wrap: anywhere; }
 .intervalCard p { padding-inline: .75rem; }
-.intervalFields { max-height: 55vh; overflow-y: auto; padding: .25rem; }
 .productionView .recordFields { margin-block: .75rem; }
 .productionView input, .productionView select, .productionView button { min-height: 44px; }
 

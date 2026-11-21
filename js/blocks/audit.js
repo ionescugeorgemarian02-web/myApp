@@ -37,6 +37,8 @@ export function audit(b, c) {
   const pb = problemsBlock(app.data);
   for (const item of b.items) {
     const row = el("div", "", "auditRow");
+    row.dataset.key = "audit-" + item.id;
+    row.tabIndex = -1;
     const result = run[item.id];
     if (result) row.dataset.result = result.s;
     row.append(el("span", item.title, "auditTitle"));

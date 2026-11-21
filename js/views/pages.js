@@ -83,7 +83,12 @@ export function pages() {
   }, "primary small", "plus");
   const heading = el("div", "", "directoryHead");
   heading.append(el("h1", "Caiet", "title"), create);
-  main.append(heading, btn("Leadership și comunicare", () => (location.hash = "Leadership"), "todayMore", "chat"));
+  const shortcuts = el("div", "", "notebookShortcuts");
+  for (const [name, route, symbol] of [
+    ["Analiză", "Analiză", "chart"], ["Notițe", "Notițe", "notes"],
+    ["Leadership și comunicare", "Leadership", "chat"],
+  ]) shortcuts.append(btn(name, () => app.navigate(route), "", symbol));
+  main.append(heading, shortcuts);
   // Căutare.
   let box = el("label", "", "searchBox"),
     q = el("input"),

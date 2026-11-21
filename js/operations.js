@@ -31,6 +31,23 @@ export const ROUTINE = [
 export const readKey = (b, r, key) => r.values[colByKey(b, key)?.id];
 const hasText = (value) => typeof value === "string" && Boolean(value.trim());
 
+export function shiftEnd(c) {
+  if (c.automatic !== c.shift) return null;
+  const end = c.hours?.[c.shift % 3];
+  const start = c.hours?.[c.shift - 1];
+  if (!start || !end || !c.time) return null;
+  const minutes = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const now = minutes(c.time) + (c.date > c.workDay ? 1440 : 0);
+  const finish = minutes(end) + (c.shift === 3 ? 1440 : 0);
+  if (now < minutes(start) || now >= finish) return null;
+  return { end, remaining: finish - now };
+}
+
+export function handoverSituation(b) {
+  return b.cols.find((col) => norm(col.name).startsWith("situatia productiei")) ||
+    colByKey(b, "safetySummary") || b.cols.find((col) => col.type === "text");
+}
+
 export function handoverStatus(b, r, key) {
   const examined = HANDOVER_FIELDS.filter(([k, , type]) => k !== "handoverZone" && type !== "checkbox")
     .some(([k]) => hasText(readKey(b, r, k))) ||
@@ -44,10 +61,12 @@ export function handoverStatus(b, r, key) {
 }
 
 export function closureError(b, row) {
-  const corrective = row.values[colByName(b, "actiune")?.id];
-  if (!hasText(corrective) || !hasText(readKey(b, row, "effectiveness")) || !hasText(readKey(b, row, "closureNote")))
-    return "Închiderea cere o acțiune corectivă, dovada eficacității și o concluzie.";
-  return "";
+  return closureMissing(b, row).length
+    ? "Închiderea cere o acțiune corectivă, dovada eficacității și o concluzie." : "";
+}
+export function closureMissing(b, row) {
+  return [colByName(b, "actiune"), colByKey(b, "effectiveness"), colByKey(b, "closureNote")]
+    .filter((col) => !hasText(row.values[col?.id]));
 }
 
 export function problemMatches(b, row, query, filter, date) {
@@ -69,32 +88,45 @@ export const INTERVAL_NUMBERS = [
   ["plannedTime", "Timp planificat (min)"], ["downtime", "Opriri (min)"],
 ];
 export function validInterval(row, intervals = []) {
-  if (!row || !hasText(row.id) || !hasText(row.zone) || !validDate(row.date) || ![1, 2, 3].includes(row.shift) ||
-      !validMoment(row.start) || !validMoment(row.end) || row.end <= row.start ||
-      row.start.slice(0, 10) < row.date)
-    return "Completează zona, data de lucru și intervalul în ordine cronologică.";
+  return intervalError(row, intervals)?.message || "";
+}
+export function intervalError(row, intervals = []) {
+  const error = (field, message) => ({ field, message });
+  if (!row || !hasText(row.id) || !hasText(row.zone)) return error("zone", "Completează zona intervalului.");
+  if (!validDate(row.date)) return error("date", "Completează data de lucru.");
+  if (![1, 2, 3].includes(row.shift)) return error("shift", "Alege schimbul.");
+  if (!validMoment(row.start) || row.start.slice(0, 10) < row.date)
+    return error("start", "Alege un început în ziua de lucru sau în dimineața următoare.");
+  if (!validMoment(row.end) || row.end <= row.start)
+    return error("end", "Alege un sfârșit după începutul intervalului.");
   const workday = Date.parse(row.date);
   const endDay = Date.parse(row.end.slice(0, 10));
   if (endDay - workday > 86400000)
-    return "Intervalul trebuie să cadă în ziua de lucru sau în dimineața următoare.";
-  if (INTERVAL_NUMBERS.some(([key]) => row[key] !== null &&
-    (typeof row[key] !== "number" || nonnegative(row[key], !["plannedTime", "downtime"].includes(key)) === null)))
-    return "Cantitățile trebuie să fie întregi, iar cifrele trebuie să fie pozitive sau zero.";
-  if (["cause", "action", "equipment", "problemId"].some((key) => typeof row[key] !== "string"))
-    return "Notele intervalului sunt nevalide.";
-  if (["good", "scrap", "rework", "firstPass"].some((key) => row[key] !== null && row.produced !== null && row[key] > row.produced) ||
-      (row.good !== null && row.scrap !== null && row.produced !== null && row.good + row.scrap > row.produced) ||
-      (row.firstPass !== null && row.good !== null && row.firstPass > row.good) ||
+    return error("end", "Intervalul trebuie să cadă în ziua de lucru sau în dimineața următoare.");
+  const invalidNumber = INTERVAL_NUMBERS.find(([key]) => row[key] !== null &&
+    (typeof row[key] !== "number" || nonnegative(row[key], !["plannedTime", "downtime"].includes(key)) === null));
+  if (invalidNumber)
+    return error(invalidNumber[0], "Cantitățile trebuie să fie întregi, iar cifrele trebuie să fie pozitive sau zero.");
+  const invalidNote = ["cause", "action", "equipment", "problemId"].find((key) => typeof row[key] !== "string");
+  if (invalidNote) return error(invalidNote, "Notele intervalului sunt nevalide.");
+  const reconcile = (key) => error(key, "Verifică reconcilierea cantităților cu producția totală.");
+  const aboveTotal = ["good", "scrap", "rework", "firstPass"].find((key) =>
+    row[key] !== null && row.produced !== null && row[key] > row.produced);
+  if (aboveTotal) return reconcile(aboveTotal);
+  if (row.good !== null && row.scrap !== null && row.produced !== null && row.good + row.scrap > row.produced)
+    return reconcile("scrap");
+  if ((row.firstPass !== null && row.good !== null && row.firstPass > row.good) ||
       (row.rework !== null && row.firstPass !== null && row.produced !== null && row.rework + row.firstPass > row.produced))
-    return "Verifică reconcilierea cantităților cu producția totală.";
+    return reconcile("firstPass");
   const minutes = (Date.parse(row.end + "Z") - Date.parse(row.start + "Z")) / 60000;
-  if (row.plannedTime > minutes || row.downtime > minutes ||
-    (row.plannedTime !== null && row.downtime > row.plannedTime))
-    return "Minutele de oprire nu pot depăși timpul planificat sau durata intervalului.";
+  if (row.plannedTime > minutes)
+    return error("plannedTime", "Timpul planificat nu poate depăși durata intervalului.");
+  if (row.downtime > minutes || (row.plannedTime !== null && row.downtime > row.plannedTime))
+    return error("downtime", "Minutele de oprire nu pot depăși timpul planificat sau durata intervalului.");
   if (intervals.some((other) => other.id !== row.id && norm(other.zone) === norm(row.zone) &&
       row.start < other.end && other.start < row.end))
-    return "Intervalul se suprapune cu o înregistrare din aceeași zonă.";
-  return "";
+    return error("start", "Intervalul se suprapune cu o înregistrare din aceeași zonă.");
+  return null;
 }
 
 export function intervalTotals(rows) {

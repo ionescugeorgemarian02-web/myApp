@@ -6,7 +6,7 @@ import { advice } from "../js/advice.js";
 import { trackLifecycle } from "../js/records.js";
 
 const ctx = (date = "2026-11-21", time = "10:00", shift = 1) =>
-  ({ date, time, workDay: date, shift, key: date + " · Schimb " + shift, hours: ["06:00", "14:00", "22:00"] });
+  ({ date, time, workDay: date, shift, automatic: shift, key: date + " · Schimb " + shift, hours: ["06:00", "14:00", "22:00"] });
 const byName = (b, name) => b.cols.find((c) => c.name === name);
 // Adaugă o predare cu cifre în jurnal.
 function shift(data, date, n, figures) {
@@ -186,9 +186,20 @@ test("sfaturile pornesc de la cifre și sunt ordonate după urgență", () => {
 
 test("sfat de final de schimb și raportul de 90 de zile", () => {
   const d = seed();
-  const near = advice(d, ctx("2026-11-21", "13:20", 1));
-  assert.ok(near.some((a) => a.id === "handover-now"));
-  assert.ok(!advice(d, ctx("2026-11-21", "09:00", 1)).some((a) => a.id === "handover-now"));
+  const notice = (c) => advice(d, c).find((a) => a.id === "handover-now");
+  const near = ctx("2026-11-21", "13:20", 1);
+  assert.equal(notice(near), undefined, "ore neconfirmate");
+  d.settings.scheduleConfirmed = true;
+  assert.match(notice(near).title, /14:00/);
+  assert.equal(notice(ctx("2026-11-21", "09:00", 1)), undefined);
+  assert.equal(notice({ ...near, shift: 2 }), undefined, "schimb ales manual");
+  const night = { ...ctx("2026-11-22", "05:30", 3), workDay: "2026-11-21", key: "2026-11-21 · Schimb 3" };
+  assert.match(notice(night).title, /06:00/);
+  shift(d, night.workDay, 3, { plan: 20, produced: 0 });
+  assert.ok(notice(night), "cifrele nu confirmă predarea");
+  const { b } = m.handoverBlock(d);
+  b.rows[0].values[b.cols.find((col) => col.key === "prepared").id] = true;
+  assert.equal(notice(night), undefined, "predare verificată");
   d.settings.startDate = "2026-11-01";
   const n = m.ninetyDays(d, ctx());
   assert.equal(n.day, 21);

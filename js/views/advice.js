@@ -1,11 +1,13 @@
 // Afișarea sfaturilor și executarea acțiunilor propuse de ele.
 import { app } from "../state.js";
-import { el, btn, icon } from "../ui.js";
+import { el, btn, icon, input, actions, openDialog, norm } from "../ui.js";
 import { AREA_NAMES } from "../advice.js";
-import { newRow } from "../blocks/table.js";
-import { handover } from "../logic.js";
+import { draftRow } from "../blocks/table.js";
+import { handover, share } from "../logic.js";
 import { safetyBlock } from "../metrics.js";
-import { colByKey } from "../records.js";
+import { handoverSituation, handoverStatus, readKey } from "../operations.js";
+import { SBAR_LABELS, sbarText } from "../leadership.js";
+import { colByKey, colByName } from "../records.js";
 
 const LEVEL_NAMES = { critical: "Urgent", warn: "Atenție", info: "Sugestie", good: "Bine" };
 const findPage = (test) => app.data.pages.find((p) => !p.archived && test(p));
@@ -15,26 +17,26 @@ export function runAction(a) {
   switch (a.kind) {
     case "page": {
       const p = app.data.pages.find((x) => x.id === a.pageId);
-      if (p) app.openPage(p, a.key);
+      if (p) app.openPage(p, a.key, a.field);
       break;
     }
     case "route":
-      location.hash = a.route;
+      app.navigate(a.route, a.key, a.field);
       break;
     case "settings":
-      if (a.key) app.open.add(a.key);
-      location.hash = "Setări";
+      app.navigate("Setări", a.key, a.field);
       break;
     case "handover": {
       const ho = handover();
       if (!ho) return;
       if (!ho.r) {
-        ho.r = newRow(ho.b, c);
+        ho.r = draftRow(ho.b, c);
         const zone = colByKey(ho.b, "handoverZone");
-        if (zone && app.data.settings.zone) ho.r.values[zone.id] = app.data.settings.zone;
-        app.save();
+        if (zone && app.data.settings.zone && !(zone.id in ho.r.values)) ho.r.values[zone.id] = app.data.settings.zone;
       }
-      app.openPage(ho.p, "row-" + ho.r.id);
+      const field = a.field === "prepared" && handoverStatus(ho.b, ho.r, "prepared")
+        ? handoverSituation(ho.b) : a.field && colByKey(ho.b, a.field);
+      app.openPage(ho.p, "row-" + ho.r.id, field && (field.key || norm(field.name)));
       break;
     }
     case "safety":
@@ -58,11 +60,29 @@ export function runAction(a) {
 export function newSafetyEvent(type) {
   const s = safetyBlock(app.data);
   if (!s) return;
-  const r = newRow(s.b, app.current);
+  const r = draftRow(s.b, app.current);
   const col = colByKey(s.b, "safetyType");
   if (type && col) r.values[col.id] = type;
-  app.save();
   app.openPage(s.p, "row-" + r.id);
+}
+export async function escalationDraft(entry) {
+  const { b, r } = entry;
+  const value = (key) => readKey(b, r, key) || "";
+  const named = (name) => r.values[colByName(b, name)?.id] || "";
+  const fields = [
+    value("problem") || named("ce s-a intamplat"),
+    [entry.opened || entry.date, entry.equipment, app.data.settings.zone].filter(Boolean).join(" · "),
+    [value("impact"), value("containment") || named("actiune imediata")].filter(Boolean).join(" · "),
+    value("escalation"),
+  ];
+  const form = el("div", "", "sbarDraft");
+  if (app.training) form.append(el("p", "INSTRUIRE · DATE FICTIVE", "practiceBanner"));
+  form.append(el("p", "Verifică datele și completează solicitarea înainte de copiere.", "formHelp"));
+  SBAR_LABELS.forEach((label, i) => {
+    form.append(input(label, fields[i], (v) => { fields[i] = v; }, "area"));
+  });
+  if (await openDialog(() => [el("h2", "Ciornă SBAR"), form, actions("Copiază")]) === "ok")
+    await share(sbarText("Escaladare SBAR", fields));
 }
 export function adviceCard(a) {
   const card = el("article", "", "advice");

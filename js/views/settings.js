@@ -205,6 +205,8 @@ export function settings(version) {
     const heading = body.querySelector("h2");
     const section = details(heading.textContent, "settings-" + key, "settingsSection");
     section.name = "settings-sections";
+    if (key === "line") body.querySelector("input").dataset.field = "zone";
+    if (key === "schedule") body.querySelector("input").dataset.field = "hours";
     heading.remove();
     section.append(body);
     grid.append(section);

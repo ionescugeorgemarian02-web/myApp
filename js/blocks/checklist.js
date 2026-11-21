@@ -72,7 +72,7 @@ export function checklist(b, c, compact = false) {
         if (i.ready) body.append(el("p", "Gata când " + i.ready, "desc ready"));
       }
       function field(key, name, type) {
-        return input(name, i[key], (value) => {
+        const group = input(name, i[key], (value) => {
           i[key] = value;
           if (key === "title") {
             text.firstChild.textContent = value;
@@ -83,6 +83,8 @@ export function checklist(b, c, compact = false) {
           if (key === "due") c.updateDeadlines?.();
           c.save();
         }, type, ["normal", "important"]);
+        group.querySelector("input, select, textarea").dataset.field = key;
+        return group;
       }
       if (c.editing) {
         const group = el("fieldset", "", "formGroup");
