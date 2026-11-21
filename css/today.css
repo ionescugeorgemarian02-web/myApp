@@ -1,181 +1,115 @@
-.shiftHeader {
-  position: relative;
-  padding: clamp(20px, 4vw, 38px);
-  margin: 6px 0 18px;
-  border: 1px solid #393644;
-  border-radius: var(--radius);
-  color: #f6f5fc;
-  background:
-    linear-gradient(90deg, rgb(10 9 18 / 92%), rgb(10 9 18 / 62%) 41%, transparent 88%),
-    #0c0b13 url("../images/shift.webp") 57% 49% / cover;
-  box-shadow: inset 0 1px rgb(255 255 255 / 6%);
-}
-.shiftDate {
-  margin-right: 108px;
-  color: #d1c9ea;
-  font: 500 .76rem/1.45 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: .06em;
-}
-.shiftHeading {
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-  margin: 9px 0 clamp(22px, 4vw, 36px);
-}
-.shiftHeading h1 {
-  max-width: 100%;
-  font: 600 clamp(3.2rem, 8vw, 5.25rem)/.99 var(--display);
-  letter-spacing: -.025em;
-}
-.shiftMeter {
+.todayView { margin-inline: auto; }
+.todayHead {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #e0dce9;
-  font: 500 .78rem/1.4 var(--mono);
-}
-.shiftMeter progress {
-  appearance: none;
-  -webkit-appearance: none;
-  width: clamp(55px, 9vw, 90px);
-  height: 4px;
-  border: 0;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #434052;
-  color: #c5b9ff;
-}
-.shiftMeter progress::-webkit-progress-bar { background: #434052; }
-.shiftMeter progress::-webkit-progress-value { background: #c5b9ff; }
-.shiftMeter progress::-moz-progress-bar { background: #c5b9ff; }
-.shiftPicker {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  max-width: 540px;
-}
-.shiftPicker button {
-  display: grid;
-  justify-content: start;
-  align-content: center;
-  gap: 3px;
-  min-width: 0;
-  min-height: 55px;
-  text-align: left;
-  padding: 6px clamp(7px, 2vw, 15px);
-  border: 1px solid #585566;
-  border-radius: 10px;
-  background: rgb(20 19 29 / 92%);
-  color: #e6e3ef;
-}
-.shiftPicker button strong { font-size: .9rem; }
-.shiftPicker button small { font: 500 clamp(.64rem, 2.4vw, .75rem)/1.3 var(--mono); }
-.shiftPicker button[aria-pressed="true"] {
-  color: #1c1734;
-  background: #c3b8ff;
-  border-color: #d4ccff;
-}
-.shiftGuide > summary {
-  position: absolute;
-  top: clamp(10px, 2vw, 22px);
-  right: clamp(10px, 2vw, 22px);
-  display: flex;
-  align-items: center;
-  min-height: 42px;
-  gap: 6px;
-  list-style: none;
-  padding: 5px 10px;
-  border-radius: 9px;
-  background: rgb(12 11 19 / 88%);
-  color: #f3eefa;
-  font-size: .78rem;
-}
-.shiftGuide > summary::-webkit-details-marker { display: none; }
-.shiftGuide > summary .icon { width: 15px; height: 15px; }
-.shiftGuide[open] > summary span { text-decoration: underline; text-underline-offset: 4px; }
-.shiftGuide ul {
-  display: grid;
+  justify-content: space-between;
   gap: 12px;
-  margin: 16px 0 0;
-  padding: 14px;
-  border-radius: 10px;
-  background: rgb(16 15 24 / 95%);
-  list-style: none;
-  color: #ddd9e8;
-  font-size: .86rem;
+  padding-block: clamp(12px, 3vw, 26px) 18px;
 }
-.shiftGuide li > strong { display: block; margin-bottom: 2px; color: #c6baff; }
-.shiftLayout .actions {
-  gap: 1px;
-  padding: 0;
-  border: 1px solid var(--line);
-  background: var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
+.todayHead h1 { margin: 0; font: 600 clamp(2.4rem, 5vw, 3.5rem)/1 var(--display); letter-spacing: -.035em; }
+.todayDate { margin-top: 7px; color: var(--muted); font-size: .92rem; }
+.todayDate::first-letter { text-transform: uppercase; }
+.todayHead .primary { flex-shrink: 0; }
+.todayTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 12px;
+  border-block: 1px solid var(--line);
+  padding-block: 5px;
 }
-.shiftLayout .action {
-  position: relative;
-  justify-content: flex-start;
-  align-items: flex-start;
-  gap: 2px;
-  border-radius: 0;
-  padding: 12px;
-  min-width: 0;
-  background: var(--surface);
-}
-.shiftLayout .action:focus-visible { outline-offset: -3px; }
-.shiftLayout .action .actionIcon {
-  width: 32px; height: 32px; border-radius: 9px; margin-bottom: 5px;
-}
-.shiftLayout .actionIcon .icon { width: 18px; height: 18px; }
-.routineCard > .cardHead { flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.routineCard h2 { flex: 1 1 145px; }
-.routineControls { display: flex; align-items: center; gap: 8px; }
-.routineFilter {
+.todayShift, .todayActions > summary {
   min-height: 44px;
-  border-color: transparent;
-  padding: 5px 6px;
-  font-size: .82rem;
+  width: auto;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: .86rem;
+  cursor: pointer;
+}
+.todayShift { padding: 4px 0; }
+.todayShift option { color: var(--ink); background: var(--surface); }
+.todayActions { position: relative; margin-left: auto; }
+.todayActions > summary, .todayAgendaMore > summary, .todayMore {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
+  font-size: .84rem;
+  font-weight: 550;
+  list-style: none;
+}
+.todayActions > summary, .todayAgendaMore > summary { padding: 0; }
+.todayActions > summary::-webkit-details-marker,
+.todayAgendaMore > summary::-webkit-details-marker { display: none; }
+.todayActions > summary .icon, .todayAgendaMore > summary .icon, .todayMore .icon {
+  width: 14px;
+  height: 14px;
+  transition: transform .18s ease-out;
+}
+:is(.todayActions, .todayAgendaMore)[open] > summary .icon,
+.todayMore[aria-expanded="true"] .icon { transform: rotate(180deg); }
+.actionChoices {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  top: calc(100% + 2px);
+  display: grid;
+  min-width: 172px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 35px rgb(0 0 0 / 20%);
+}
+.actionChoices button {
+  min-height: 44px;
+  justify-content: flex-start;
+  padding: 8px 12px;
+  font-size: .9rem;
+  border: 0;
   background: transparent;
 }
-.routineFilter::before {
-  content: "";
-  width: 12px; height: 12px;
-  border: 1.5px solid currentColor;
-  border-radius: 3px;
+.actionChoices button:hover { background: var(--surface-2); }
+.actionChoices .icon { width: 17px; color: var(--muted); }
+.shiftStartDate { width: 100%; font-size: .8rem; color: var(--muted); }
+.todaySectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
 }
-.routineFilter[aria-pressed="true"] { color: var(--accent); }
-.routineFilter[aria-pressed="true"]::before {
-  background: var(--accent) var(--tick) center / 11px no-repeat;
+.todaySectionHead h2 { font-size: clamp(1.2rem, 3vw, 1.45rem); margin: 0; }
+.agendaCount, .routineProgress {
+  color: var(--muted);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.onlyPending .task:has(.check input:checked) { display: none; }
-.follow .linkText { gap: 3px; }
-@media (hover: hover) {
-  .shiftLayout .action:hover { background: var(--accent-soft); }
-  .shiftPicker button[aria-pressed="false"]:hover,
-  .shiftGuide > summary:hover { background: #302a43; color: #fff; }
+.todayAgenda, .todayRoutine { padding-block: clamp(20px, 4vw, 32px) 10px; }
+.todayAgenda:not([hidden]) + .todayRoutine, .todayRoutine + .todayRoutine {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
 }
-@media (min-width: 650px) {
-  .shiftGuide ul { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.todayAgenda > .linkRow, .todayAgendaMore > .linkRow { width: 100%; background: transparent; }
+.todayRoutine .task .check { padding-block: 15px; }
+.todayRoutine .lines { margin: 0; }
+.todayMore, .todayAgendaMore > summary { min-height: 44px; }
+.todayMore { background: transparent; border: 0; padding-inline: 0; margin: 3px 0 0; }
+.todayMore[hidden], .todayView [hidden] { display: none; }
+.routineDone { color: var(--muted); font-size: .9rem; margin-bottom: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  .todayActions[open] > .actionChoices { animation: todayReveal .16s ease-out both; }
+  @keyframes todayReveal {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
-@media (min-width: 850px) {
-  .shiftLayout .action { align-items: center; justify-content: stretch; padding: 14px 18px; }
-  .shiftLayout .action .actionIcon { margin: 0 6px 0 0; width: 38px; height: 38px; }
-}
-@media (max-width: 355px) {
-  .shiftHeader { padding-inline: 14px; }
-  .shiftPicker button { padding-inline: 4px; }
-  .shiftPicker button strong { font-size: .8rem; }
-  .shiftPicker button small { font-size: .61rem; }
-  .shiftLayout .action { padding: 10px 7px; }
-  .shiftLayout .actions { gap: 1px; }
-}
-
-.recentNotes .linkText > span:first-child {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+@media (max-width: 370px) {
+  .todayTools { column-gap: 4px; }
+  .todayShift, .todayActions > summary { font-size: .78rem; }
 }

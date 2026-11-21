@@ -7,9 +7,10 @@ import { pages } from "./views/pages.js";
 import { pageView } from "./views/page.js";
 import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
-const VERSION = "2.3";
+const VERSION = "2.4";
 const main = document.querySelector("main"),
-  nav = document.querySelector("nav");
+  nav = document.querySelector("nav"),
+  settingsButton = document.querySelector("#open-settings");
 app.data = await load(seed).catch((e) => {
   main.textContent = "Caietul nu poate fi deschis. " + e.message;
   throw e;
@@ -51,6 +52,7 @@ function clock() {
       app.data.settings.slot === slot ? app.data.settings.shift : automatic;
   return {
     date: local,
+    time,
     workDay: day(d),
     shift,
     slot,
@@ -146,7 +148,7 @@ function render() {
   } catch {
     // Un fragment incomplet dintr-un link deschide ecranul Azi.
   }
-  if (route === "Căutare") route = "Pagini";
+  if (route === "Căutare" || route === "Pagini") route = "Caiet";
   const y = scrollY;
   main.replaceChildren();
 
@@ -159,12 +161,12 @@ function render() {
   };
   if (
     Date.now() - (app.data.settings.backup || app.data.settings.createdAt || 0) > 7 * 86400000 &&
-    route !== "Setări"
+    route === "Caiet"
   )
     main.append(
       btn(
         "Salvează o copie a caietului",
-        () => (location.hash = "Setări"),
+        () => { app.open.add("settings-backup"); location.hash = "Setări"; },
         "banner",
         "download",
       ),
@@ -173,12 +175,12 @@ function render() {
     route.startsWith("p/") &&
     app.data.pages.find((x) => x.id === route.slice(2));
   if (p) pageView(p, c);
-  else if (route === "Pagini" || route.startsWith("p/")) pages();
+  else if (route === "Caiet" || route.startsWith("p/")) pages();
   else if (route === "Notițe") notesView(c);
   else if (route === "Setări") settings(VERSION);
   else today(c);
-  const tab = p || route.startsWith("p/") ? "Pagini" : ["Setări", "Pagini", "Notițe"].includes(route) ? route : "Azi";
-  for (const button of nav.children) {
+  const tab = route.startsWith("p/") ? "Caiet" : ["Caiet", "Notițe", "Setări"].includes(route) ? route : "Azi";
+  for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;
     button.classList.toggle("on", on);
     if (on) button.setAttribute("aria-current", "page");
@@ -186,7 +188,10 @@ function render() {
   }
   scrollTo(0, y);
 }
-for (const [name, symbol] of [["Azi", "today"], ["Notițe", "notes"], ["Pagini", "pages"], ["Setări", "settings"]]) {
+settingsButton.append(icon("settings"));
+settingsButton.dataset.route = "Setări";
+settingsButton.onclick = () => { location.hash = "Setări"; };
+for (const [name, symbol] of [["Azi", "today"], ["Notițe", "notes"], ["Caiet", "pages"]]) {
   const button = btn("", () => (location.hash = name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));
@@ -212,13 +217,21 @@ window.addEventListener("hashchange", () => {
   } else scrollTo(0, 0);
 });
 render();
-// Verificăm la fiecare 10 secunde dacă s-a schimbat schimbul sau ziua.
-setInterval(() => {
-  let now = clock();
-  if (now.key !== app.current.key || now.date !== app.current.date) {
-    if (!document.activeElement?.matches("input, textarea, select")) render();
-  }
-}, 10000);
+// Actualizăm lista doar când se schimbă tura, ziua sau starea unui termen.
+// Formularul deschis își păstrează focusul și conținutul până la închidere.
+function checkClock() {
+  if (document.hidden || document.querySelector("dialog[open]") ||
+      document.activeElement?.matches("textarea, select:not(.todayShift), input:not([type=checkbox])")) return;
+  const next = clock();
+  const previous = app.current;
+  const crossedDeadline = next.time !== previous.time && app.data.notes.some((n) =>
+    !n.done && n.due === next.date && n.dueTime &&
+    (n.dueTime < next.time) !== (n.dueTime < previous.time));
+  if (next.key !== previous.key || next.date !== previous.date || crossedDeadline) render();
+  else app.current.time = next.time;
+}
+setInterval(checkClock, 5000);
+document.addEventListener("visibilitychange", checkClock);
 // ——— Funcționare offline și actualizări ———
 if ("serviceWorker" in navigator) {
   let hadController = !!navigator.serviceWorker.controller;

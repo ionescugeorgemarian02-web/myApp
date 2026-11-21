@@ -1,16 +1,45 @@
-.settingsGrid { display: grid; gap: 14px; align-items: start; }
-.settingsGrid .card { margin: 0; min-width: 0; }
-.scheduleTimes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.scheduleTimes input { text-align: center; padding-inline: 5px; }
+.settingsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.settingsSection {
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
+}
+.settingsSection > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  min-height: 62px;
+  gap: 12px;
+  padding: 12px 2px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 570;
+}
+.settingsBody {
+  padding: 0 2px 22px;
+}
+.settingsBody > .hint { margin: 0 0 14px; }
+.settingsBody .segmented { max-width: 430px; }
+.scheduleTimes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 430px;
+}
+.scheduleTimes input { text-align: center; padding-inline: 4px; }
 .scheduleTimes [aria-invalid="true"] { border-color: var(--danger); }
-.scheduleMessage, .settingsFeedback, .settingsMetadata { font-size: 14px; color: var(--muted); margin: 6px 0 12px; }
+.scheduleMessage, .settingsFeedback, .settingsMetadata {
+  font-size: .875rem;
+  color: var(--muted);
+  margin: 6px 0 12px;
+}
 .scheduleMessage.invalid, .settingsFeedback { color: var(--danger); }
 .scheduleMessage:empty, .settingsFeedback:empty { display: none; }
 .settingsFeedback { margin: 12px 0 0; }
 .settingsHelp .desc + .desc { margin-top: 8px; }
-.settingsReset { padding: 8px 4px; margin-top: 15px; border-top: 1px solid var(--line); }
-.settingsReset summary { color: var(--muted); }
+.settingsReset { margin-top: 24px; }
+.settingsReset summary { width: fit-content; color: var(--muted); font-size: .875rem; }
 .settingsReset button { margin: 10px 0; }
-@media (min-width: 650px) {
-  .settingsGrid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
-}
