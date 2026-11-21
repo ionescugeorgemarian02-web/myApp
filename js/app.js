@@ -6,7 +6,7 @@ import { today } from "./views/today.js";
 import { pages } from "./views/pages.js";
 import { pageView } from "./views/page.js";
 import { settings } from "./views/settings.js";
-const VERSION = "2.1";
+const VERSION = "2.2";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav");
 app.data = await load(seed).catch((e) => {
@@ -65,9 +65,9 @@ function sync() {
     for (let b of p.blocks)
       if (b.type === "routine" && b.key !== app.current.key) {
         if (b.key) b.history[b.key] = structuredClone(b.items);
-        let previous = b.history[app.current.key] || [];
+        const previous = new Map((b.history[app.current.key] || []).map((i) => [i.id, i]));
         for (let i of b.items) {
-          let old = previous.find((x) => x.id === i.id);
+          let old = previous.get(i.id);
           Object.assign(i, {
             checked: old?.checked || false,
             checkedAt: old?.checkedAt || null,
@@ -101,10 +101,33 @@ app.remove = (a, x) => {
   app.refresh();
   toast("Șters", () => app.undo?.(), "Anulează");
 };
-app.clone = (x) => {
-  let v = structuredClone(x);
-  v.id = id();
-  return v;
+app.clone = (source) => {
+  const copy = structuredClone(source);
+  if (copy.blocks) copy.id = id();
+  for (const block of copy.blocks || [copy]) {
+    block.id = id();
+    // Un punct păstrează aceeași identitate în toate schimburile copiei.
+    const ids = new Map();
+    for (const items of [block.items || [], ...Object.values(block.history || {})]) {
+      for (const item of items) {
+        if (!ids.has(item.id)) ids.set(item.id, id());
+        item.id = ids.get(item.id);
+      }
+    }
+    const columns = new Map();
+    for (const col of block.cols || []) {
+      const newId = id();
+      columns.set(col.id, newId);
+      col.id = newId;
+    }
+    for (const row of block.rows || []) {
+      row.id = id();
+      row.values = Object.fromEntries(Object.entries(row.values).map(
+        ([key, value]) => [columns.get(key) || key, value],
+      ));
+    }
+  }
+  return copy;
 };
 let targetDetail = null;
 app.openPage = (p, detailKey) => {
@@ -116,11 +139,16 @@ app.openPage = (p, detailKey) => {
 function render() {
   sync();
   document.documentElement.dataset.theme = app.data.settings.theme;
-  let route = decodeURIComponent(location.hash.slice(1)) || "Azi";
+  let route = "Azi";
+  try {
+    route = decodeURIComponent(location.hash.slice(1)) || route;
+  } catch {
+    // Un fragment incomplet dintr-un link deschide ecranul Azi.
+  }
   if (route === "Căutare") route = "Pagini";
   const y = scrollY;
   main.replaceChildren();
-  nav.replaceChildren();
+
   const c = {
     ...app.current,
     save: app.save,
@@ -147,31 +175,34 @@ function render() {
   else if (route === "Pagini" || route.startsWith("p/")) pages();
   else if (route === "Setări") settings(VERSION);
   else today(c);
-  for (let [n, ic, label] of [
-    ["Azi", "today", "Azi"],
-    ["Pagini", "pages", "Pagini"],
-    ["Setări", "settings", "Setări"],
-  ]) {
-    let on = route === n || (n === "Pagini" && route.startsWith("p/"));
-    let b = btn("", () => (location.hash = n), on ? "on" : "");
-    b.append(icon(ic), el("span", label));
-    if (on) b.setAttribute("aria-current", "page");
-    nav.append(b);
+  const tab = p || route.startsWith("p/") ? "Pagini" : route === "Setări" || route === "Pagini" ? route : "Azi";
+  for (const button of nav.children) {
+    const on = button.dataset.route === tab;
+    button.classList.toggle("on", on);
+    if (on) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   }
   scrollTo(0, y);
+}
+for (const [name, symbol] of [["Azi", "today"], ["Pagini", "pages"], ["Setări", "settings"]]) {
+  const button = btn("", () => (location.hash = name));
+  button.dataset.route = name;
+  button.append(icon(symbol), el("span", name));
+  nav.append(button);
 }
 app.render = render;
 window.addEventListener("hashchange", () => {
   if (location.hash !== "#p/" + app.editing) app.editing = null;
   render();
-  const detail = targetDetail && [...main.querySelectorAll("details")].find(
+  const detail = targetDetail && [...main.querySelectorAll("[data-key]")].find(
     (d) => d.dataset.key === targetDetail,
   );
   targetDetail = null;
   if (detail) {
-    detail.open = true;
-    detail.querySelector("summary").focus({ preventScroll: true });
-    detail.scrollIntoView({ block: "center" });
+    if (detail.tagName === "DETAILS") detail.open = true;
+    const start = detail.querySelector("summary") || detail;
+    start.focus({ preventScroll: true });
+    start.scrollIntoView({ block: "start" });
   } else scrollTo(0, 0);
 });
 render();
@@ -189,25 +220,26 @@ if ("serviceWorker" in navigator) {
     .register("./sw.js")
     .catch(() => null);
   function update() {
-    if (reg?.waiting && navigator.serviceWorker.controller)
+    const waiting = reg?.waiting;
+    if (waiting && navigator.serviceWorker.controller)
       document.querySelector("#update").replaceChildren(
         btn(
           "Versiune nouă disponibilă – actualizează",
           async () => {
             await flush();
-            reg.waiting.postMessage("activate");
+            waiting.postMessage("activate");
           },
           "banner",
           "download",
         ),
       );
   }
-  update();
-  if (reg)
-    reg.onupdatefound = () => {
-      const worker = reg.installing;
-      if (worker) worker.onstatechange = update;
-    };
+  function watchWorker() {
+    reg?.installing?.addEventListener("statechange", update);
+    update();
+  }
+  reg?.addEventListener("updatefound", watchWorker);
+  watchWorker();
   navigator.serviceWorker.addEventListener("controllerchange", async () => {
     if (hadController) {
       await flush();

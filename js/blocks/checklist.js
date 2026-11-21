@@ -49,58 +49,58 @@ export function checklist(b, c, compact = false) {
     row.append(label);
     const summary = el("span", "", "moreIcon");
     summary.append(icon("more"));
-    summary.setAttribute("aria-label", "Detalii");
     const d = details(summary, "item-" + i.id, "more");
     d.querySelector("summary").setAttribute("aria-label", "Detalii pentru " + i.title);
-    const body = el("div", "", "moreBody");
-    if (!c.editing) {
-      if (i.details) body.append(el("p", i.details, "desc"));
-      if (i.ready) body.append(el("p", "Gata când: " + i.ready, "desc ready"));
+    function populate() {
+      if (!d.open || d.children.length > 1) return;
+      const body = el("div", "", "moreBody");
+      if (!c.editing) {
+        if (i.details) body.append(el("p", i.details, "desc"));
+        if (i.ready) body.append(el("p", "Gata când " + i.ready, "desc ready"));
+      }
+      function field(key, name, type) {
+        const control = input(name, i[key], (value) => {
+          const hadNotes = !!i.notes;
+          i[key] = value;
+          if (key === "notes") i.updated = now();
+          if (key === "title") {
+            text.firstChild.textContent = value;
+            d.firstChild.setAttribute("aria-label", "Detalii pentru " + value);
+          }
+          if (key === "priority") row.classList.toggle("important", value === "important");
+          if (key === "due" || key === "priority" || hadNotes !== !!i.notes) updateMeta();
+          if (key === "due") c.updateDeadlines?.();
+          c.save();
+        }, type, ["normal", "important"]);
+        if (key === "notes") control.lastElementChild.placeholder = "Ce ai observat?";
+        return control;
+      }
+      if (c.editing) {
+        const group = el("fieldset", "", "formGroup");
+        group.append(
+          el("legend", "Definirea punctului"),
+          field("title", "Titlu", "text"),
+          field("details", "Instrucțiuni", "area"),
+          field("ready", "Când se poate bifa?", "area"),
+        );
+        body.append(group);
+      }
+      const group = el("fieldset", "", "formGroup");
+      group.append(el("legend", "Urmărirea punctului"), field("notes", "Notițe", "area"));
+      const dates = el("div", "", "recordFields");
+      dates.append(field("due", "Termen", "date"));
+      if (c.editing) dates.append(field("priority", "Prioritate", "select"));
+      group.append(dates, el("small", "Pe Azi apar punctele nebifate cu termen astăzi sau depășit.", "fieldHelp"));
+      body.append(group);
+      if (i.checkedAt)
+        body.append(el("p", "Bifat la " + new Date(i.checkedAt).toLocaleString("ro", {
+          dateStyle: "short", timeStyle: "short",
+        }), "desc"));
+      if (c.editing) body.append(toolsFor(b.items, i, c));
+      d.append(body);
     }
-    const fields = c.editing
-      ? [
-          ["title", "Titlu", "text"],
-          ["details", "Detalii", "area"],
-          ["ready", "Gata când", "area"],
-          ["notes", "Notițe", "area"],
-          ["due", "Termen", "date"],
-          ["priority", "Prioritate", "select"],
-        ]
-      : [
-          ["notes", "Notițe", "area"],
-          ["due", "Termen", "date"],
-        ];
-    for (const [key, name, type] of fields)
-      body.append(
-        input(
-          name,
-          i[key],
-          (v) => {
-            i[key] = v;
-            if (key === "notes") i.updated = now();
-            if (key === "title") text.firstChild.textContent = v;
-            updateMeta();
-            if (key === "due") c.updateDeadlines?.();
-            c.save();
-          },
-          type,
-          ["normal", "important"],
-        ),
-      );
-    if (i.checkedAt)
-      body.append(
-        el(
-          "p",
-          "Bifat la " +
-            new Date(i.checkedAt).toLocaleString("ro", {
-              dateStyle: "short",
-              timeStyle: "short",
-            }),
-          "desc",
-        ),
-      );
-    if (c.editing) body.append(toolsFor(b.items, i, c));
-    d.append(body);
+    d.addEventListener("toggle", populate);
+    populate();
     row.append(d);
     list.append(row);
   }

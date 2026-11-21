@@ -1,0 +1,47 @@
+.formHelp, .fieldHelp, .createdAt {
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.5;
+}
+.formHelp { margin: 2px 0 4px; }
+.records { margin-top: 12px; }
+.records > .record > summary { min-height: 48px; }
+.records .recBody, .task .moreBody {
+  display: grid;
+  gap: 14px;
+  padding: 8px 0 16px;
+}
+.formGroup {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px 14px;
+  background: var(--surface-2);
+}
+.formGroup legend {
+  padding-inline: 5px;
+  color: var(--accent);
+  font-size: .88rem;
+  font-weight: 700;
+}
+.formGroup > .field { margin: 0 0 10px; }
+.formGroup > .field:last-child { margin-bottom: 0; }
+.formGroup .field input, .formGroup .field select, .formGroup .field textarea {
+  background: var(--surface);
+}
+.recordFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 164px), 1fr));
+  align-items: start;
+  gap: 10px 14px;
+}
+.recordFields .field { margin: 0; min-width: 0; }
+.recordFields .field.inline { min-height: 44px; }
+.recordFields .wideField { grid-column: 1 / -1; }
+.formGroup .fieldHelp { display: block; margin-top: 7px; }
+.recBody .recFoot { margin: 0; }
+details.record, details.more, tr[data-key] { scroll-margin-top: 75px; }
+.recordFields.shiftFields {
+  grid-template-columns: minmax(0, 3fr) minmax(70px, 2fr);
+}

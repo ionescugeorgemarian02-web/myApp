@@ -1,5 +1,5 @@
 import { app } from "./state.js";
-import { norm, roDate, showText, toast } from "./ui.js";
+import { norm, roDate, validDate, showText, toast } from "./ui.js";
 import { isClosed, rowLabel } from "./blocks/table.js";
 export const progress = (items) =>
   items.filter((i) => i.checked).length + "/" + items.length;
@@ -10,16 +10,16 @@ export function deadlines() {
   for (let p of active())
     for (let b of p.blocks) {
       for (let i of b.items || [])
-        if (i.due && !i.checked)
+        if (!i.checked && validDate(i.due))
           list.push({ due: i.due, text: i.title, p, key: "item-" + i.id });
+      const dueColumns = b.cols?.filter((col) =>
+        col.type === "date" && norm(col.name).includes("termen"),
+      );
+      if (!dueColumns?.length) continue;
       for (let r of b.rows || []) {
         if (isClosed(b, r)) continue;
-        for (let col of b.cols)
-          if (
-            col.type === "date" &&
-            norm(col.name).includes("termen") &&
-            r.values[col.id]
-          )
+        for (let col of dueColumns)
+          if (validDate(r.values[col.id]))
             list.push({
               due: r.values[col.id],
               text: rowLabel(b, r),

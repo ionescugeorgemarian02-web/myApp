@@ -239,5 +239,16 @@ export const norm = (v) =>
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim();
-export const roDate = (iso, opts = { day: "numeric", month: "short" }) =>
-  new Intl.DateTimeFormat("ro", opts).format(new Date(iso + "T12:00"));
+const formatters = new Map();
+const shortDate = { day: "numeric", month: "short" };
+export function validDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value + "T12:00");
+  return Number.isFinite(date.getTime()) && day(date) === value;
+}
+export function roDate(iso, opts = shortDate) {
+  if (!validDate(iso)) return String(iso ?? "");
+  const key = JSON.stringify(opts);
+  if (!formatters.has(key)) formatters.set(key, new Intl.DateTimeFormat("ro", opts));
+  return formatters.get(key).format(new Date(iso + "T12:00"));
+}

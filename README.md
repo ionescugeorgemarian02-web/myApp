@@ -2,37 +2,17 @@
 
 Caiet personal în limba română pentru lucru în trei schimburi. Include zece pagini de pornire pentru rutina zilnică, predarea schimbului, echipă, indicatori și primele 90 de zile.
 
-## Cum o pornești pe telefon
+## Deschide caietul
 
-Aplicația este o pagină web care se instalează ca aplicație (PWA). Nu are nevoie de Magazin Play sau App Store și merge și fără internet după prima deschidere.
+[Deschide Caietul Șefului de Schimb în browser](https://ionescugeorgemarian02-web.github.io/myApp/). Revino la același link în același browser pentru a continua cu datele salvate. După prima încărcare completă cu internet, caietul se poate redeschide și offline.
 
-[Deschide Caietul Șefului de Schimb](https://ionescugeorgemarian02-web.github.io/myApp/).
+## Cum lucrezi în versiunea 2.2
 
-**Pe telefon:**
-
-1. Deschide adresa de mai sus (cu internet, prima dată).
-2. **Android (Chrome):** apare butonul **⤓ Instalează caietul pe telefon** în Setări. Dacă nu apare: **⋮ → Adaugă pe ecranul de pornire → Instalează**.
-3. **iPhone (Safari):** **Partajare → Adaugă pe ecranul principal**.
-4. Deschide caietul din pictogramă. Verifică o dată în modul avion că se deschide.
-5. În **Azi**, verifică schimbul curent. Poți alege alt schimb atingând numărul lui. În **Setări** poți modifica ora de început a fiecărui schimb. Sfârșitul unui schimb este începutul următorului. Schimbul de noapte aparține zilei în care a început.
-
-## Cum e organizată aplicația (versiunea 2.1)
-
-Jos ai trei file: **Azi**, **Pagini** și **Setări**.
-
-**Azi** – tot ce-ți trebuie în schimb:
-- schimbul curent, orele și un cerc cu progresul rutinei; atingi 1 / 2 / 3 ca să alegi alt schimb;
-- trei butoane rapide: **Predare** (deschide predarea schimbului curent, cu data și schimbul completate), **Rezumat** (citești mesajul, apoi îl distribui sau îl copiezi) și **Problemă** (notează o problemă nouă);
-- rutina schimbului de bifat; la **⋯** scrii notițe sau pui termen;
-- **De urmărit**: termenele depășite (cu roșu), cele de azi și problemele deschise. Atinge un termen pentru a deschide punctul sau înregistrarea. Sunt incluse și termenele rutinei.
-
-**Pagini** – caietul, pe grupe: *În schimb*, *Echipa*, *Primele 90 de zile*. Sus e căutarea în tot caietul. Jos: pagină nouă, șabloane și paginile arhivate.
-
-În tabele (Echipa, Probleme, Predare…) fiecare rând apare pe scurt; atingi rândul ca să-l deschizi și să-l completezi.
-
-**Editează** (sus, pe fiecare pagină) – abia aici apar butoanele de organizare: redenumire, pictogramă, grup, mutare, duplicare, ștergere, configurarea câmpurilor, export CSV, adăugare de blocuri. Apasă **Gata** când termini. După o ștergere ai câteva secunde butonul **Anulează**.
-
-**Setări** – orele schimburilor, tema (luminoasă / întunecată), copia de siguranță și instalarea pe telefon.
+- În **Azi → Ghid rapid** găsești pașii pentru începutul, desfășurarea și predarea schimbului. Alege intervalul orar și bifează punctele terminate. **Doar nebifate** îți arată ce mai ai de făcut.
+- Deschide detaliile unui punct pentru notițe și termen. Atinge o restanță din **De urmărit** pentru a deschide înregistrarea.
+- **Predare** deschide formularul schimbului. **Problemă** adaugă o fișă în registru. **Rezumat** îți arată mesajul înainte de copiere sau distribuire.
+- În **Pagini**, alege o pagină sau caută după titlu, notițe ori conținutul unei înregistrări. Apasă **Pagină nouă** pentru a crea una. Folosește **Editează** în interiorul paginii pentru a schimba structura, a adăuga blocuri sau a configura câmpuri.
+- În **Setări**, poți ajusta programul celor trei schimburi. Apasă **Aplică programul** după completarea celor trei ore. Secțiunea **Deschiderea caietului** explică și cum poți adăuga o pictogramă pe telefon.
 
 ## Backup și recuperare
 

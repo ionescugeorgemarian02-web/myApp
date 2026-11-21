@@ -7,6 +7,13 @@ function status(text, state) {
   if (label.textContent !== text) label.textContent = text;
   label.parentElement.dataset.state = state;
 }
+function hasThreeTimes(hours) {
+  return Array.isArray(hours) && hours.length === 3 &&
+    hours.every((h) => typeof h === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(h));
+}
+export function validHours(hours) {
+  return hasThreeTimes(hours) && hours[0] < hours[1] && hours[1] < hours[2];
+}
 export function migrate(data) {
   // Fiecare versiune viitoare va transforma aici copia anterioară.
   if (
@@ -34,7 +41,8 @@ export function migrate(data) {
         if (
           !b.history ||
           typeof b.history !== "object" ||
-          !Object.values(b.history).every(Array.isArray)
+          Array.isArray(b.history) ||
+          !Object.values(b.history).every((items) => Array.isArray(items) && items.every(validItem))
         )
           return false;
       case "checklist":
@@ -51,11 +59,15 @@ export function migrate(data) {
               ["text", "number", "date", "checkbox", "select"].includes(
                 c.type,
               ) &&
-              Array.isArray(c.options),
+              Array.isArray(c.options) && c.options.every(str),
           ) &&
           Array.isArray(b.rows) &&
           b.rows.every(
-            (r) => r && str(r.id) && r.values && typeof r.values === "object",
+            (r) => r && str(r.id) && r.values && typeof r.values === "object" &&
+              !Array.isArray(r.values) &&
+              Object.values(r.values).every((v) =>
+                v == null || ["string", "boolean", "number"].includes(typeof v),
+              ),
           )
         );
       default:
@@ -71,9 +83,7 @@ export function migrate(data) {
         Array.isArray(p.blocks) &&
         p.blocks.every(validBlock),
     ) ||
-    !Array.isArray(data.settings.hours) ||
-    data.settings.hours.length !== 3 ||
-    !data.settings.hours.every((h) => /^([01]\d|2[0-3]):[0-5]\d$/.test(h))
+    !hasThreeTimes(data.settings.hours)
   )
     throw Error("Structură incompletă.");
   return data;
@@ -109,16 +119,24 @@ export function flush() {
   }
   return writing || Promise.resolve();
 }
+function writeNotebook(data) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("local", "readwrite");
+    tx.objectStore("local").put(data, "caiet");
+    tx.oncomplete = resolve;
+    tx.onabort = () => reject(tx.error);
+  });
+}
+// Confirmă înlocuirea pe disc înainte ca interfața să afișeze alt caiet.
+export async function replaceNotebook(data) {
+  await flush();
+  await writeNotebook(data);
+}
 async function writePending() {
   try {
     while (pending) {
       const version = revision;
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction("local", "readwrite");
-        tx.objectStore("local").put(pending, "caiet");
-        tx.oncomplete = resolve;
-        tx.onabort = () => reject(tx.error);
-      });
+      await writeNotebook(pending);
       if (version === revision) pending = null;
     }
     status("Salvat", "saved");
@@ -149,5 +167,15 @@ export function backup(data) {
   );
 }
 export async function restore(file) {
-  return migrate(JSON.parse(await file.text()));
+  const contents = await file.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(contents.replace(/^\uFEFF/, ""));
+  } catch {
+    throw Error("Alege fișierul JSON descărcat din caiet.");
+  }
+  const notebook = migrate(parsed);
+  if (!validHours(notebook.settings.hours))
+    throw Error("Orele schimburilor din copie trebuie să fie în ordine crescătoare.");
+  return notebook;
 }

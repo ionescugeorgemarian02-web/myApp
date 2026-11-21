@@ -1,17 +1,17 @@
-/* Caietul Șefului de Schimb – design 2.1 */
+/* Caietul Șefului de Schimb – design 2.2 */
 :root {
   color-scheme: light;
-  --bg: #f5f5f0;
+  --bg: #f7f6f1;
   --surface: #ffffff;
-  --surface-2: #f7f7f3;
-  --ink: #18261f;
-  --muted: #5d6b64;
-  --line: #dce1d9;
-  --accent: #1d5a49;
+  --surface-2: #f4f6f4;
+  --ink: #172d38;
+  --muted: #536773;
+  --line: #d5dfde;
+  --accent: #086961;
   --accent-ink: #ffffff;
-  --accent-soft: #e2efe8;
-  --hero: #17392f;
-  --hero-2: #21503f;
+  --accent-soft: #e1efea;
+  --hero: #193743;
+  --hero-2: #234852;
   --yellow: #f3c85b;
   --danger: #b2361f;
   --danger-soft: #fbe9e4;
@@ -25,17 +25,17 @@
 }
 :root[data-theme="Întunecată"] {
   color-scheme: dark;
-  --bg: #0f1a16;
-  --surface: #17241f;
-  --surface-2: #1d2c26;
-  --ink: #e9f1ec;
-  --muted: #a3b4ab;
-  --line: #2a3c35;
-  --accent: #8fd6b6;
-  --accent-ink: #0f1a16;
-  --accent-soft: #223a30;
-  --hero: #163028;
-  --hero-2: #1f4436;
+  --bg: #101d25;
+  --surface: #172933;
+  --surface-2: #20353e;
+  --ink: #edf4f1;
+  --muted: #adbfc6;
+  --line: #364d55;
+  --accent: #8cdbca;
+  --accent-ink: #101d25;
+  --accent-soft: #1c3d40;
+  --hero: #15303c;
+  --hero-2: #234751;
   --danger: #ff9f8a;
   --danger-soft: #3a211b;
   --warn: #f3c85b;
@@ -46,17 +46,17 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="Luminoasă"]) {
     color-scheme: dark;
-    --bg: #0f1a16;
-    --surface: #17241f;
-    --surface-2: #1d2c26;
-    --ink: #e9f1ec;
-    --muted: #a3b4ab;
-    --line: #2a3c35;
-    --accent: #8fd6b6;
-    --accent-ink: #0f1a16;
-    --accent-soft: #223a30;
-    --hero: #163028;
-    --hero-2: #1f4436;
+    --bg: #101d25;
+    --surface: #172933;
+    --surface-2: #20353e;
+    --ink: #edf4f1;
+    --muted: #adbfc6;
+    --line: #364d55;
+    --accent: #8cdbca;
+    --accent-ink: #101d25;
+    --accent-soft: #1c3d40;
+    --hero: #15303c;
+    --hero-2: #234751;
     --danger: #ff9f8a;
     --danger-soft: #3a211b;
     --warn: #f3c85b;
@@ -100,8 +100,9 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  border-bottom: 1px solid var(--line);
   padding: calc(10px + env(safe-area-inset-top)) max(16px, calc((100% - 720px) / 2)) 10px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  background: var(--bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -185,8 +186,7 @@ nav button.on {
 }
 /* ——— Text ——— */
 .title {
-  font-size: 30px;
-  font-weight: 750;
+  font: 500 clamp(2rem, 5vw, 2.8rem)/1.12 Georgia, serif;
   letter-spacing: -0.03em;
   line-height: 1.15;
   margin: 10px 0 16px;
@@ -369,65 +369,6 @@ button.pill.on {
 }
 .sectionHead h2 {
   font-size: 20px;
-}
-/* ——— Azi: antet schimb ——— */
-.hero {
-  margin: 8px 0 14px;
-  padding: 18px;
-  border-radius: 22px;
-  color: #fff;
-  background: var(--hero);
-}
-.heroTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-.eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--yellow);
-}
-.hero h1 {
-  font: 500 clamp(2.4rem, 6vw, 3.8rem)/1.08 Georgia, serif;
-  letter-spacing: -0.03em;
-  margin: 2px 0;
-}
-.hero p {
-  font-size: 14px;
-  color: rgb(255 255 255 / 78%);
-}
-.ringBox {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  flex: none;
-  display: grid;
-  place-items: center;
-}
-.ring {
-  position: absolute;
-  inset: 0;
-  transform: rotate(-90deg);
-}
-.ring circle {
-  fill: none;
-  stroke-width: 6;
-}
-.ringBg {
-  stroke: rgb(255 255 255 / 16%);
-}
-.ringFg {
-  stroke: var(--yellow);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.4s;
-}
-.ringBox strong {
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
 }
 .segmented {
   display: flex;
@@ -787,36 +728,45 @@ select:focus {
 .searchBox:focus-within {
   outline: 2px solid var(--accent);
 }
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+.directoryHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 14px;
 }
+.directoryHead .title { margin: 0; }
+.directoryHead .primary { min-height: 44px; }
+.tiles, .searchResults {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.searchResults { margin-top: 12px; padding: 0 14px; }
 .tile {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 2px;
-  padding: 14px;
-  border-radius: 16px;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  min-height: 62px;
+  padding: 11px 15px;
+  gap: 12px;
   text-align: left;
-  box-shadow: var(--shadow);
-  min-height: 108px;
+  justify-content: flex-start;
 }
+.tile + .tile { border-top: 1px solid var(--line); }
 .tileEmoji {
-  font-size: 24px;
-  margin-bottom: 6px;
+  background: var(--surface-2);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
 }
-.tile strong {
-  font-size: 15px;
-  line-height: 1.25;
-}
-.tile small {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-  margin-top: auto;
-}
+.directoryName { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.tile small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.tile .icon { width: 16px; color: var(--muted); }
 .pageBar {
   display: flex;
   justify-content: space-between;
@@ -1039,15 +989,6 @@ header small[data-state="error"]::before { background: currentColor; }
 @media (min-width: 850px) {
   header { padding-inline: max(28px, calc((100% - 940px) / 2)); }
   main:has(.shiftLayout) { max-width: 996px; padding-inline: 28px; }
-  .hero {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 28px;
-    padding: 24px 28px;
-  }
-  .heroTop { flex: 1; gap: 24px; }
-  .hero .segmented { margin: 0; width: 285px; }
   .shiftLayout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(260px, 33%);
@@ -1072,3 +1013,6 @@ header small[data-state="error"]::before { background: currentColor; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+main { scroll-margin-top: 64px; }
+:where(details, summary, button, input, select, textarea) { scroll-margin-block: 64px 95px; }

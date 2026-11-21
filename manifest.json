@@ -6,8 +6,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f3f2ed",
-  "theme_color": "#17392f",
+  "background_color": "#f7f6f1",
+  "theme_color": "#193743",
   "description": "Caiet personal pentru șeful de schimb: rutină, predare, echipă, indicatori.",
   "orientation": "portrait",
   "icons": [
