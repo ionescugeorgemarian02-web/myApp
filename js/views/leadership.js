@@ -1,5 +1,5 @@
 import { app } from "../state.js";
-import { btn, confirmShare, details, el, input } from "../ui.js";
+import { btn, confirmShare, details, el, input, fieldHint } from "../ui.js";
 import { share } from "../logic.js";
 import { SBAR, SBAR_LABELS, SCENARIOS, TECHNIQUES, sbarText } from "../leadership.js";
 
@@ -12,7 +12,8 @@ export function leadershipView() {
   const filterNames = ["Toate ghidurile", ...SCENARIOS.map(([name]) => name)];
   const development = app.data.pages.find((p) => p.professionalPlan && !p.archived);
   content.append(el("h1", "Asistent de leadership"),
-    input("Situația din schimb", filterNames[0], (value) => drawGuides(value), "select", filterNames),
+    fieldHint(input("Situația din schimb", filterNames[0], drawGuides, "select", filterNames),
+      "Alege situația pe care o ai de rezolvat. Deschide un ghid și folosește întrebarea de la Formulare ca punct de plecare."),
     guides);
   if (development) content.append(btn("Planul meu de dezvoltare", () => app.openPage(development), "primary"));
   function drawGuides(filter) {
@@ -36,8 +37,7 @@ export function leadershipView() {
     form.replaceChildren();
     SBAR_LABELS.forEach((label, index) => {
       const field = input(label, draft[index], (value) => { draft[index] = value; }, "area");
-      field.querySelector("textarea").placeholder = prompts[index];
-      form.append(field);
+      form.append(fieldHint(field, prompts[index]));
     });
     form.append(btn("Previzualizează rezumatul", async () => {
       const text = sbarText(name, draft);

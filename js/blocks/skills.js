@@ -23,7 +23,7 @@ export function skills(b, c) {
       li.append(el("span", SHORT[i], "skillDot l" + i), el("span", name));
       legend.append(li);
     });
-    box.append(el("p", "Folosește identificatori neutri. Acoperirea arată alocarea și nivelul consemnat în caiet. Confirmă separat prezența și dreptul de a lucra la post; aceeași persoană poate apărea la mai multe posturi.", "formHelp"),
+    box.append(el("p", "Alocă schimbul în Echipa, apoi setează necesarul și nivelul minim pentru fiecare post. Atinge celula om–post până afișează nivelul confirmat. Verifică prezența, autorizarea și dacă aceeași persoană este alocată simultan la două posturi.", "formHelp"),
       input("Schimb pentru acoperire", shift, (value) => { shift = Number(value); draw(); }, "select", ["1", "2", "3"]), legend);
     const settings = details("Niveluri și necesar pe schimb", "skill-requirements");
     const inputs = el("div", "", "recordFields");

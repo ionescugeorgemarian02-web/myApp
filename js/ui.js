@@ -117,6 +117,20 @@ export function input(label, value, change, type = "text", options = []) {
   l.append(n);
   return l;
 }
+export function fieldHint(field, text) {
+  if (!text) return field;
+  const control = field.querySelector("input, textarea, select");
+  if (!control.hasAttribute("aria-labelledby") && !control.hasAttribute("aria-label")) {
+    const label = field.firstElementChild;
+    label.id ||= "label-" + id();
+    control.setAttribute("aria-labelledby", label.id);
+  }
+  const hint = el("span", text, "fieldHelp");
+  hint.id = "help-" + id();
+  control.setAttribute("aria-describedby", hint.id);
+  field.append(hint);
+  return field;
+}
 export function fieldError(control, message) {
   const field = control.closest(".field");
   let hint = field.querySelector(".fieldError");
@@ -129,7 +143,9 @@ export function fieldError(control, message) {
   hint.hidden = !message;
   hint.textContent = message;
   control.setAttribute("aria-invalid", String(Boolean(message)));
-  if (message) control.setAttribute("aria-describedby", hint.id);
+  const descriptions = (control.getAttribute("aria-describedby") || "").split(/\s+/).filter((id) => id && id !== hint.id);
+  if (message) descriptions.push(hint.id);
+  if (descriptions.length) control.setAttribute("aria-describedby", descriptions.join(" "));
   else control.removeAttribute("aria-describedby");
 }
 // Secțiune care se deschide la atingere; starea se ține minte cât timp

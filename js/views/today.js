@@ -218,11 +218,13 @@ function attention(c) {
 function nextAction(c, reminder) {
   if (reminder) return reminder;
   if (handover(c) && app.data.settings.scheduleConfirmed && shiftEnd(c)?.remaining <= 60)
-    return { title: "Predarea este verificată", action: { kind: "handover", label: "Deschide predarea" } };
+    return { title: "Predarea este verificată", text: "Revizuiește cu colegul riscul rămas și prima acțiune pe care o va verifica.", action: { kind: "handover", label: "Deschide predarea" } };
   const previous = previousHandover(c);
   if (previous?.r && readKey(previous.b, previous.r, "prepared") && !readKey(previous.b, previous.r, "received"))
-    return { action: { kind: "handover", previous: true, label: "Preia schimbul" } };
-  return { action: { kind: "interval", label: "Adaugă interval" } };
+    return { text: "Întreabă colegul ce risc rămâne și ce verifici prima dată. Confirmă după ce sunt clare.",
+      action: { kind: "handover", previous: true, label: "Preia schimbul" } };
+  return { text: "Ia planul și totalul realizat din aceeași perioadă. Verifică linia și schimbul înainte să salvezi.",
+    action: { kind: "interval", label: "Adaugă interval" } };
 }
 
 export function updateTodayAttention(c) {
@@ -272,6 +274,7 @@ export function updateTodayAttention(c) {
   lead.append(icon("check"), el("span", "Următoarea acțiune"));
   nextPanel.append(lead);
   if (next.title) nextPanel.append(el("h2", next.title));
+  if (next.text) nextPanel.append(el("p", next.text, "attentionText"));
   const actions = el("div", "", "attentionActions");
   const open = next.action.kind === "interval" ? () => addInterval(app.current) : run(next);
   actions.append(btn(next.action.label, open, "primary nextAction", next.action.kind === "interval" ? "plus" : "chevron"));

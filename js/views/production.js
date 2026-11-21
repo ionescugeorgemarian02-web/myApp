@@ -1,5 +1,6 @@
+import { intervalGuidance } from "../guidance.js";
 import { app } from "../state.js";
-import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError, roDate } from "../ui.js";
+import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError, fieldHint, roDate } from "../ui.js";
 import { INTERVAL_NUMBERS, intervalTotals, intervalError } from "../operations.js";
 import { nonnegative, productionKpis } from "../production.js";
 import { addDays, problemsBlock } from "../metrics.js";
@@ -88,7 +89,7 @@ async function editInterval(c, existing, selection) {
       }
       if (["date", "shift", "zone", "start", "end"].includes(key)) updateDates();
     }, type, options);
-    parent.append(group);
+    parent.append(fieldHint(group, intervalGuidance[key]));
     const control = group.querySelector("input, select, textarea");
     controls.set(key, control);
     return control;
@@ -125,7 +126,7 @@ async function editInterval(c, existing, selection) {
   problem.onchange = () => { draft.problemId = problem.value; };
   const label = el("label", "", "field");
   label.append(el("span", "Problemă asociată"), problem);
-  extraFields.append(label);
+  extraFields.append(fieldHint(label, intervalGuidance.problemId));
   controls.set("problemId", problem);
   const footer = actions("Salvează");
   const dialog = document.querySelector("dialog");
@@ -157,7 +158,7 @@ async function editInterval(c, existing, selection) {
     if (await openDialog(() => [
       el("h2", existing ? "Editează intervalul" : "Interval nou"),
       el("p", "Ciornă nesalvată", "formHelp draftState"),
-      context, fields, el("p", "0 indică zero bucăți. Lasă câmpul gol dacă cifra nu este disponibilă.", "formHelp"), extra, footer,
+      context, fields, extra, footer,
     ]) !== "ok") return;
     if (existing) Object.assign(existing, draft);
     else (app.data.intervals ||= []).push(draft);

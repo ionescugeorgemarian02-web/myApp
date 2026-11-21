@@ -1,5 +1,5 @@
 import { app } from "../state.js";
-import { btn, details, el, input, validDate } from "../ui.js";
+import { btn, details, el, input, validDate, fieldHint } from "../ui.js";
 import { computeKpis, KPI_DEFINITIONS, kpiComparison, reportingRange } from "../quality.js";
 import { nonnegative } from "../production.js";
 import { fmt } from "../charts.js";
@@ -16,7 +16,7 @@ export function kpiView(c) {
     input("Până la", to, (v) => { to = v; draw(); }, "date"),
     input("Zonă pentru producție", zone, (v) => { zone = v; draw(); }));
   view.append(el("h1", "Indicatori operaționali"), filters,
-    el("p", "Pragurile sunt locale și rămân de confirmat intern până marchezi validarea. Compară perioade cu aceeași acoperire. Registrele generale acoperă întregul caiet.", "formHelp"), result);
+    el("p", "Alege perioada și zona, apoi deschide categoria dorită. Verifică formula și sursa înainte de comparație. Registrele generale acoperă întregul caiet.", "formHelp"), result);
   function draw() {
     result.replaceChildren();
     if (!validDate(from) || !validDate(to) || from > to) {
@@ -62,11 +62,12 @@ export function kpiView(c) {
       const approval = input("Prag validat intern", configuration.confirmed, (confirmed) => save({ confirmed }, false), "checkbox");
       const checkbox = approval.querySelector("input");
       checkbox.disabled = configuration.target == null;
-      options.append(target, input("Comparație", configuration.direction === "max" ? "Maximum" : "Minimum",
+      options.append(fieldHint(target, "Ia valoarea în unitatea afișată. Exemplu «95» pentru un prag de 95%."), fieldHint(input("Comparație", configuration.direction === "max" ? "Maximum" : "Minimum",
         (direction) => save({ direction: direction === "max" || direction === "Maximum" ? "max" : "min" }),
-        "select", ["Minimum", "Maximum"]),
-        input("Referință locală (opțional)", configuration.reference, (reference) => save({ reference })),
-        approval);
+        "select", ["Minimum", "Maximum"]), "Alege Minimum când urmărești să atingi sau să depășești pragul. Alege Maximum când trebuie să rămâi sub limită."),
+        fieldHint(input("Referință locală (opțional)", configuration.reference, (reference) => save({ reference })),
+          "Scrie documentul sau rolul care a confirmat regula."),
+        fieldHint(approval, "Bifează după ce ai confirmat formula, pragul și direcția cu rolul responsabil."));
       redrawStatus();
       section.append(heading, el("p", formula + " · Sursă: " + source + "."), status, options);
       groups.get(group).append(section);

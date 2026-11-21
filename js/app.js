@@ -15,7 +15,7 @@ import { handover, previousHandover } from "./logic.js";
 import { handoverDraft } from "./blocks/table.js";
 import { runAction } from "./views/advice.js";
 import { problemsBlock, commitments } from "./metrics.js";
-const VERSION = "3.4";
+const VERSION = "3.5";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
