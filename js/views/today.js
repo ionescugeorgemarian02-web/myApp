@@ -68,17 +68,34 @@ function shiftActions(c) {
 function header(c) {
   const head = el("div", "", "todayHead");
   const title = el("div");
-  title.append(el("h1", "Azi"), el("p", roDate(c.date, {
+  const date = el("p", "", "todayDate");
+  date.append(icon("today"), el("span", roDate(c.date, {
     weekday: "long", day: "numeric", month: "long",
-  }), "todayDate"));
-  head.append(title, btn("Notiță nouă", () => noteEditor(), "primary", "plus"));
-  const tools = el("div", "", "todayTools");
-  tools.append(shiftSelector(c), shiftActions(c));
+  })));
+  title.append(date, el("h1", "Panou de schimb"), btn("Notiță nouă", () => noteEditor(), "primary", "plus"));
+  head.append(title);
+  return head;
+}
+
+function shiftPanel(c) {
+  const tools = el("section", "", "todayTools");
+  const heading = el("div", "", "todaySectionHead");
+  heading.append(icon("clock"), el("h2", "Programul turelor"));
+  tools.append(heading, shiftSelector(c));
+  const schedule = el("ol", "", "shiftSchedule");
+  const hours = app.data.settings.hours;
+  hours.forEach((hour, index) => {
+    const row = el("li");
+    if (c.shift === index + 1) row.setAttribute("aria-current", "true");
+    row.append(el("span", "Schimbul " + (index + 1)), el("time", hour));
+    schedule.append(row);
+  });
+  tools.append(schedule, shiftActions(c));
   if (c.workDay !== c.date) {
     const date = el("span", "Schimb început pe " + roDate(c.workDay), "shiftStartDate");
     tools.append(date);
   }
-  return [head, tools];
+  return tools;
 }
 
 function routineSection(block, c) {
@@ -88,7 +105,11 @@ function routineSection(block, c) {
   const count = el("span", done + " / " + block.items.length, "routineProgress");
   count.setAttribute("aria-label", done + " din " + block.items.length + " puncte bifate");
   head.append(el("h2", block.title), count);
-  section.append(head);
+  const progress = el("progress", "", "routineBar");
+  progress.max = block.items.length;
+  progress.value = done;
+  progress.setAttribute("aria-label", block.title);
+  section.append(head, progress);
   const list = routine(block, c, true);
   const rows = list.querySelectorAll(".lines > .task");
   section.append(list);
@@ -163,17 +184,21 @@ function drawAgenda(section, c) {
 export function today(c) {
   const main = document.querySelector("main");
   const home = el("div", "", "todayView");
-  home.append(...header(c));
+  home.append(header(c));
+  const grid = el("div", "", "todayGrid");
+  const work = el("div", "", "todayWork");
   const agenda = el("section", "", "todayAgenda");
   const updateDeadlines = () => drawAgenda(agenda, c);
   updateDeadlines();
-  home.append(agenda);
+  work.append(agenda);
   for (const page of active()) {
     for (const block of page.blocks) {
       if (block.type === "routine" && block.items.length)
-        home.append(routineSection(block, { ...c, pageId: page.id, updateDeadlines }));
+        work.append(routineSection(block, { ...c, pageId: page.id, updateDeadlines }));
     }
   }
+  grid.append(work, shiftPanel(c));
+  home.append(grid);
   main.append(home);
 }
 

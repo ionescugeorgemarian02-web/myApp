@@ -8,22 +8,22 @@
 
 :root {
   color-scheme: dark;
-  --bg: #0c0c0e;
-  --surface: #151517;
-  --surface-2: #202023;
-  --ink: #f4f3f4;
-  --muted: #aaa9b0;
-  --line: #303034;
-  --accent: #b7a9ed;
-  --accent-ink: #17132d;
-  --accent-soft: #25222e;
+  --bg: #101514;
+  --surface: #18201e;
+  --surface-2: #212c28;
+  --ink: #f1f6ee;
+  --muted: #a9b9b1;
+  --line: #34423c;
+  --accent: #c3fa76;
+  --accent-ink: #17250b;
+  --accent-soft: #303f23;
   --danger: #ff9b9f;
   --danger-ink: #370d13;
   --danger-soft: #3c222d;
   --warn: #f3c47b;
   --warn-soft: #342b21;
   --radius: 10px;
-  --content-width: 850px;
+  --content-width: 1120px;
   --gutter: clamp(18px, 4vw, 32px);
   --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
@@ -32,15 +32,15 @@
 }
 :root[data-theme="Luminoasă"] {
   color-scheme: light;
-  --bg: #faf9f8;
+  --bg: #f0f4ef;
   --surface: #fff;
-  --surface-2: #f3f2f1;
-  --ink: #262527;
-  --muted: #64646a;
-  --line: #dedcdb;
-  --accent: #5942ab;
+  --surface-2: #e7eee7;
+  --ink: #16221d;
+  --muted: #506259;
+  --line: #c9d5cc;
+  --accent: #356515;
   --accent-ink: #fff;
-  --accent-soft: #eeebff;
+  --accent-soft: #e0f2d1;
   --danger: #a02943;
   --danger-ink: #fff;
   --danger-soft: #ffeaed;
@@ -299,8 +299,10 @@ button.pill.on {
 /* ——— Carduri ——— */
 .card {
   margin: 0 0 28px;
-  padding: 20px 0 0;
-  border-top: 1px solid var(--line);
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
 }
 .cardHead {
   display: flex;
@@ -949,3 +951,43 @@ dialog[open], details[open] > .recBody, details[open] > .moreBody {
 
 main { scroll-margin-top: 64px; }
 :where(details, summary, button, input, select, textarea) { scroll-margin-block: 64px 95px; }
+
+.brand { gap: 10px; font: 600 1.38rem/1 var(--display); }
+.brandMark {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: #c3fa76;
+}
+.brandMark::after {
+  content: "";
+  width: 21px;
+  height: 17px;
+  background: repeating-linear-gradient(115deg, #142411 0 4px, transparent 4px 7px);
+  clip-path: polygon(28% 0,100% 0,72% 100%,0 100%);
+}
+header small { display: inline-flex; align-items: center; gap: 7px; }
+header small::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+}
+header small:is([data-state="pending"], [data-state="error"])::before { background: currentColor; }
+button.primary { border-radius: 10px; font-weight: 700; }
+.directoryGroup, .settingsSection {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding-inline: clamp(14px, 3vw, 24px);
+  margin-block: 8px;
+}
+.directoryGroup > summary > .icon { color: var(--accent); }
+.searchBox { border-radius: 12px; }
+.searchBox .icon { color: var(--accent); }
+@media (min-width: 700px) {
+  header { min-height: 72px; }
+  header nav { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 3px; margin-inline: auto; }
+  nav button { min-height: 36px; }
+  nav button.on { color: var(--accent); background: var(--accent-soft); }
+}
