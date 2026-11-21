@@ -36,6 +36,13 @@ const KNOWN = {
 // Paginile fără grup primesc grupul și pictograma potrivite (și în caietele vechi).
 export function organize(data) {
   let changed = false;
+  // „Automat” era valoarea inițială a caietelor anterioare.
+  if (!data.settings.appearanceVersion) {
+    if (!data.settings.theme || data.settings.theme === "Automat")
+      data.settings.theme = "Întunecată";
+    data.settings.appearanceVersion = 1;
+    changed = true;
+  }
   for (const p of [...data.pages, ...data.templates])
     if (typeof p.group !== "string") {
       const k = KNOWN[p.title];
@@ -295,10 +302,11 @@ export function seed() {
   });
   const out = {
     schemaVersion: 1,
+    notes: [],
     pages,
     templates: [],
     settings: {
-      theme: "Automat",
+      theme: "Întunecată",
       hours: ["06:00", "14:00", "22:00"],
       createdAt: Date.now(),
       backup: null,

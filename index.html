@@ -6,8 +6,7 @@
       name="viewport"
       content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
-    <meta name="theme-color" content="#f7f6f1" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#101d25" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#090a0f" />
     <meta name="description" content="Caiet personal pentru șeful de schimb: rutină, predare, echipă, indicatori." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,18 +20,19 @@
     <link rel="stylesheet" href="./css/today.css" />
     <link rel="stylesheet" href="./css/forms.css" />
     <link rel="stylesheet" href="./css/settings.css" />
+    <link rel="stylesheet" href="./css/notes.css" />
   </head>
   <body>
     <header>
       <div class="brand">
-        <span class="brandicon" aria-hidden="true">▤</span> Caietul Șefului de Schimb
+        <span class="brandicon"><img src="./icons/192.png" alt="" width="28" height="28" /></span> Caietul Șefului de Schimb
       </div>
+      <nav aria-label="Navigare principală"></nav>
       <small role="status"><span id="status">Salvat</span></small>
     </header>
     <main id="main"></main>
     <aside id="update"></aside>
     <div id="toasts" aria-live="polite"></div>
-    <nav aria-label="Navigare principală"></nav>
     <dialog><form></form></dialog>
     <script type="module" src="./js/app.js"></script>
   </body>

@@ -1,69 +1,52 @@
-/* Caietul Șefului de Schimb – design 2.2 */
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  src: url("../fonts/barlow-semi-condensed-600.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
 :root {
-  color-scheme: light;
-  --bg: #f7f6f1;
-  --surface: #ffffff;
-  --surface-2: #f4f6f4;
-  --ink: #172d38;
-  --muted: #536773;
-  --line: #d5dfde;
-  --accent: #086961;
-  --accent-ink: #ffffff;
-  --accent-soft: #e1efea;
-  --hero: #193743;
-  --hero-2: #234852;
-  --yellow: #f3c85b;
-  --danger: #b2361f;
-  --danger-soft: #fbe9e4;
-  --warn: #8a5a00;
-  --warn-soft: #fdf1d6;
-  --shadow: 0 1px 2px rgb(20 40 30 / 5%), 0 4px 14px rgb(20 40 30 / 5%);
-  --radius: 14px;
-  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
-  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    system-ui, sans-serif;
-}
-:root[data-theme="Întunecată"] {
   color-scheme: dark;
-  --bg: #101d25;
-  --surface: #172933;
-  --surface-2: #20353e;
-  --ink: #edf4f1;
-  --muted: #adbfc6;
-  --line: #364d55;
-  --accent: #8cdbca;
-  --accent-ink: #101d25;
-  --accent-soft: #1c3d40;
-  --hero: #15303c;
-  --hero-2: #234751;
-  --danger: #ff9f8a;
-  --danger-soft: #3a211b;
-  --warn: #f3c85b;
-  --warn-soft: #3a3020;
-  --shadow: none;
-  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f1a16' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --bg: #090a0f;
+  --surface: #131419;
+  --surface-2: #1b1c25;
+  --ink: #f1f0f7;
+  --muted: #aaaab9;
+  --line: #31323e;
+  --accent: #b6abff;
+  --accent-ink: #17132d;
+  --accent-soft: #29243d;
+  --danger: #ff9b9f;
+  --danger-ink: #370d13;
+  --danger-soft: #3c222d;
+  --warn: #f3c47b;
+  --warn-soft: #342b21;
+  --shadow: 0 4px 20px rgb(0 0 0 / 10%);
+  --radius: 16px;
+  --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317132d' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="Luminoasă"]) {
-    color-scheme: dark;
-    --bg: #101d25;
-    --surface: #172933;
-    --surface-2: #20353e;
-    --ink: #edf4f1;
-    --muted: #adbfc6;
-    --line: #364d55;
-    --accent: #8cdbca;
-    --accent-ink: #101d25;
-    --accent-soft: #1c3d40;
-    --hero: #15303c;
-    --hero-2: #234751;
-    --danger: #ff9f8a;
-    --danger-soft: #3a211b;
-    --warn: #f3c85b;
-    --warn-soft: #3a3020;
-    --shadow: none;
-    --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f1a16' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
-  }
+:root[data-theme="Luminoasă"] {
+  color-scheme: light;
+  --bg: #f5f5fa;
+  --surface: #fff;
+  --surface-2: #f0f0f7;
+  --ink: #20202a;
+  --muted: #5a5b6f;
+  --line: #d6d6e3;
+  --accent: #5942ab;
+  --accent-ink: #fff;
+  --accent-soft: #eeebff;
+  --danger: #a02943;
+  --danger-ink: #fff;
+  --danger-soft: #ffeaed;
+  --warn: #805200;
+  --warn-soft: #fff0d7;
+  --shadow: 0 3px 12px rgb(22 20 35 / 4%);
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
 }
 * {
   box-sizing: border-box;
@@ -103,8 +86,7 @@ header {
   border-bottom: 1px solid var(--line);
   padding: calc(10px + env(safe-area-inset-top)) max(16px, calc((100% - 720px) / 2)) 10px;
   background: var(--bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+
 }
 .brand {
   display: flex;
@@ -120,9 +102,8 @@ header {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: var(--hero);
-  color: var(--yellow);
-  font-size: 15px;
+  outline: 1px solid var(--line);
+  overflow: hidden;
 }
 header small {
   display: flex;
@@ -137,12 +118,12 @@ header small::before {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #3fae7e;
+  background: var(--accent);
 }
 main {
   max-width: 720px;
   margin: auto;
-  padding: 6px 16px calc(100px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(100px + env(safe-area-inset-bottom));
   overflow-wrap: anywhere;
 }
 nav {
@@ -154,21 +135,22 @@ nav {
   display: flex;
   gap: 4px;
   padding: 6px;
-  border-radius: 22px;
+  border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: 0 8px 28px rgb(0 0 0 / 14%);
-  width: min(360px, calc(100% - 32px));
+  width: min(410px, calc(100% - 28px));
 }
 nav button {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 7px 4px 6px;
+  padding: 6px 4px;
   border: 0;
-  border-radius: 16px;
+  border-radius: 10px;
   background: none;
   color: var(--muted);
   font-size: 11px;
@@ -183,24 +165,24 @@ nav button .icon {
 nav button.on {
   background: var(--accent-soft);
   color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 /* ——— Text ——— */
 .title {
-  font: 500 clamp(2rem, 5vw, 2.8rem)/1.12 Georgia, serif;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  margin: 10px 0 16px;
+  font: 600 clamp(2.6rem, 6vw, 3.6rem)/1 var(--display);
+  letter-spacing: -.025em;
+  margin: 20px 0;
   display: flex;
   gap: 10px;
   align-items: center;
 }
+.brandicon img { display: block; width: 100%; height: 100%; }
 .titleEmoji {
   font-size: 28px;
 }
 h2 {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font: 600 1.45rem/1.15 var(--display);
+  letter-spacing: .005em;
 }
 .hint,
 .empty,
@@ -224,7 +206,7 @@ h2 {
   margin: 24px 0;
 }
 .groupTitle {
-  font-size: 13px;
+  font: 600 .79rem/1.3 var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -269,7 +251,7 @@ button.danger {
 button.dangerFill {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--danger-ink);
 }
 button.ghost {
   background: none;
@@ -368,7 +350,7 @@ button.pill.on {
   margin: 22px 2px 10px;
 }
 .sectionHead h2 {
-  font-size: 20px;
+  font-size: 1.6rem;
 }
 .segmented {
   display: flex;
@@ -388,8 +370,8 @@ button.pill.on {
   font-size: 14px;
 }
 .segmented button.on {
-  background: var(--yellow);
-  color: #22311f;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .segmented.light {
   background: var(--surface-2);
@@ -885,16 +867,17 @@ details.record.closed .recTitle {
 }
 /* ——— Ferestre, mesaje ——— */
 dialog {
-  border: 0;
-  border-radius: 22px;
-  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
   width: min(420px, calc(100% - 32px));
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
 }
 dialog::backdrop {
-  background: rgb(10 20 15 / 45%);
+  background: rgb(4 4 10 / 72%);
+  backdrop-filter: blur(4px);
 }
 dialog h2 {
   margin-bottom: 12px;
@@ -933,7 +916,8 @@ dialog p {
   padding: 8px 8px 8px 16px;
   min-height: 48px;
   border-radius: 14px;
-  background: #1b2a24;
+  background: #272333;
+  border: 1px solid #544d6b;
   color: #fff;
   font-size: 14px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
@@ -942,7 +926,7 @@ dialog p {
 .toast button {
   background: none;
   border: 0;
-  color: var(--yellow);
+  color: #c7bcff;
   min-height: 36px;
 }
 @keyframes rise {
@@ -952,7 +936,7 @@ dialog p {
   }
 }
 :focus-visible {
-  outline: 3px solid #c48a1e;
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 @media (max-width: 370px) {
@@ -984,14 +968,38 @@ header small[data-state="error"]::before { background: currentColor; }
   border-radius: 10px;
 }
 @media (hover: hover) {
+  button:not(:disabled):hover, summary:hover { color: var(--accent); }
+  button.primary:hover, button.pill.on:hover { color: var(--accent-ink); filter: brightness(1.08); }
+  button.danger:hover, button.dangerFill:hover { color: var(--danger); background: var(--danger-soft); }
   .action:hover, .linkRow:hover, .tile:hover { background: var(--accent-soft); }
+  .tile:hover > .icon, .linkRow:hover > .icon { transform: translateX(2px); }
 }
 @media (min-width: 850px) {
-  header { padding-inline: max(28px, calc((100% - 940px) / 2)); }
+  header { gap: 20px; min-height: 67px; padding-inline: max(28px, calc((100% - 940px) / 2)); }
+  header nav {
+    position: static;
+    transform: none;
+    width: auto;
+    margin-inline: auto 6px;
+    padding: 3px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+  nav button {
+    flex-direction: row;
+    gap: 6px;
+    min-height: 36px;
+    padding-inline: 12px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+  nav button .icon { width: 16px; height: 16px; }
+  #toasts, #update { bottom: 22px; }
+  main { padding-top: 20px; }
   main:has(.shiftLayout) { max-width: 996px; padding-inline: 28px; }
   .shiftLayout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 33%);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
     grid-template-areas: "routine tools";
     align-items: start;
     gap: 18px;
@@ -1009,6 +1017,13 @@ header small[data-state="error"]::before { background: currentColor; }
   }
   .actionIcon { grid-row: span 2; margin: 0; align-self: center; }
   .action strong, .action small { grid-column: 2; }
+}
+button, summary, .linkRow > .icon, .tile > .icon, input, select, textarea {
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease,
+    box-shadow .15s ease, transform .15s ease;
+}
+dialog[open], details[open] > .recBody, details[open] > .moreBody {
+  animation: rise .17s ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

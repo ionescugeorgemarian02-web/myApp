@@ -1,4 +1,8 @@
 import { el, input, btn, details, toolsFor, now, id, icon, ask, roDate } from "../ui.js";
+import { app } from "../state.js";
+import { compareNotes } from "../notes.js";
+import { noteEditor, noteRow } from "../views/notes.js";
+
 export const item = (title, details = "", ready = "") => ({
   id: id(),
   title,
@@ -14,7 +18,16 @@ export const item = (title, details = "", ready = "") => ({
 export function checklist(b, c, compact = false) {
   let box = el("div"),
     list = el("div", "", "lines");
+  const shiftKey = b.type === "routine" ? c.key : "";
+  const byItem = new Map();
+  for (const note of app.data.notes) {
+    const src = note.source;
+    if (!src || src.pageId !== c.pageId || src.blockId !== b.id || src.shiftKey !== shiftKey) continue;
+    if (!byItem.has(src.itemId)) byItem.set(src.itemId, []);
+    byItem.get(src.itemId).push(note);
+  }
   for (const i of b.items) {
+    const notes = byItem.get(i.id) || [];
     let row = el("div", "", "task"),
       label = el("label", "", "check"),
       tick = el("input"),
@@ -37,7 +50,7 @@ export function checklist(b, c, compact = false) {
           roDate(i.due),
           i.due < c.date ? "chip late" : i.due === c.date ? "chip today" : "chip",
         ]);
-      if (i.notes) meta.push(["notițe", "chip"]);
+      if (notes.length) meta.push([notes.length === 1 ? "1 notiță" : notes.length + " notițe", "chip"]);
       if (meta.length) {
         let m = el("span", "", "meta");
         for (let [t, cls] of meta) m.append(el("span", t, cls));
@@ -48,7 +61,7 @@ export function checklist(b, c, compact = false) {
     label.append(tick, text);
     row.append(label);
     const summary = el("span", "", "moreIcon");
-    summary.append(icon("more"));
+    summary.append(icon("edit"));
     const d = details(summary, "item-" + i.id, "more");
     d.querySelector("summary").setAttribute("aria-label", "Detalii pentru " + i.title);
     function populate() {
@@ -59,21 +72,17 @@ export function checklist(b, c, compact = false) {
         if (i.ready) body.append(el("p", "Gata când " + i.ready, "desc ready"));
       }
       function field(key, name, type) {
-        const control = input(name, i[key], (value) => {
-          const hadNotes = !!i.notes;
+        return input(name, i[key], (value) => {
           i[key] = value;
-          if (key === "notes") i.updated = now();
           if (key === "title") {
             text.firstChild.textContent = value;
             d.firstChild.setAttribute("aria-label", "Detalii pentru " + value);
           }
           if (key === "priority") row.classList.toggle("important", value === "important");
-          if (key === "due" || key === "priority" || hadNotes !== !!i.notes) updateMeta();
+          if (key === "due" || key === "priority") updateMeta();
           if (key === "due") c.updateDeadlines?.();
           c.save();
         }, type, ["normal", "important"]);
-        if (key === "notes") control.lastElementChild.placeholder = "Ce ai observat?";
-        return control;
       }
       if (c.editing) {
         const group = el("fieldset", "", "formGroup");
@@ -86,12 +95,18 @@ export function checklist(b, c, compact = false) {
         body.append(group);
       }
       const group = el("fieldset", "", "formGroup");
-      group.append(el("legend", "Urmărirea punctului"), field("notes", "Notițe", "area"));
-      const dates = el("div", "", "recordFields");
-      dates.append(field("due", "Termen", "date"));
-      if (c.editing) dates.append(field("priority", "Prioritate", "select"));
-      group.append(dates, el("small", "Pe Azi apar punctele nebifate cu termen astăzi sau depășit.", "fieldHelp"));
+      const source = { pageId: c.pageId, blockId: b.id, itemId: i.id, title: i.title, shiftKey };
+      group.append(el("legend", "Notițele punctului"));
+      for (const note of notes.sort(compareNotes)) group.append(noteRow(note, c));
+      group.append(btn("Adaugă notiță", () => noteEditor(source), "pill", "plus"));
       body.append(group);
+      const tracking = el("fieldset", "", "formGroup");
+      tracking.append(el("legend", "Urmărirea punctului"));
+      const dates = el("div", "", "recordFields");
+      dates.append(field("due", "Termenul punctului", "date"));
+      if (c.editing) dates.append(field("priority", "Prioritate", "select"));
+      tracking.append(dates, el("small", "Pe Azi apar punctele nebifate cu termen astăzi sau depășit.", "fieldHelp"));
+      body.append(tracking);
       if (i.checkedAt)
         body.append(el("p", "Bifat la " + new Date(i.checkedAt).toLocaleString("ro", {
           dateStyle: "short", timeStyle: "short",
