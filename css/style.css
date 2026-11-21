@@ -1,0 +1,460 @@
+:root {
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+  color-scheme: light;
+  --bg: #f6f6ef;
+  --paper: #fffefa;
+  --ink: #1d302a;
+  --muted: #53645b;
+  --line: #d5dcd1;
+  --accent: #1b5648;
+  --wash: #e6eee4;
+  --yellow: #f6cf71;
+  --danger: #a3341f;
+}
+:root[data-theme="Întunecată"] {
+  color-scheme: dark;
+  --bg: #13221e;
+  --paper: #1c3029;
+  --ink: #eef5ef;
+  --muted: #becbc2;
+  --line: #496057;
+  --accent: #a4ddc3;
+  --wash: #30493d;
+  --danger: #ff9c85;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="Luminoasă"]) {
+    color-scheme: dark;
+    --bg: #13221e;
+    --paper: #1c3029;
+    --ink: #eef5ef;
+    --muted: #becbc2;
+    --line: #496057;
+    --accent: #a4ddc3;
+    --wash: #30493d;
+    --danger: #ff9c85;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+header {
+  background: #153e34;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px max(16px, calc((100% - 740px) / 2));
+  gap: 8px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+.brandicon {
+  color: #f6cf71;
+  font-size: 26px;
+}
+header small {
+  font-size: 12px;
+  white-space: nowrap;
+  color: #d3eacd;
+}
+main {
+  max-width: 780px;
+  margin: auto;
+  padding: 24px 18px calc(112px + env(safe-area-inset-bottom));
+  overflow-wrap: anywhere;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font:
+    700 clamp(38px, 6vw, 56px)/1.1 Georgia,
+    serif;
+  letter-spacing: -0.045em;
+}
+h2 {
+  font:
+    700 25px/1.2 Georgia,
+    serif;
+  letter-spacing: -0.025em;
+}
+.sub {
+  color: var(--muted);
+  margin: 5px 0 19px;
+}
+.sub:first-letter {
+  text-transform: uppercase;
+}
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 22px;
+  border-radius: 16px;
+  background-color: #1d4b3f;
+  background-image:
+    linear-gradient(#ffffff09 1px, transparent 1px),
+    linear-gradient(90deg, #ffffff09 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: white;
+}
+.hero:before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 10%;
+  top: 15%;
+  width: 62px;
+  height: 83px;
+  border: 2px solid #d1dcaf;
+  border-radius: 4px 10px 10px 4px;
+  transform: rotate(14deg);
+  background:
+    linear-gradient(
+      90deg,
+      #ddbe75 6px,
+      transparent 6px 11px,
+      #bfceaa 11px 12px,
+      transparent 12px
+    ),
+    repeating-linear-gradient(
+        0deg,
+        transparent 0 9px,
+        #cfdbac 10px 11px,
+        transparent 12px 17px
+      )
+      23px 17px/33px 40px no-repeat,
+    #47705b;
+  box-shadow:
+    4px 4px 0 #a3b094,
+    7px 7px 0 #153b31;
+}
+.hero small {
+  font: 700 11px/1.4 monospace;
+  letter-spacing: 0.12em;
+  color: #f6d782;
+}
+.hero h2 {
+  font-size: 36px;
+  margin: 6px 0 2px;
+}
+.hero p {
+  font-size: 14px;
+}
+.shifts {
+  display: flex;
+  gap: 5px;
+  margin-top: 16px;
+}
+.shifts button {
+  background: #193f35;
+  color: #fff;
+  border: 1px solid #698276;
+}
+.shifts .chosen {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  color: #283929;
+}
+.card,
+.pageLink,
+main > details {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin: 16px 0;
+  padding: 18px;
+}
+.card {
+  position: relative;
+}
+.card > h2 {
+  margin-bottom: 12px;
+}
+.routine h2 {
+  padding-right: 75px;
+}
+.count {
+  position: absolute;
+  right: 14px;
+  top: 20px;
+  font: 700 12px monospace;
+  background: var(--wash);
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+.card > p,
+.record small {
+  color: var(--muted);
+}
+progress {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  display: block;
+  margin: 14px 0 10px;
+  border: 0;
+  background: var(--wash);
+  border-radius: 5px;
+}
+progress::-webkit-progress-bar {
+  background: var(--wash);
+  border-radius: 5px;
+}
+progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 5px;
+}
+button,
+summary {
+  font-size: 14px;
+  line-height: 1.3;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 8px;
+}
+button {
+  padding: 9px 13px;
+  color: var(--accent);
+  background: var(--wash);
+  border: 1px solid var(--line);
+  margin: 2px;
+}
+.task {
+  border-top: 1px solid var(--line);
+  padding: 9px 0;
+}
+.check {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 8px 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 550;
+}
+.check input,
+input[type="checkbox"] {
+  width: 21px;
+  height: 21px;
+  min-height: 0;
+  flex: none;
+  margin: 1px 0;
+  accent-color: var(--accent);
+}
+.check:has(:checked) span {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.task > details {
+  margin-left: 32px;
+}
+.task summary {
+  font-size: 12px;
+  color: var(--muted);
+}
+.task:has(> details:not([open])) {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+.task:has(> details:not([open])) > details {
+  margin: 0;
+}
+summary {
+  padding: 12px 3px;
+  color: var(--accent);
+}
+label {
+  display: block;
+  margin: 7px 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.check {
+  margin: 0;
+}
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 9px;
+  margin-top: 4px;
+}
+textarea {
+  min-height: 84px;
+}
+.pageLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  width: 100%;
+  font-size: 16px;
+}
+.pageLink small {
+  color: var(--muted);
+}
+.record {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+.scroll {
+  overflow-x: auto;
+}
+.scroll td {
+  min-width: 160px;
+}
+.scroll label {
+  font-size: 0;
+}
+.plain {
+  margin: 0 0 12px;
+}
+.card > details:last-child {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+}
+nav {
+  position: fixed;
+  z-index: 5;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: center;
+  padding: 5px 5px calc(5px + env(safe-area-inset-bottom));
+}
+nav button {
+  border: 0;
+  background: none;
+  width: 24%;
+  max-width: 170px;
+  color: var(--muted);
+  font-size: 12px;
+}
+nav span {
+  display: block;
+  font-size: 21px;
+  line-height: 1.2;
+}
+nav .active {
+  background: var(--wash);
+  color: var(--accent);
+}
+#update {
+  position: fixed;
+  bottom: 78px;
+  right: 10px;
+  z-index: 6;
+}
+button:disabled {
+  opacity: 0.48;
+}
+main > h1 + button {
+  margin-top: 15px;
+}
+:focus-visible {
+  outline: 3px solid #ba811c;
+  outline-offset: 2px;
+}
+/* Adăugiri versiunea 1.1 */
+button.primary,
+button.install {
+  background: var(--accent);
+  color: var(--paper);
+  border-color: var(--accent);
+}
+button.install {
+  width: 100%;
+  margin: 0 0 16px;
+}
+button.danger {
+  color: var(--danger);
+  background: transparent;
+  border-color: var(--line);
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+.empty {
+  color: var(--muted);
+  padding: 8px 0;
+}
+.record.closed {
+  opacity: 0.6;
+}
+.card .pageLink {
+  margin: 8px 0;
+  padding: 12px 14px;
+  gap: 10px;
+  font-weight: 550;
+}
+.pageLink small {
+  white-space: nowrap;
+  flex: none;
+}
+.pageLink small.late {
+  color: var(--danger);
+  font-weight: 700;
+}
+.pageLink small.todayTag {
+  color: var(--accent);
+  font-weight: 700;
+}
+.card > p + button,
+.card > p + p {
+  margin-top: 10px;
+}
+.card > p ~ button {
+  margin-top: 10px;
+}
+pre.report {
+  white-space: pre-wrap;
+  font: 13px/1.5 ui-monospace, monospace;
+  background: var(--wash);
+  padding: 12px;
+  border-radius: 8px;
+  margin: 0;
+}
+.match {
+  color: var(--muted);
+  font-size: 14px;
+  margin: -8px 4px 12px;
+}
+header {
+  padding-top: calc(13px + env(safe-area-inset-top));
+}
