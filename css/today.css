@@ -1,23 +1,65 @@
 .todayView { margin-inline: auto; }
 .todayHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-block: clamp(12px, 3vw, 26px) 18px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: center;
+  min-height: clamp(234px, 26vw, 312px);
+  padding: clamp(20px, 4vw, 48px);
+  border: 1px solid #41544a;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #101e19 3%, rgb(15 30 24 / 82%) 30%, transparent 80%),
+    #1e332d url("../images/atelier.webp") center 48% / cover;
+  color: #f4faed;
 }
-.todayHead h1 { margin: 0; font: 600 clamp(2.4rem, 5vw, 3.5rem)/1 var(--display); letter-spacing: -.035em; }
-.todayDate { margin-top: 7px; color: var(--muted); font-size: .92rem; }
-.todayDate::first-letter { text-transform: uppercase; }
-.todayHead .primary { flex-shrink: 0; }
-.todayTools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  column-gap: 12px;
-  border-block: 1px solid var(--line);
-  padding-block: 5px;
+.todayHead h1 {
+  max-width: 11ch;
+  margin: 10px 0 24px;
+  font: 600 clamp(3.4rem, 7vw, 5.4rem)/.93 var(--display);
+  letter-spacing: -.04em;
+}
+.todayDate {
+  display: flex; align-items: center; gap: 9px;
+  color: #daf2d0;
+  font: 600 .77rem/1.4 var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.todayDate .icon { width: 17px; height: 17px; }
+.todayHead .primary { background: #c3fa76; border-color: #c3fa76; color: #17250b; }
+.todayGrid {
+  display: grid; align-items: start; gap: 18px;
+  grid-template-columns: minmax(0, 1.75fr) minmax(250px, 1fr);
+  margin-top: 20px;
+}
+.todayWork { display: grid; gap: 18px; min-width: 0; }
+.todayRoutine, .todayAgenda, .todayTools {
+  padding: clamp(18px, 2.5vw, 28px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  min-width: 0;
+}
+.todayTools .todaySectionHead { justify-content: flex-start; align-items: center; }
+.todayTools .todaySectionHead .icon { color: var(--accent); }
+.shiftSchedule {
+  padding: 0; list-style: none; margin: 18px 0 8px;
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px;
+}
+.shiftSchedule li {
+  display: grid; gap: 4px;
+  padding-top: 8px; border-top: 3px solid var(--line);
+  color: var(--muted); font-size: .73rem;
+}
+.shiftSchedule time { font: 600 .96rem var(--mono); }
+.shiftSchedule [aria-current] { border-color: var(--accent); color: var(--accent); }
+.todayGrid:has(.todayWork > [hidden]:only-child) .todayWork { display: none; }
+@media (max-width: 740px) {
+  .todayGrid { grid-template-columns: minmax(0,1fr); gap: 14px; }
+  .todayTools { grid-row: 1; }
+  .shiftSchedule { display: none; }
+  .todayTools .todaySectionHead { display: none; }
+  .todayTools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 12px; }
 }
 .todayShift, .todayActions > summary {
   min-height: 44px;
@@ -30,9 +72,10 @@
   font-size: .86rem;
   cursor: pointer;
 }
-.todayShift { padding: 4px 0; }
+.todayShift { padding: 4px 8px; background: var(--surface-2); border-radius: 6px; }
 .todayShift option { color: var(--ink); background: var(--surface); }
-.todayActions { position: relative; margin-left: auto; }
+.todayActions { position: relative; }
+@media (max-width: 740px) { .todayActions { margin-left: auto; } }
 .todayActions > summary, .todayAgendaMore > summary, .todayMore {
   display: flex;
   align-items: center;
@@ -90,11 +133,27 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.todayAgenda, .todayRoutine { padding-block: clamp(20px, 4vw, 32px) 10px; }
-.todayAgenda:not([hidden]) + .todayRoutine, .todayRoutine + .todayRoutine {
-  border-top: 1px solid var(--line);
-  margin-top: 12px;
+.routineProgress, .agendaCount {
+  border-radius: 5px;
+  padding: 4px 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 600 .78rem/1.4 var(--mono);
 }
+.routineBar {
+  display: block;
+  appearance: none;
+  border: 0;
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background: var(--surface-2);
+}
+.routineBar::-webkit-progress-bar { background: var(--surface-2); }
+.routineBar::-webkit-progress-value { background: var(--accent); }
+.routineBar::-moz-progress-bar { background: var(--accent); }
 .todayAgenda > .linkRow, .todayAgendaMore > .linkRow { width: 100%; background: transparent; }
 .todayRoutine .task .check { padding-block: 15px; }
 .todayRoutine .lines { margin: 0; }
@@ -113,3 +172,5 @@
   .todayTools { column-gap: 4px; }
   .todayShift, .todayActions > summary { font-size: .78rem; }
 }
+
+.todayMore { color: var(--accent); }

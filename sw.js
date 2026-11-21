@@ -1,9 +1,10 @@
 // Instalarea reușește numai dacă toate resursele sunt disponibile.
 const prefix = "caiet-" + self.registration.scope + "-",
-  cache = prefix + "v7";
+  cache = prefix + "v8";
 const files = [
   "./",
   "./manifest.json",
+  "./images/atelier.webp",
   "./sw.js",
   "./index.html",
   "./js/seed.js",
