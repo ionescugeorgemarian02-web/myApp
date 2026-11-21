@@ -219,7 +219,12 @@ function shiftStrip(c) {
     tile.dataset.area = area;
     if (state) tile.dataset.state = state;
     tile.setAttribute("aria-label", name + ": " + value + (sub ? ", " + sub : ""));
-    tile.append(el("span", name, "stripName"), el("strong", value), el("small", sub || "\u00a0"));
+    const label = el("span", "", "stripName");
+    const marker = el("span", area, "kpiArea");
+    marker.setAttribute("aria-hidden", "true");
+    label.append(marker, el("span", name));
+    tile.append(label, el("strong", value));
+    if (sub) tile.append(el("small", sub));
     grid.append(tile);
   }
   section.append(grid);
@@ -231,13 +236,13 @@ function shiftStrip(c) {
 export function today(c) {
   const main = document.querySelector("main");
   const home = el("div", "", "todayView");
-  home.append(header(c));
   const grid = el("div", "", "todayGrid");
+  grid.append(header(c), shiftPanel(c));
   const work = el("div", "", "todayWork");
   const agenda = el("section", "", "todayAgenda");
   const updateDeadlines = () => drawAgenda(agenda, c);
   updateDeadlines();
-  work.append(shiftStrip(c));
+  home.append(grid, shiftStrip(c));
   const all = advice(app.data, c);
   const tips = all.filter((a) => a.level !== "good");
   const shown = tips.length ? tips : all.slice(0, 1);
@@ -253,8 +258,7 @@ export function today(c) {
         work.append(routineSection(block, { ...c, pageId: page.id, updateDeadlines }));
     }
   }
-  grid.append(work, shiftPanel(c));
-  home.append(grid);
+  home.append(work);
   main.append(home);
 }
 
