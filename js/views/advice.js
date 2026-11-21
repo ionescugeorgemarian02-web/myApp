@@ -2,14 +2,14 @@
 import { app } from "../state.js";
 import { el, btn, icon, input, actions, openDialog, norm } from "../ui.js";
 import { AREA_NAMES } from "../advice.js";
-import { draftRow } from "../blocks/table.js";
-import { handover, share } from "../logic.js";
+import { draftRow, handoverDraft } from "../blocks/table.js";
+import { handover, previousHandover, share } from "../logic.js";
 import { safetyBlock } from "../metrics.js";
-import { handoverSituation, handoverStatus, readKey } from "../operations.js";
+import { handoverSituation, readKey } from "../operations.js";
 import { SBAR_LABELS, sbarText } from "../leadership.js";
 import { colByKey, colByName } from "../records.js";
 
-const LEVEL_NAMES = { critical: "Urgent", warn: "Atenție", info: "Sugestie", good: "Bine" };
+const LEVEL_NAMES = { critical: "Critică", warn: "Atenție", info: "Sugestie", good: "Bine" };
 const findPage = (test) => app.data.pages.find((p) => !p.archived && test(p));
 
 export function runAction(a) {
@@ -27,16 +27,11 @@ export function runAction(a) {
       app.navigate("Setări", a.key, a.field);
       break;
     case "handover": {
-      const ho = handover();
-      if (!ho) return;
-      if (!ho.r) {
-        ho.r = draftRow(ho.b, c);
-        const zone = colByKey(ho.b, "handoverZone");
-        if (zone && app.data.settings.zone && !(zone.id in ho.r.values)) ho.r.values[zone.id] = app.data.settings.zone;
-      }
-      const field = a.field === "prepared" && handoverStatus(ho.b, ho.r, "prepared")
-        ? handoverSituation(ho.b) : a.field && colByKey(ho.b, a.field);
-      app.openPage(ho.p, "row-" + ho.r.id, field && (field.key || norm(field.name)));
+      const ho = a.previous ? previousHandover(c) : handover(c);
+      if (!ho || (a.previous && !ho.r)) return;
+      const row = ho.r || handoverDraft(ho.b, c);
+      const field = a.field === "prepared" ? handoverSituation(ho.b) : a.field && colByKey(ho.b, a.field);
+      app.navigate("Predare", "row-" + row.id, field && (field.key || norm(field.name)));
       break;
     }
     case "safety":

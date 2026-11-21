@@ -11,8 +11,11 @@ import { pageView } from "./views/page.js";
 import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
 import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
+import { handover, previousHandover } from "./logic.js";
+import { handoverDraft } from "./blocks/table.js";
+import { runAction } from "./views/advice.js";
 import { problemsBlock, commitments } from "./metrics.js";
-const VERSION = "3.3";
+const VERSION = "3.4";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
@@ -186,6 +189,7 @@ function readRoute() {
   }
 }
 // ——— Desenarea ecranului ———
+let lastRoute, lastShift, handoverEntry;
 function render() {
   sync();
   applyTheme(app.data.settings.theme);
@@ -230,7 +234,22 @@ function render() {
     route.startsWith("p/") &&
     app.data.pages.find((x) => x.id === route.slice(2));
   const registry = problemsBlock(app.data);
-  if (route === "Probleme" && registry) pageView(registry.p, c);
+  const transfer = handover(c);
+  if (route === "Predare" && transfer) {
+    const previous = previousHandover(c);
+    if (targetDetail || lastRoute !== route || lastShift !== c.key) {
+      if (handoverEntry) app.open.delete(handoverEntry);
+      handoverEntry = targetDetail?.key || "row-" + (transfer.r || handoverDraft(transfer.b, c)).id;
+      app.open.add(handoverEntry);
+    }
+    const inspectingPrevious = previous?.r && handoverEntry === "row-" + previous.r.id;
+    const handoverToolbar = previous?.r && btn(inspectingPrevious ? "Fișa schimbului curent" : "Fișa schimbului anterior",
+      () => runAction({ kind: "handover", previous: !inspectingPrevious }), "todayMore", "handover");
+    pageView(transfer.p, { ...c, handoverEntry, handoverToolbar });
+  } else if (route === "Predare") {
+    main.append(el("h1", "Predare", "title"), el("p", "Jurnalul de predare nu este disponibil în acest caiet.", "empty"),
+      btn("Deschide caietul", () => app.navigate("Caiet")));
+  } else if (route === "Probleme" && registry) pageView(registry.p, c);
   else if (route === "Probleme") {
     main.append(el("h1", "Probleme", "title"), el("p", "Registrul de probleme nu este disponibil în acest caiet.", "empty"),
       btn("Deschide caietul", () => app.navigate("Caiet")));
@@ -244,8 +263,11 @@ function render() {
   else if (route === "Producție") productionView(c);
   else today(c);
   const tab = (p && p === registry?.p) || route === "Probleme" ? "Probleme"
-    : ["Producție", "Setări"].includes(route) ? route
+    : p && p === transfer?.p ? "Predare"
+    : ["Producție", "Predare", "Setări"].includes(route) ? route
     : route === "Azi" ? "Azi" : "Caiet";
+  lastRoute = route;
+  lastShift = c.key;
   updateBadge();
   for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;
@@ -264,8 +286,8 @@ function updateBadge() {
   const late = commitments(app.data, app.current.date, app.current.date, app.current).late;
   (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {});
 }
-for (const [name, symbol] of [["Azi", "today"], ["Producție", "chart"], ["Probleme", "alert"], ["Caiet", "pages"]]) {
-  const button = btn("", () => (location.hash = name));
+for (const [name, symbol] of [["Azi", "today"], ["Producție", "chart"], ["Predare", "handover"], ["Probleme", "alert"], ["Caiet", "pages"]]) {
+  const button = btn("", () => app.navigate(name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));
   nav.append(button);

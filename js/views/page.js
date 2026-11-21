@@ -116,6 +116,7 @@ export function pageView(p, c) {
   const h = el("h1", "", "title");
   h.append(el("span", p.emoji || "📄", "titleEmoji"), el("span", p.title));
   main.append(h);
+  if (c.handoverToolbar) main.append(c.handoverToolbar);
   if (p.archived) main.append(el("p", "Pagină arhivată – nu apare pe Azi.", "hint"));
   if (editing) {
     main.append(el("p", "Mod editare: poți redenumi, muta, adăuga sau șterge.", "hint"));
