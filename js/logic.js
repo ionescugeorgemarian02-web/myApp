@@ -1,6 +1,8 @@
 import { app } from "./state.js";
 import { norm, roDate, validDate, showText, toast } from "./ui.js";
-import { isClosed, rowLabel } from "./blocks/table.js";
+import { isClosed, rowLabel } from "./records.js";
+import { shiftRecords, recordKpis, safetyEvents, oneOnOnes, ninetyDays } from "./metrics.js";
+import { fmt } from "./charts.js";
 export const progress = (items) =>
   items.filter((i) => i.checked).length + "/" + items.length;
 export const active = () => app.data.pages.filter((p) => !p.archived);
@@ -45,7 +47,8 @@ export function openProblems() {
       if (b.type === "table" && b.cols.some((c) => norm(c.name) === "stare"))
         for (let r of b.rows)
           if (!isClosed(b, r) && rowLabel(b, r) !== "Rând fără text")
-            list.push({ text: rowLabel(b, r), p, key: "row-" + r.id });
+            list.push({ text: rowLabel(b, r), p, key: "row-" + r.id,
+              kind: b.cols.some((c) => c.key === "safetyType") ? "Siguranță · deschis" : "Problemă deschisă" });
   return list;
 }
 // Jurnalul de predare (are câmpurile „Data” și „Schimb”) și intrarea curentă.
@@ -82,11 +85,25 @@ export function report() {
       })}`,
     ];
   let ho = handover();
+  const rec = shiftRecords(app.data).find((x) => x.key === c.key);
+  if (rec) {
+    const k = recordKpis(rec), parts = [];
+    if (rec.plan != null && rec.produced != null) parts.push("Realizat " + fmt(rec.produced, 0) + " din " + fmt(rec.plan, 0) + " buc (" + fmt(k.planPct) + "%)");
+    if (k.scrapPct != null) parts.push("Rebut " + fmt(rec.scrap, 0) + " buc (" + fmt(k.scrapPct) + "%)");
+    if (rec.downtime != null) parts.push("Oprire " + fmt(rec.downtime, 0) + " min");
+    if (rec.planned != null && rec.present != null) parts.push("Prezenți " + fmt(rec.present, 0) + "/" + fmt(rec.planned, 0));
+    if (parts.length) lines.push("", ...parts.map((x) => "▪ " + x));
+  }
+  const safety = safetyEvents(app.data).filter((e) => e.date === c.workDay);
+  if (safety.length) {
+    lines.push("", "Siguranță: " + safety.length + " eveniment(e)");
+    for (const e of safety) lines.push("  – " + e.label);
+  }
   if (ho?.r) {
     lines.push("");
     for (let col of ho.b.cols) {
       let v = ho.r.values[col.id];
-      if (ho.skip.includes(col.id) || v === "" || v == null || v === false)
+      if (ho.skip.includes(col.id) || col.key || v === "" || v == null || v === false)
         continue;
       lines.push(`• ${col.name}: ${v === true ? "da" : v}`);
     }
@@ -125,4 +142,37 @@ export async function share(text) {
   } catch {
     await showText("Copiază rezumatul", text);
   }
+}
+
+// Raportul săptămânal pentru șef: cifre, comparații, probleme, priorități.
+export function weekReport(cur, prev) {
+  const data = app.data, c = app.current;
+  const pct = (v) => (v == null ? "–" : fmt(v) + "%");
+  const arrow = (a, b) => (a == null || b == null ? "" : a > b ? " (▲ față de " + pct(b) + ")" : a < b ? " (▼ față de " + pct(b) + ")" : " (la fel)");
+  const k = cur.kpis, pk = prev.kpis;
+  const lines = [
+    "Raport săptămâna " + cur.number + " · " + roDate(cur.start) + " – " + roDate(cur.end),
+    "",
+    "Siguranță: " + cur.safety.incidents + " incidente, " + cur.safety.nearMiss + " near-miss, " + cur.safety.observations + " observații",
+    "Plan realizat: " + pct(k.planPct) + arrow(k.planPct, pk.planPct),
+    "Rebut: " + pct(k.scrapPct) + arrow(k.scrapPct, pk.scrapPct),
+    "Minute de oprire: " + (k.downtime == null ? "–" : fmt(k.downtime, 0)) + (pk.downtime != null ? " (săpt. trecută " + fmt(pk.downtime, 0) + ")" : ""),
+    "Absențe: " + pct(k.absencePct),
+    "Schimburi raportate: " + cur.records.length,
+    "",
+    "Angajamente închise la termen: " + (cur.commitments.closed ? cur.commitments.onTime + " din " + cur.commitments.closed + " (" + pct(cur.commitments.rate) + ")" : "niciunul cu termen"),
+    "Probleme: " + cur.problemsOpened + " noi, " + cur.problemsClosed + " închise, " + openProblems().filter((x) => x.kind === "Problemă deschisă").length + " deschise acum",
+  ];
+  const one = oneOnOnes(data, c);
+  if (one.team.length) lines.push("Discuții 1:1 în ultimele 30 de zile: " + one.team.filter((x) => x.days != null && x.days <= 30).length + " din " + one.team.length);
+  const review = data.reviews?.[cur.key];
+  const priorities = review?.priorities.filter((p) => p.trim()) || [];
+  if (priorities.length) {
+    lines.push("", "Prioritățile săptămânii următoare:");
+    priorities.forEach((p, i) => lines.push("  " + (i + 1) + ". " + p));
+  }
+  if (review?.note?.trim()) lines.push("", "Ce am învățat: " + review.note.trim());
+  const ninety = ninetyDays(data, c);
+  if (ninety && !ninety.done) lines.push("", "Ziua " + ninety.day + " din 90 în funcție.");
+  return lines.join("\n");
 }

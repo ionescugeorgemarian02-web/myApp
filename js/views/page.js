@@ -8,7 +8,13 @@ import { checklist } from "../blocks/checklist.js";
 import { table } from "../blocks/table.js";
 import { routine } from "../blocks/routine.js";
 import { journal } from "../blocks/journal.js";
-const renderers = { section, note, checklist, table, routine, journal };
+import { audit } from "../blocks/audit.js";
+import { skills } from "../blocks/skills.js";
+import { weekStart, addDays, aggregate, shiftRecords, safetyCounts, safetyEvents, baselines, ninetyDays, weekSummary } from "../metrics.js";
+import { fmt } from "../charts.js";
+import { share } from "../logic.js";
+import { confirmShare } from "../ui.js";
+const renderers = { section, note, checklist, table, routine, journal, audit, skills };
 const names = {
   checklist: ["Listă de bifat", "☑️"],
   table: ["Tabel", "▦"],
@@ -16,7 +22,77 @@ const names = {
   note: ["Notiță", "📝"],
   section: ["Titlu de secțiune", "🔤"],
   routine: ["Rutină pe schimb", "🔁"],
+  audit: ["Tur pe linie (OK/NOK)", "🔍"],
+  skills: ["Matrice de polivalență", "🧩"],
 };
+// Indicatorii calculați automat din predări și din registrul de siguranță.
+function autoIndicators(c) {
+  const data = app.data, from = addDays(c.date, -27);
+  const records = shiftRecords(data).filter((r) => r.date >= from && r.date <= c.date);
+  const k = aggregate(records);
+  const s = safetyCounts(safetyEvents(data), from, c.date);
+  const base = baselines(data);
+  const box = el("section", "", "card autoIndicators");
+  const head = el("div", "", "cardHead");
+  head.append(el("h2", "Calculat automat · ultimele 4 săptămâni"), el("span", records.length + " schimburi", "count"));
+  box.append(head);
+  const grid = el("div", "", "statusRow");
+  for (const [label, value, b] of [
+    ["Plan realizat", k.planPct == null ? "–" : fmt(k.planPct) + "%", base.planPct?.start],
+    ["Rebut", k.scrapPct == null ? "–" : fmt(k.scrapPct) + "%"],
+    ["Minute de oprire", k.downtime == null ? "–" : fmt(k.downtime, 0)],
+    ["Absențe", k.absencePct == null ? "–" : fmt(k.absencePct) + "%", base.absencePct?.start],
+    ["Incidente", String(s.incidents), base.incidents?.start],
+    ["Near-miss raportate", String(s.nearMiss)],
+  ]) {
+    const chip = el("span", "", "statusCount");
+    chip.append(el("strong", value), el("span", label + (b != null ? " · pornire " + fmt(b) : "")));
+    grid.append(chip);
+  }
+  box.append(grid, el("p", "Sursa: cifrele din predarea schimbului și registrul de siguranță. Completează în tabel valoarea de pornire și ținta; tabelul rămâne pentru cifrele oficiale (ex. OEE din SAP).", "formHelp"));
+  return box;
+}
+// Parcursul primelor 90 de zile și raportul de progres.
+function ninetyBanner(c) {
+  const n = ninetyDays(app.data, c);
+  if (!n) return null;
+  const box = el("section", "", "card ninety");
+  const head = el("div", "", "cardHead");
+  head.append(el("h2", n.done ? "Ai trecut de ziua 90" : "Ziua " + n.day + " din 90"),
+    el("span", n.next ? "reper: ziua " + n.next : "complet", "count"));
+  const bar = el("progress", "", "routineBar");
+  bar.max = 90;
+  bar.value = Math.min(90, Math.max(0, n.day));
+  bar.setAttribute("aria-label", "Progresul primelor 90 de zile");
+  const marks = el("div", "", "ninetyMarks");
+  for (const m of [30, 60, 90]) marks.append(el("span", "Ziua " + m, n.day >= m ? "passed" : ""));
+  box.append(head, bar, marks);
+  if (n.next) box.append(el("p", "Reperul zilei " + n.next + " vine în " + n.inDays + (n.inDays === 1 ? " zi." : " zile."), "formHelp"));
+  box.append(btn("Raport de progres față de pornire", async () => {
+    const text = progressReport(c, n);
+    if (await confirmShare(text, "Raport de progres")) await share(text);
+  }, "small", "send"));
+  return box;
+}
+function progressReport(c, n) {
+  const data = app.data;
+  const first = weekSummary(data, c, weekStart(n.start)), last = weekSummary(data, c, weekStart(c.date));
+  const firstTwo = aggregate(shiftRecords(data).filter((r) => r.date >= n.start && r.date <= addDays(n.start, 13)));
+  const lastTwo = aggregate(shiftRecords(data).filter((r) => r.date >= addDays(c.date, -13) && r.date <= c.date));
+  const pct = (v) => (v == null ? "–" : fmt(v) + "%");
+  const base = baselines(data);
+  return [
+    "Raport de progres · ziua " + n.day + " din 90",
+    "",
+    "Plan realizat: primele 2 săptămâni " + pct(firstTwo.planPct) + " → ultimele 2 săptămâni " + pct(lastTwo.planPct) +
+      (base.planPct?.start != null ? " (valoare de pornire " + pct(base.planPct.start) + ")" : ""),
+    "Rebut: " + pct(firstTwo.scrapPct) + " → " + pct(lastTwo.scrapPct),
+    "Minute de oprire: " + (firstTwo.downtime ?? "–") + " → " + (lastTwo.downtime ?? "–"),
+    "Absențe: " + pct(firstTwo.absencePct) + " → " + pct(lastTwo.absencePct),
+    "Angajamente închise la termen (săptămâna curentă): " + pct(last.commitments.rate),
+    "Prima săptămână: " + first.records.length + " schimburi raportate · săptămâna curentă: " + last.records.length,
+  ].join("\n");
+}
 export function pageView(p, c) {
   const main = document.querySelector("main"),
     data = app.data,
@@ -96,13 +172,19 @@ export function pageView(p, c) {
     s.append(tools);
     main.append(s);
   }
+  if (p.group === GROUPS[2] && !editing) {
+    const banner = ninetyBanner(c);
+    if (banner) main.append(banner);
+  }
+  if (!editing && p.blocks.some((b) => b.cols?.some((col) => col.name === "Valoare de pornire")))
+    main.append(autoIndicators(c));
   for (let b of p.blocks) {
     if (b.type === "section") {
       let head = el("div", "", "sectionHead"),
         next = p.blocks[p.blocks.indexOf(b) + 1];
       head.append(el("h2", b.title));
       // Contorul listei de sub secțiune stă lângă titlul secțiunii.
-      if (next?.items && !editing) head.append(el("span", progress(next.items), "count"));
+      if ((next?.type === "checklist" || next?.type === "routine") && !editing) head.append(el("span", progress(next.items), "count"));
       main.append(head);
       if (editing) main.append(toolsFor(p.blocks, b, c, { rename: true, copy: app.clone }));
       continue;
@@ -113,9 +195,10 @@ export function pageView(p, c) {
     let prev = p.blocks[p.blocks.indexOf(b) - 1],
       showTitle = editing || (b.title !== p.title && prev?.type !== "section");
     head.append(el("h2", b.title));
-    if (b.items) head.append(el("span", progress(b.items), "count"));
+    const ticks = b.type === "checklist" || b.type === "routine";
+    if (ticks) head.append(el("span", progress(b.items), "count"));
     if (showTitle) s.append(head);
-    else if (b.items && prev?.type !== "section") {
+    else if (ticks && prev?.type !== "section") {
       head.firstChild.textContent = "";
       s.append(head);
     }

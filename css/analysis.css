@@ -1,0 +1,239 @@
+/* Versiunea 3.0: Tura mea, sfaturi, analiză, tur pe linie, polivalență. */
+
+/* ——— Tura mea (SQDCP) ——— */
+.shiftStrip, .adviceSection {
+  padding: clamp(18px, 2.5vw, 28px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  min-width: 0;
+}
+.stripGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.stripTile {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 2px;
+  min-height: 82px;
+  padding: 10px 9px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  text-align: left;
+  min-width: 0;
+}
+.stripName {
+  font: 600 .66rem/1.2 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.stripTile strong {
+  font: 600 clamp(1.15rem, 4.6vw, 1.5rem)/1.1 var(--display);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stripTile small { font-size: .7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.stripTile[data-area="S"] { border-top: 3px solid var(--accent); }
+.stripTile[data-state="bad"] { border-color: var(--danger); background: var(--danger-soft); }
+.stripTile[data-state="bad"] strong { color: var(--danger); }
+.stripTile[data-state="warn"] strong { color: var(--warn); }
+@media (max-width: 520px) {
+  .stripGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .stripTile { grid-column: span 2; }
+  .stripTile:nth-child(n + 4) { grid-column: span 3; }
+}
+
+/* ——— Sfaturi ——— */
+.adviceSection h2, .anaCard h2 { display: flex; align-items: center; gap: 8px; }
+.adviceSection h2 .icon { color: var(--accent); }
+.adviceGrid { display: grid; gap: 10px; margin-top: 12px; }
+@media (min-width: 900px) { .analysis .adviceGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.advice {
+  display: grid;
+  gap: 6px;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  background: var(--surface-2);
+}
+.advice[data-level="critical"] { border-left-color: var(--danger); }
+.advice[data-level="warn"] { border-left-color: var(--warn); }
+.advice[data-level="info"] { border-left-color: var(--accent); }
+.advice[data-level="good"] { border-left-color: #6fd39b; }
+.adviceHead { display: flex; justify-content: space-between; gap: 8px; font: 600 .68rem/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.advice[data-level="critical"] .adviceLevel { color: var(--danger); }
+.advice[data-level="warn"] .adviceLevel { color: var(--warn); }
+.advice[data-level="good"] .adviceLevel { color: #6fd39b; }
+.advice h3 { font-size: 1rem; line-height: 1.3; margin: 0; }
+.advice p { color: var(--muted); font-size: .9rem; }
+.adviceAction { justify-self: start; flex-direction: row-reverse; margin-top: 2px; }
+.adviceAction .icon { width: 15px; height: 15px; }
+
+/* ——— Analiză ——— */
+.analysis { display: grid; gap: 16px; }
+.anaHead { display: grid; gap: 12px; }
+.anaHead .title { margin: 6px 0 0; }
+.anaHead .primary { justify-self: start; }
+.weekNav { display: flex; align-items: center; gap: 6px; }
+.weekNav .on { border-color: var(--accent); color: var(--accent); }
+@media (min-width: 760px) {
+  .anaHead { grid-template-columns: 1fr auto auto; align-items: end; }
+  .analysis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis > .anaHead, .analysis > .adviceSection, .analysis > .sqdcp, .analysis > .shifts, .analysis > .footer { grid-column: 1 / -1; }
+}
+.anaCard { margin: 0; min-width: 0; }
+.anaCard h3 { font-size: .82rem; color: var(--muted); font-weight: 600; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+.nsmValue { display: grid; gap: 2px; margin: 4px 0 6px; }
+.nsmValue strong { font: 600 3rem/1 var(--display); color: var(--accent); }
+.nsmValue span { color: var(--muted); font-size: .9rem; }
+.nsmFacts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 10px 0 6px; font-size: .85rem; }
+.nsmFacts .late { color: var(--danger); font-weight: 600; }
+.kpiGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kpi {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.kpiHead { display: flex; align-items: center; gap: 8px; }
+.kpiArea {
+  display: grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 6px;
+  background: var(--accent-soft); color: var(--accent);
+  font: 700 .78rem var(--mono);
+}
+.kpiTitle { font-size: .85rem; color: var(--muted); font-weight: 600; }
+.kpiValue { display: flex; align-items: baseline; gap: 4px; }
+.kpiValue strong { font: 600 2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.kpiValue span { color: var(--muted); font-size: .85rem; }
+.kpiDelta { font-size: .76rem; color: var(--muted); }
+.kpiDelta[data-good="true"] { color: #6fd39b; }
+.kpiDelta[data-good="false"] { color: var(--danger); }
+:root[data-theme="Luminoasă"] .kpiDelta[data-good="true"],
+:root[data-theme="Luminoasă"] .advice[data-level="good"] .adviceLevel { color: #227a46; }
+.kpiNote { display: block; font-size: .76rem; color: var(--muted); margin-top: 6px; }
+.spark { width: 100%; height: 36px; margin-top: 4px; overflow: visible; }
+.sparkLine { fill: none; stroke: var(--accent); stroke-width: 1.8; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.sparkBase { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.sparkDot { fill: var(--accent); }
+
+/* Bare pe schimburi */
+.bars { margin: 0; }
+.barPlot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 130px;
+  padding-top: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.barCol { flex: 1; display: flex; align-items: flex-end; height: 100%; min-width: 0; }
+.bar {
+  position: relative;
+  width: 100%;
+  max-width: 44px;
+  margin-inline: auto;
+  border-radius: 5px 5px 0 0;
+  background: var(--accent);
+}
+.bar.warn { background: var(--warn); }
+.bar.empty { height: 3px; background: var(--line); }
+.bar small {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  padding-bottom: 2px; font: 600 .66rem var(--mono); color: var(--ink); white-space: nowrap;
+}
+.barRef { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); z-index: 1; pointer-events: none; }
+.barRef small { position: absolute; right: 0; bottom: 2px; font: .62rem var(--mono); color: var(--muted); }
+.barAxis { display: flex; gap: 4px; margin-top: 5px; }
+.barAxis span { flex: 1; min-width: 0; text-align: center; font-size: .64rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Clasament */
+.ranking { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.ranking li { display: grid; grid-template-columns: minmax(80px, 38%) 1fr auto; align-items: center; gap: 10px; font-size: .86rem; }
+.rankLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rankBar { height: 10px; border-radius: 99px; background: var(--accent); min-width: 4px; }
+.ranking strong { font: 600 .85rem var(--mono); }
+
+/* Cifre pe un rând */
+.statusRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 4px; }
+.statusCount { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.statusCount strong { font: 600 1.45rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.statusCount span { font-size: .74rem; color: var(--muted); }
+.statusCount.bad strong { color: var(--danger); }
+.anaCard .linkList { margin-top: 4px; }
+.anaCard > .small { margin-top: 12px; }
+.priorities { display: grid; gap: 0; }
+.priorities .field { margin: 6px 0; }
+.pastPriorities { margin: 0; padding-left: 20px; color: var(--muted); font-size: .9rem; }
+
+/* ——— Tur pe linie ——— */
+.auditStatus { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 8px; }
+.auditList { display: grid; }
+.auditRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.auditRow:first-child { border-top: 0; }
+.auditTitle { font-size: .95rem; }
+.auditRow[data-result="ok"] .auditTitle { color: var(--muted); }
+.auditRow[data-result="nok"] .auditTitle { color: var(--danger); font-weight: 600; }
+.auditChoice { display: flex; gap: 4px; }
+.auditChoice button { min-width: 56px; min-height: 44px; padding: 6px 10px; font: 700 .8rem var(--mono); }
+.auditChoice button.on.ok { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.auditChoice button.on.nok { background: var(--danger); border-color: var(--danger); color: var(--danger-ink); }
+.auditRow > .small, .auditRow > .fieldLink, .auditTools { grid-column: 1 / -1; justify-self: start; }
+.auditTools { margin: 0; }
+
+/* ——— Polivalență ——— */
+.skillLegend { list-style: none; padding: 0; margin: 8px 0 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; color: var(--muted); }
+.skillLegend li { display: flex; align-items: center; gap: 6px; }
+.skillDot { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font: 700 .72rem var(--mono); }
+.skillIndex { margin: 0 0 10px; font-size: .9rem; color: var(--muted); }
+.skillIndex strong { font: 600 1.3rem var(--display); color: var(--accent); }
+.skillTable { border-collapse: separate; border-spacing: 3px; }
+.skillTable th { font-size: .74rem; color: var(--muted); font-weight: 600; text-align: left; padding: 4px 6px; white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.skillTable th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--surface); color: var(--ink); font-size: .85rem; }
+.skillTable td { padding: 0; min-width: 0; text-align: center; }
+.skillCell { width: 46px; min-width: 46px; min-height: 44px; padding: 0; font: 700 .86rem var(--mono); border-radius: 8px; }
+.l0 { background: var(--surface-2); color: var(--muted); }
+.l1 { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.l2 { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.l3 { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.skillFoot td { font: 700 .85rem var(--mono); color: var(--accent); padding: 6px 0; }
+.skillFoot td.gap { color: var(--danger); }
+.emptyState { display: grid; gap: 8px; justify-items: start; }
+
+/* ——— Pagini: indicatori automați, 90 de zile ——— */
+.autoIndicators, .ninety { border-style: dashed; }
+.ninetyMarks { display: flex; justify-content: space-between; font: .72rem var(--mono); color: var(--muted); margin: 2px 0 8px; }
+.ninetyMarks .passed { color: var(--accent); }
+.ninety > .small { margin-top: 6px; }
+.fieldLink {
+  margin-top: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: .82rem;
+  color: var(--accent);
+  border-style: dashed;
+  background: transparent;
+}
+.snippet.figures { color: var(--accent); font-family: var(--mono); font-size: .76rem; }

@@ -6,7 +6,7 @@ import { noteEditor } from "./notes.js";
 import { takeLegacyPageNotes } from "../notes.js";
 let query = "";
 function tile(p) {
-  let items = p.blocks.flatMap((b) => b.items || []),
+  let items = p.blocks.filter((b) => b.type === "checklist" || b.type === "routine").flatMap((b) => b.items),
     rows = p.blocks.reduce((n, b) => n + (b.rows?.length || 0), 0),
     b = btn("", () => app.openPage(p), "tile");
   const marker = el("span", p.emoji || "📄", "tileEmoji");

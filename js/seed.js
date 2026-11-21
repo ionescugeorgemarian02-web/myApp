@@ -1,6 +1,7 @@
-import { id } from "./ui.js";
+import { id, day, norm } from "./ui.js";
 import { item } from "./blocks/checklist.js";
-import { column } from "./blocks/table.js";
+import { column } from "./records.js";
+import { SHIFT_FIELDS } from "./metrics.js";
 export function block(type, title) {
   return {
     id: id(),
@@ -12,6 +13,8 @@ export function block(type, title) {
       routine: { items: [], history: {}, key: "" },
       table: { cols: [], rows: [] },
       journal: { cols: [], rows: [] },
+      audit: { items: [], runs: {} },
+      skills: { levels: {} },
     }[type] || {}),
   };
 }
@@ -25,8 +28,11 @@ const KNOWN = {
   "Rutina schimbului": ["✅", 0],
   "Predare schimb": ["🔁", 0],
   "Probleme și acțiuni": ["⚠️", 0],
+  Siguranță: ["🦺", 0],
+  "Tur pe linie": ["🔍", 0],
   "Notițe libere": ["📝", 0],
   Echipa: ["👥", 1],
+  Polivalență: ["🧩", 1],
   "Unu la unu": ["💬", 1],
   Contacte: ["📞", 1],
   "Săptămâna 1": ["🗓️", 2],
@@ -43,6 +49,7 @@ export function organize(data) {
     data.settings.appearanceVersion = 1;
     changed = true;
   }
+  if (upgrade(data)) changed = true;
   for (const p of [...data.pages, ...data.templates])
     if (typeof p.group !== "string") {
       const k = KNOWN[p.title];
@@ -61,6 +68,105 @@ export const page = (title, blocks = [], group = GROUPS[3]) => ({
   archived: false,
   blocks,
 });
+
+const FEATURES = 3;
+const AUDIT_ITEMS = [
+  "Echipamentul de protecție e purtat corect la toate posturile",
+  "Apărătorile și senzorii de siguranță funcționează",
+  "Instrucțiunile de lucru sunt afișate și respectate",
+  "Piesele suspecte sunt separate și etichetate",
+  "Producția pe oră e în linie cu planul",
+  "Opririle sunt anunțate la mentenanță",
+  "Ordine și curățenie (5S) la posturi",
+  "Toate posturile sunt ocupate conform planului",
+];
+function grid(title, type, cols, group) {
+  const b = block(type, title);
+  b.cols = cols.map((s) => column(...(Array.isArray(s) ? s : [s])));
+  const p = page(title, [b], group);
+  p.emoji = KNOWN[title]?.[0] || "";
+  return p;
+}
+function insertAfter(data, title, newPage) {
+  const at = data.pages.findIndex((p) => p.title === title);
+  data.pages.splice(at < 0 ? data.pages.length : at + 1, 0, newPage);
+}
+const findTable = (data, test) => {
+  for (const p of data.pages) for (const b of p.blocks) if ((b.type === "table" || b.type === "journal") && test(b, p)) return b;
+  return null;
+};
+const named = (b, name) => b.cols.find((c) => norm(c.name) === name);
+// Funcțiile versiunii 3.0: cifrele schimbului, ciclul problemelor, siguranță,
+// tur pe linie, polivalență și registrul de decizii. Rulează o singură dată.
+export function upgrade(data) {
+  if (data.settings.featuresVersion >= FEATURES) return false;
+  const s = data.settings;
+  if (!Array.isArray(s.equipment)) s.equipment = [];
+  if (!s.startDate) s.startDate = day(s.createdAt ? new Date(s.createdAt) : new Date());
+  if (!data.reviews || typeof data.reviews !== "object") data.reviews = {};
+  // Predarea primește câmpuri numerice, după „Schimb”.
+  const ho = findTable(data, (b) => b.type === "journal" && named(b, "schimb") && named(b, "data"));
+  if (ho && !ho.cols.some((c) => c.key === "plan")) {
+    const at = ho.cols.indexOf(named(ho, "schimb")) + 1;
+    ho.cols.splice(at, 0, ...SHIFT_FIELDS.map(([key, name]) => column(name, "number", [], key)));
+  }
+  // Problemele: cheie stabilă, locul (post/mașină) și etapa de verificare.
+  const pr = findTable(data, (b) => b.type === "table" && named(b, "problema") && named(b, "stare"));
+  if (pr) {
+    named(pr, "problema").key ||= "problem";
+    if (!pr.cols.some((c) => c.key === "equipment"))
+      pr.cols.splice(pr.cols.indexOf(named(pr, "problema")) + 1, 0, column("Post / mașină", "select", [], "equipment"));
+    const st = named(pr, "stare");
+    if (st.type === "select" && !st.options.some((o) => norm(o) === "verificare")) {
+      const closed = st.options.findIndex((o) => norm(o) === "inchis");
+      st.options.splice(closed < 0 ? st.options.length : closed, 0, "Verificare");
+    }
+  }
+  const team = findTable(data, (b, p) => norm(p.title) === "echipa" && named(b, "nume"));
+  if (team) named(team, "nume").key ||= "name";
+  // Module noi, adăugate o singură dată (dacă le ștergi, nu mai revin).
+  const has = (type, key) => data.pages.some((p) => p.blocks.some((b) =>
+    b.type === type && (!key || b.cols?.some((c) => c.key === key))));
+  if (!has("table", "safetyType"))
+    insertAfter(data, "Probleme și acțiuni", grid("Siguranță", "table", [
+      ["Data", "date"],
+      ["Schimb", "select", ["1", "2", "3"]],
+      ["Tip", "select", ["Incident", "Near-miss", "Observație"], "safetyType"],
+      "Ce s-a întâmplat",
+      ["Post / mașină", "select", [], "equipment"],
+      ["Gravitate", "select", ["Mică", "Medie", "Mare"]],
+      "Acțiune imediată",
+      ["Stare", "select", ["Deschis", "În lucru", "Închis"]],
+    ], GROUPS[0]));
+  if (!has("audit")) {
+    const b = block("audit", "Tur pe linie");
+    b.items = AUDIT_ITEMS.map((title) => ({ id: id(), title }));
+    const p = page("Tur pe linie", [b], GROUPS[0]);
+    p.emoji = KNOWN["Tur pe linie"][0];
+    insertAfter(data, "Siguranță", p);
+  }
+  if (!has("skills")) {
+    const p = page("Polivalență", [block("skills", "Polivalență")], GROUPS[1]);
+    p.emoji = KNOWN.Polivalență[0];
+    insertAfter(data, "Echipa", p);
+  }
+  if (![...data.pages, ...data.templates].some((p) => p.title === "Registru de decizii")) {
+    const t = grid("Registru de decizii", "table", [
+      ["Data", "date"],
+      "Decizia",
+      "Context și variante",
+      "Cine decide",
+      "Cine a fost consultat",
+      ["Termen revizuire", "date"],
+      ["Rezolvat", "checkbox"],
+    ], GROUPS[3]);
+    t.emoji = "⚖️";
+    data.templates.push(t);
+  }
+  s.featuresVersion = FEATURES;
+  return true;
+}
+
 export function seed() {
   let week = page("Săptămâna 1");
   const days = [
@@ -226,7 +332,6 @@ export function seed() {
     grid("Predare schimb", "journal", [
       ["Data", "date"],
       ["Schimb", "select", ["1", "2", "3"]],
-      "Produs față de plan",
       "Probleme",
       "Mașini oprite",
       "Calitate / rebut",

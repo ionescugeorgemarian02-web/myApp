@@ -28,6 +28,7 @@ export function migrate(data) {
   )
     throw Error("Format de caiet necunoscut.");
   const str = (x) => typeof x === "string";
+  const isObject = (x) => !!x && typeof x === "object" && !Array.isArray(x);
   const validItem = (i) =>
     i &&
     ["id", "title", "details", "ready", "notes", "due"].every((k) =>
@@ -74,6 +75,14 @@ export function migrate(data) {
               ),
           )
         );
+      case "audit":
+        return Array.isArray(b.items) && b.items.every((i) => i && str(i.id) && str(i.title)) &&
+          isObject(b.runs) && Object.values(b.runs).every((run) => isObject(run) &&
+            Object.values(run).every((v) => isObject(v) && ["ok", "nok"].includes(v.s) &&
+              (v.problem === undefined || str(v.problem))));
+      case "skills":
+        return isObject(b.levels) && Object.values(b.levels).every((person) => isObject(person) &&
+          Object.values(person).every((level) => [0, 1, 2, 3].includes(level)));
       default:
         return false;
     }
@@ -90,6 +99,12 @@ export function migrate(data) {
     !hasThreeTimes(data.settings.hours)
   )
     throw Error("Structură incompletă.");
+  if (data.settings.equipment !== undefined &&
+      (!Array.isArray(data.settings.equipment) || !data.settings.equipment.every(str)))
+    throw Error("Lista posturilor este nevalidă.");
+  if (data.reviews !== undefined && (!isObject(data.reviews) || !Object.values(data.reviews).every((r) =>
+    isObject(r) && Array.isArray(r.priorities) && r.priorities.every(str) && str(r.note ?? ""))))
+    throw Error("Revizuirile săptămânale sunt nevalide.");
   if (data.notes === undefined) data.notes = [];
   const validSource = (s) => s === null || (s &&
     ["pageId", "blockId", "itemId", "title", "shiftKey"].every((k) => str(s[k])));

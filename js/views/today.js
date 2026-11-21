@@ -5,6 +5,10 @@ import { compareNotes, needsReminder } from "../notes.js";
 import { noteEditor, noteRow } from "./notes.js";
 import { newRow } from "../blocks/table.js";
 import { active, deadlines, openProblems, problemsTable, handover, report, share } from "../logic.js";
+import { shiftRecords, recordKpis, safetyEvents, auditStatus } from "../metrics.js";
+import { advice } from "../advice.js";
+import { adviceSection, newSafetyEvent, runAction } from "./advice.js";
+import { fmt } from "../charts.js";
 
 const expandedRoutines = new Set();
 
@@ -48,6 +52,10 @@ function shiftActions(c) {
     app.save();
     app.openPage(pt.p, "row-" + row.id);
   });
+  if (app.data.pages.some((p) => !p.archived && p.blocks.some((b) => b.cols?.some((col) => col.key === "safetyType"))))
+    add("Siguranță", "shield", () => newSafetyEvent());
+  const tour = auditStatus(app.data, c.key)[0];
+  if (tour) add("Tur pe linie", "audit", () => app.openPage(tour.p));
   add("Rezumat", "send", async () => {
     const text = report();
     if (await confirmShare(text)) await share(text);
@@ -165,7 +173,7 @@ function drawAgenda(section, c) {
   function row({ note, entry }) {
     if (note) return noteRow(note, c);
     const late = entry.due && entry.due < c.date;
-    const tag = late ? "Restant · " + roDate(entry.due) : entry.due ? "Azi" : "Problemă deschisă";
+    const tag = late ? "Restant · " + roDate(entry.due) : entry.due ? "Azi" : entry.kind || "Problemă deschisă";
     return link(entry.text, tag, late ? "chip late" : "chip", () => app.openPage(entry.p, entry.key));
   }
   section.append(...entries.slice(0, 3).map(row));
@@ -181,6 +189,45 @@ function drawAgenda(section, c) {
   }
 }
 
+// Cifrele schimbului curent, pe structura SQDCP (Siguranță, Calitate,
+// Livrare, Cost, Oameni). Atingerea unei plăcuțe deschide locul de completare.
+function shiftStrip(c) {
+  const section = el("section", "", "shiftStrip");
+  const head = el("div", "", "todaySectionHead");
+  head.append(el("h2", "Tura mea"), el("span", "Schimbul " + c.shift, "agendaCount"));
+  section.append(head);
+  const rec = shiftRecords(app.data).find((r) => r.key === c.key);
+  const k = rec ? recordKpis(rec) : {};
+  const events = safetyEvents(app.data).filter((e) => e.date === c.workDay);
+  const incidents = events.filter((e) => e.type === "incident").length;
+  const tour = auditStatus(app.data, c.key)[0];
+  const openHandover = () => runAction({ kind: "handover" });
+  const tiles = [
+    ["S", "Siguranță", incidents ? incidents + (incidents === 1 ? " incident" : " incidente") : events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : "0 incidente",
+      tour ? "Tur " + tour.checked + "/" + tour.total + (tour.nok.length ? " · " + tour.nok.length + " NOK" : "") : "", incidents ? "bad" : "",
+      () => (tour ? app.openPage(tour.p) : newSafetyEvent())],
+    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : "–", rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openHandover],
+    ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "%" : "–", rec?.plan != null ? fmt(rec.produced ?? 0, 0) + "/" + fmt(rec.plan, 0) : "",
+      k.planPct != null && k.planPct < 100 ? "warn" : "", openHandover],
+    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : "–", "", "", openHandover],
+    ["P", "Prezenți", rec?.planned != null && rec?.present != null ? fmt(rec.present, 0) + "/" + fmt(rec.planned, 0) : "–",
+      k.absencePct ? fmt(k.absencePct, 0) + "% absențe" : "", "", openHandover],
+  ];
+  const grid = el("div", "", "stripGrid");
+  for (const [area, name, value, sub, state, run] of tiles) {
+    const tile = btn("", run, "stripTile");
+    tile.dataset.area = area;
+    if (state) tile.dataset.state = state;
+    tile.setAttribute("aria-label", name + ": " + value + (sub ? ", " + sub : ""));
+    tile.append(el("span", name, "stripName"), el("strong", value), el("small", sub || "\u00a0"));
+    grid.append(tile);
+  }
+  section.append(grid);
+  if (!rec || (rec.plan == null && rec.produced == null))
+    section.append(btn("Completează cifrele schimbului", () => runAction({ kind: "handover" }), "todayMore", "chevron"));
+  return section;
+}
+
 export function today(c) {
   const main = document.querySelector("main");
   const home = el("div", "", "todayView");
@@ -190,6 +237,15 @@ export function today(c) {
   const agenda = el("section", "", "todayAgenda");
   const updateDeadlines = () => drawAgenda(agenda, c);
   updateDeadlines();
+  work.append(shiftStrip(c));
+  const all = advice(app.data, c);
+  const tips = all.filter((a) => a.level !== "good");
+  const shown = tips.length ? tips : all.slice(0, 1);
+  if (shown.length)
+    work.append(adviceSection(shown, {
+      limit: 2, title: "Sfaturi pentru tura ta",
+      more: { label: "Toate sfaturile", run: () => (location.hash = "Analiză") },
+    }));
   work.append(agenda);
   for (const page of active()) {
     for (const block of page.blocks) {

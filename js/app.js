@@ -7,7 +7,9 @@ import { pages } from "./views/pages.js";
 import { pageView } from "./views/page.js";
 import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
-const VERSION = "2.4";
+import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
+import { commitments } from "./metrics.js";
+const VERSION = "3.0";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
   settingsButton = document.querySelector("#open-settings");
@@ -177,9 +179,11 @@ function render() {
   if (p) pageView(p, c);
   else if (route === "Caiet" || route.startsWith("p/")) pages();
   else if (route === "Notițe") notesView(c);
+  else if (route === "Analiză") analysisView(c);
   else if (route === "Setări") settings(VERSION);
   else today(c);
-  const tab = route.startsWith("p/") ? "Caiet" : ["Caiet", "Notițe", "Setări"].includes(route) ? route : "Azi";
+  const tab = route.startsWith("p/") ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
+  updateBadge();
   for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;
     button.classList.toggle("on", on);
@@ -191,7 +195,13 @@ function render() {
 settingsButton.append(icon("settings"));
 settingsButton.dataset.route = "Setări";
 settingsButton.onclick = () => { location.hash = "Setări"; };
-for (const [name, symbol] of [["Azi", "today"], ["Notițe", "notes"], ["Caiet", "pages"]]) {
+// Insigna pictogramei arată restanțele (unde sistemul o permite).
+function updateBadge() {
+  if (!navigator.setAppBadge) return;
+  const late = commitments(app.data, app.current.date, app.current.date, app.current).late;
+  (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {});
+}
+for (const [name, symbol] of [["Azi", "today"], ["Analiză", "chart"], ["Notițe", "notes"], ["Caiet", "pages"]]) {
   const button = btn("", () => (location.hash = name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));
@@ -200,6 +210,7 @@ for (const [name, symbol] of [["Azi", "today"], ["Notițe", "notes"], ["Caiet", 
 app.render = render;
 window.addEventListener("hashchange", () => {
   if (location.hash !== "#p/" + app.editing) app.editing = null;
+  if (decodeURIComponent(location.hash) !== "#Analiză") resetAnalysisWeek();
   render();
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
     main.animate([{ opacity: .8, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }], {

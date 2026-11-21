@@ -47,6 +47,10 @@ const ICONS = {
     '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>',
   undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M12 9v4M12 16v.5"/>',
+  audit: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="m8.5 11 1.5 1.5 3-3M8.5 17h7"/>',
 };
 const NS = "http://www.w3.org/2000/svg";
 export function icon(name) {
@@ -202,10 +206,10 @@ export async function confirmAsk(title, text = "", ok = "Confirmă", danger) {
   ]);
   return r === "ok";
 }
-export async function confirmShare(text) {
+export async function confirmShare(text, title = "Rezumatul schimbului") {
   const preview = el("pre", text, "reportPreview");
   return (await openDialog(() => [
-    el("h2", "Rezumatul schimbului"),
+    el("h2", title),
     preview,
     actions(navigator.share ? "Distribuie" : "Copiază", false),
   ])) === "ok";

@@ -1,12 +1,9 @@
 import { el, input, btn, id, details, now, norm, ask, roDate, iconBtn } from "../ui.js";
 import { app } from "../state.js";
 import { download } from "../store.js";
-export const column = (name, type = "text", options = []) => ({
-  id: id(),
-  name,
-  type,
-  options,
-});
+import { isClosed, rowLabel, column, trackLifecycle, num } from "../records.js";
+import { equipmentList } from "../metrics.js";
+export { isClosed, rowLabel, column };
 const types = {
   Text: "text",
   Număr: "number",
@@ -14,26 +11,6 @@ const types = {
   Bifă: "checkbox",
   "Listă de opțiuni": "select",
 };
-// Rândul este închis dacă are bifa „Rezolvat” sau starea „Închis”.
-export function isClosed(b, r) {
-  return b.cols.some(
-    (col) =>
-      (col.type === "checkbox" && ["rezolvat", "inchis", "finalizat"].includes(norm(col.name)) && r.values[col.id] === true) ||
-      (col.type === "select" &&
-        norm(col.name) === "stare" &&
-        ["inchis", "rezolvat"].includes(norm(r.values[col.id]))),
-  );
-}
-// Textul scurt care descrie un rând (primele două câmpuri de text completate).
-export function rowLabel(b, r) {
-  return (
-    b.cols
-      .filter((col) => col.type === "text" && r.values[col.id])
-      .slice(0, 2)
-      .map((col) => r.values[col.id])
-      .join(" · ") || "Rând fără text"
-  );
-}
 // Rând nou cu data zilei de lucru și schimbul curent completate automat.
 // Rândul nou se deschide imediat pentru completare.
 export function newRow(b, c) {
@@ -71,6 +48,20 @@ function exportCsv(b) {
     "text/csv;charset=utf-8",
   );
 }
+// „Plan 95% · Rebut 1,2% · 40 min oprire” pentru fișa de predare.
+export function shiftFigures(b, r) {
+  const v = (key) => {
+    const col = b.cols.find((c) => c.key === key);
+    return col ? num(r.values[col.id]) : null;
+  };
+  const fmt = (x) => (Math.round(x * 10) / 10).toLocaleString("ro");
+  const out = [];
+  const plan = v("plan"), produced = v("produced"), scrap = v("scrap"), down = v("downtime");
+  if (plan > 0 && produced != null) out.push("Plan " + fmt((produced / plan) * 100) + "%");
+  if (produced > 0 && scrap != null) out.push("Rebut " + fmt((scrap / produced) * 100) + "%");
+  if (down != null) out.push(fmt(down) + " min oprire");
+  return out.join(" · ");
+}
 // Rezumatul unui rând închis: titlu + etichete (dată, stare, bifă).
 function summaryOf(b, r, c) {
   const journal = b.type === "journal";
@@ -85,6 +76,8 @@ function summaryOf(b, r, c) {
         : r.created
           ? new Date(r.created).toLocaleDateString("ro")
           : "Intrare") + (shift ? " · Schimb " + r.values[shift.id] : "");
+    const figures = shiftFigures(b, r);
+    if (figures) meta.append(el("span", figures, "snippet figures"));
     let first = b.cols.find(
       (x) => x.type === "text" && x !== shift && r.values[x.id],
     );
@@ -178,15 +171,22 @@ function fieldsConfig(b, c) {
 function fieldGroups(b) {
   const names = b.cols.map((col) => norm(col.name));
   let sections;
+  const keyed = new Map(b.cols.map((col) => [norm(col.name), col.key]));
   if (b.type === "journal" && names.includes("schimb")) {
     sections = [
       ["Data și schimbul", (name) => ["data", "schimb"].includes(name)],
+      ["Cifrele schimbului", (name) => SHIFT_KEYS.has(keyed.get(name))],
       ["Desfășurarea schimbului", (name) => name !== "de urmarit"],
       ["Pentru schimbul următor", () => true],
     ];
+  } else if (b.cols.some((col) => col.key === "safetyType")) {
+    sections = [
+      ["Evenimentul", (name) => ["data", "schimb", "tip", "ce s-a intamplat", "post / masina", "gravitate"].includes(name)],
+      ["Ce faci", () => true],
+    ];
   } else if (names.includes("problema") && names.includes("stare")) {
     sections = [
-      ["Problema și acțiunea", (name) => ["problema", "cauza (5 de ce)", "actiune"].includes(name)],
+      ["Problema și acțiunea", (name) => ["problema", "post / masina", "cauza (5 de ce)", "actiune"].includes(name)],
       ["Urmărirea problemei", () => true],
     ];
   } else if (names.includes("ce am promis")) {
@@ -202,30 +202,48 @@ function fieldGroups(b) {
   }
   return groups.filter(([, cols]) => cols.length);
 }
+const SHIFT_KEYS = new Set(["plan", "produced", "scrap", "downtime", "planned", "present"]);
 const longFields = new Set([
+  "ce s-a intamplat", "actiune imediata", "decizia", "context si variante",
   "problema", "probleme", "cauza (5 de ce)", "actiune", "de urmarit",
   "observatii", "ce am promis", "ce il incurca", "ce as schimba / ce n-as schimba",
   "ce il motiveaza", "ce cere de la mine",
 ]);
-function recordField(col, r, c, { classic = false, changed } = {}) {
+function recordField(b, col, r, c, { classic = false, changed } = {}) {
   const name = norm(col.name);
   const value = r.values[col.id];
   let type = col.type;
   if (type === "text" && name === "telefon") type = "tel";
   if (!classic && type === "text" && longFields.has(name)) type = "area";
-  const options = type === "select" ? ["", ...col.options.filter(Boolean)] : [];
+  // „Post / mașină” folosește lista din Setări → Linia mea.
+  const source = col.key === "equipment" ? equipmentList(app.data) : col.options;
+  const options = type === "select" ? ["", ...source.filter(Boolean)] : [];
   // O opțiune scoasă din configurare rămâne vizibilă în fișele deja completate.
   if (type === "select" && value && !options.includes(value)) options.push(value);
   const field = input(classic ? "" : col.name, value, (v) => {
+    const wasClosed = isClosed(b, r);
     r.values[col.id] = v;
+    trackLifecycle(b, r, wasClosed, now());
     c.save();
     changed?.();
+    if (wasClosed !== isClosed(b, r)) c.updateDeadlines?.();
   }, type, options);
+  if (col.key === "equipment" && options.length === 1 && !classic) {
+    const setup = btn("Adaugă posturile liniei", () => {
+      app.open.add("settings-line");
+      location.hash = "Setări";
+    }, "fieldLink");
+    field.append(setup);
+  }
   const control = field.lastElementChild;
   if (classic) control.setAttribute("aria-label", col.name);
   if (type === "select") control.options[0].text = "Alege…";
   if (type === "area") field.classList.add("wideField");
-  if (type === "number") control.step = "any";
+  if (type === "number") {
+    control.step = "any";
+    control.min = "0";
+    control.inputMode = "decimal";
+  }
   return field;
 }
 function record(b, r, c, groups) {
@@ -244,7 +262,7 @@ function record(b, r, c, groups) {
       if (name) group.append(el("legend", name));
       const grid = el("div", "", name === "Data și schimbul" ? "recordFields shiftFields" : "recordFields");
       for (const col of cols) {
-        grid.append(recordField(col, r, c, { changed: updateSummary }));
+        grid.append(recordField(b, col, r, c, { changed: updateSummary }));
       }
       group.append(grid);
       body.append(group);
@@ -331,7 +349,7 @@ export function table(b, c) {
       row.tabIndex = -1;
       for (const col of b.cols) {
         let td = el("td");
-        td.append(recordField(col, r, c, { classic: true }));
+        td.append(recordField(b, col, r, c, { classic: true }));
         row.append(td);
       }
       let td = el("td");

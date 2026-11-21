@@ -113,6 +113,9 @@ export function noteRow(note, c) {
   check.setAttribute("aria-label", (note.done ? "Redeschide" : "Finalizează") + " notița „" + note.text + "”");
   check.onchange = () => {
     note.done = check.checked;
+    // Momentul finalizării arată dacă angajamentul s-a închis la termen.
+    if (note.done) note.doneAt = new Date().toISOString();
+    else delete note.doneAt;
     app.refresh();
     toast(note.done ? "Notiță finalizată" : "Notiță redeschisă");
   };
