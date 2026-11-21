@@ -3,16 +3,16 @@ import { leadershipView } from "./views/leadership.js";
 import { productionView } from "./views/production.js";
 import { app } from "./state.js";
 import { el, btn, id, day, icon, toast, confirmAsk } from "./ui.js";
-import { load, save, flush, persist } from "./store.js";
+import { load, save, flush, persist, validHours } from "./store.js";
 import { seed, organize } from "./seed.js";
-import { today } from "./views/today.js";
+import { today, updateTodayAttention } from "./views/today.js";
 import { pages } from "./views/pages.js";
 import { pageView } from "./views/page.js";
 import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
 import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
-import { commitments } from "./metrics.js";
-const VERSION = "3.2";
+import { problemsBlock, commitments } from "./metrics.js";
+const VERSION = "3.3";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
@@ -50,7 +50,7 @@ function clock() {
     local = day(d),
     time =
       ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2),
-    hours = app.data.settings.hours;
+    hours = validHours(app.data.settings.hours) ? app.data.settings.hours : ["06:00", "14:00", "22:00"];
   let automatic = hours.findLastIndex((h) => h <= time) + 1 || 3;
   if (time < hours[0]) d.setDate(d.getDate() - 1);
   let slot = day(d) + "/" + automatic,
@@ -61,6 +61,8 @@ function clock() {
     time,
     workDay: day(d),
     shift,
+    automatic,
+    hours,
     slot,
     key: day(d) + " · Schimb " + shift,
   };
@@ -146,21 +148,48 @@ app.clone = (source) => {
   return copy;
 };
 let targetDetail = null;
-app.openPage = (p, detailKey) => {
-  targetDetail = detailKey;
-  if (detailKey) app.open.add(detailKey);
-  location.hash = "p/" + p.id;
+function followTarget() {
+  const target = targetDetail;
+  targetDetail = null;
+  if (!target) return false;
+  const detail = main.querySelector(`[data-key="${CSS.escape(target.key)}"]`);
+  if (!detail) return false;
+  for (let node = detail; node && node !== main; node = node.parentElement)
+    if (node instanceof HTMLDetailsElement) node.open = true;
+  const field = target.field && detail.querySelector(`[data-field="${CSS.escape(target.field)}"]`);
+  if (field) {
+    for (let group = field.parentElement; group && group !== detail; group = group.parentElement)
+      if (group instanceof HTMLDetailsElement) group.open = true;
+  }
+  const start = field || detail.querySelector("summary") || detail;
+  start.focus({ preventScroll: true });
+  start.scrollIntoView({ block: "start" });
+  return true;
+}
+app.navigate = (route, key, field) => {
+  targetDetail = key ? { key, field } : null;
+  if (key) app.open.add(key);
+  if (readRoute() !== route) location.hash = route;
+  else if (key) {
+    render();
+    followTarget();
+  } else scrollTo(0, 0);
 };
+app.openPage = (p, key, field) => app.navigate(
+  readRoute() === "Probleme" && problemsBlock(app.data)?.p === p ? "Probleme" : "p/" + p.id, key, field,
+);
+function readRoute() {
+  try {
+    return decodeURIComponent(location.hash.slice(1)) || "Azi";
+  } catch {
+    return "Azi";
+  }
+}
 // ——— Desenarea ecranului ———
 function render() {
   sync();
   applyTheme(app.data.settings.theme);
-  let route = "Azi";
-  try {
-    route = decodeURIComponent(location.hash.slice(1)) || route;
-  } catch {
-    // Un fragment incomplet dintr-un link deschide ecranul Azi.
-  }
+  let route = readRoute();
   if (route === "Căutare" || route === "Pagini") route = "Caiet";
   const y = scrollY;
   main.replaceChildren();
@@ -200,7 +229,12 @@ function render() {
   let p =
     route.startsWith("p/") &&
     app.data.pages.find((x) => x.id === route.slice(2));
-  if (p) pageView(p, c);
+  const registry = problemsBlock(app.data);
+  if (route === "Probleme" && registry) pageView(registry.p, c);
+  else if (route === "Probleme") {
+    main.append(el("h1", "Probleme", "title"), el("p", "Registrul de probleme nu este disponibil în acest caiet.", "empty"),
+      btn("Deschide caietul", () => app.navigate("Caiet")));
+  } else if (p) pageView(p, c);
   else if (route === "Caiet" || route.startsWith("p/")) pages();
   else if (route === "Notițe") notesView(c);
   else if (route === "Analiză") analysisView(c);
@@ -209,7 +243,9 @@ function render() {
   else if (route === "Leadership") leadershipView();
   else if (route === "Producție") productionView(c);
   else today(c);
-  const tab = route === "Indicatori" ? "Analiză" : route.startsWith("p/") || route === "Leadership" ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
+  const tab = (p && p === registry?.p) || route === "Probleme" ? "Probleme"
+    : ["Producție", "Setări"].includes(route) ? route
+    : route === "Azi" ? "Azi" : "Caiet";
   updateBadge();
   for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;
@@ -228,7 +264,7 @@ function updateBadge() {
   const late = commitments(app.data, app.current.date, app.current.date, app.current).late;
   (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {});
 }
-for (const [name, symbol] of [["Azi", "today"], ["Analiză", "chart"], ["Notițe", "notes"], ["Caiet", "pages"]]) {
+for (const [name, symbol] of [["Azi", "today"], ["Producție", "chart"], ["Probleme", "alert"], ["Caiet", "pages"]]) {
   const button = btn("", () => (location.hash = name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));
@@ -239,30 +275,22 @@ window.addEventListener("hashchange", () => {
   if (location.hash !== "#p/" + app.editing) app.editing = null;
   if (location.hash !== "#" + encodeURIComponent("Analiză")) resetAnalysisWeek();
   render();
-  const detail = targetDetail && [...main.querySelectorAll("[data-key]")].find(
-    (d) => d.dataset.key === targetDetail,
-  );
-  targetDetail = null;
-  if (detail) {
-    if (detail.tagName === "DETAILS") detail.open = true;
-    const start = detail.querySelector("summary") || detail;
-    start.focus({ preventScroll: true });
-    start.scrollIntoView({ block: "start" });
-  } else scrollTo(0, 0);
+  if (!followTarget()) scrollTo(0, 0);
 });
 render();
-// Actualizăm lista doar când se schimbă tura, ziua sau starea unui termen.
-// Formularul deschis își păstrează focusul și conținutul până la închidere.
+// Actualizăm atenționările fără să înlocuim formularele deschise.
 function checkClock() {
-  if (document.hidden || document.querySelector("dialog[open]") ||
-      document.activeElement?.matches("textarea, select:not(.todayShift), input:not([type=checkbox])")) return;
+  if (document.hidden) return;
   const next = clock();
   const previous = app.current;
-  const crossedDeadline = next.time !== previous.time && app.data.notes.some((n) =>
-    !n.done && n.due === next.date && n.dueTime &&
-    (n.dueTime < next.time) !== (n.dueTime < previous.time));
-  if (next.key !== previous.key || next.date !== previous.date || crossedDeadline) render();
-  else app.current.time = next.time;
+  if (next.key !== previous.key || next.date !== previous.date) {
+    if (document.querySelector("dialog[open]") ||
+        document.activeElement?.matches("textarea, select:not(.todayShift), input:not([type=checkbox])")) return;
+    render();
+  } else if (next.time !== previous.time) {
+    app.current = next;
+    updateTodayAttention(next);
+  }
 }
 setInterval(checkClock, 5000);
 document.addEventListener("visibilitychange", checkClock);

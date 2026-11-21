@@ -44,3 +44,80 @@ details.record, details.more, tr[data-key] { scroll-margin-top: 75px; }
 .recordFields.shiftFields {
   grid-template-columns: minmax(0, 3fr) minmax(70px, 2fr);
 }
+
+.fieldError {
+  display: block;
+  color: var(--danger);
+  font-size: .82rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.fieldError[hidden] { display: none; }
+:is(input, select, textarea)[aria-invalid="true"] { border-color: var(--danger); }
+button.primary, button.sbarAction, .formStage > summary { min-height: 44px; }
+button.primary { min-width: 44px; }
+[data-field], [data-key] { scroll-margin-top: 80px; }
+dialog [aria-invalid="true"] { scroll-margin-top: 14px; }
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.handoverState {
+  border-inline-start: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 10px 13px;
+}
+.handoverState p { color: var(--muted); font-size: .86rem; margin-top: 3px; }
+.operationalRecords .recBody { gap: 13px; }
+.operationalRecords :is(input:not([type="checkbox"]), textarea, select), .intervalFields :is(input, select, textarea) {
+  min-height: 44px;
+}
+.operationalRecords details[open] > .recBody .formStage + .formStage { margin-top: -7px; }
+.formStage {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding-inline: 12px;
+  background: var(--surface-2);
+}
+.formStage > summary { display: flex; align-items: center; justify-content: space-between; font-size: .88rem; }
+.formStage > summary .icon { width: 14px; height: 14px; }
+.formStage[open] > summary .icon { transform: rotate(180deg); }
+.formStage > :is(fieldset, .recordFields) { padding-bottom: 12px; }
+dialog .intervalFields { margin-block: 12px; }
+dialog .intervalFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+dialog .intervalFields > :has(input:is([type="text"], [type="datetime-local"]), textarea) { grid-column: 1 / -1; }
+@media (max-width: 350px) {
+  dialog .intervalFields > :has(input[type="date"]) { grid-column: 1 / -1; }
+}
+dialog:has(.intervalFields) { width: min(560px, calc(100% - 24px)); }
+.dlgActions button { min-height: 44px; }
+.productionView { display: grid; gap: 10px; }
+.productionTools { display: flex; flex-wrap: wrap; gap: 8px; }
+.productionHead h1 { font: 600 clamp(2.2rem, 6vw, 3rem)/1 var(--display); }
+.productionFigures { margin-bottom: 12px; }
+.figureGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 7px; }
+.figure {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 9px clamp(7px, 1.3vw, 15px);
+  background: var(--surface-2);
+}
+.figure:first-child { border-radius: 9px 0 0 9px; }
+.figure:last-child { border-radius: 0 9px 9px 0; }
+.figure + .figure { border-inline-start: 1px solid var(--line); }
+.figure dt { font-size: .81rem; color: var(--muted); font-weight: 600; }
+.figure dd { margin: 0; }
+.figure dd:not(.figureCoverage) {
+  font: 600 clamp(1.55rem, 4vw, 2.25rem)/1.1 var(--display);
+  font-variant-numeric: tabular-nums;
+}
+.figureCoverage { color: var(--muted); font-size: .72rem; line-height: 1.25; }

@@ -13,7 +13,7 @@ export function deadlines() {
     for (let b of p.blocks) {
       for (let i of b.items || [])
         if (!i.checked && validDate(i.due))
-          list.push({ due: i.due, text: i.title, p, key: "item-" + i.id });
+          list.push({ due: i.due, text: i.title, p, key: "item-" + i.id, field: "due" });
       const dueColumns = b.cols?.filter((col) =>
         col.type === "date" && norm(col.name).includes("termen"),
       );
@@ -27,6 +27,7 @@ export function deadlines() {
               text: rowLabel(b, r),
               p,
               key: "row-" + r.id,
+              field: col.key || norm(col.name),
             });
       }
     }

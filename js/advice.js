@@ -1,3 +1,4 @@
+import { readKey, shiftEnd } from "./operations.js";
 // Sfaturi generate local, pe telefon, din rezultatele caietului.
 // Fiecare regulă pornește de la o cifră din aplicație și propune o acțiune.
 // Nu se trimite nimic în afara dispozitivului.
@@ -16,6 +17,18 @@ const pct = (v) => (v == null ? "–" : (Math.round(v * 10) / 10).toLocaleString
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 const names = (list) => list.slice(0, 3).join(", ") + (list.length > 3 ? " și alții" : "");
 const toPage = (p, key) => (p ? { kind: "page", pageId: p.id, key } : null);
+
+export function handoverNotice(data, ctx, current = shiftRecords(data).find((r) => r.key === ctx.key)) {
+  const window = data.settings.scheduleConfirmed && shiftEnd(ctx);
+  if (!window || window.remaining > 60 || !handoverBlock(data) ||
+      (current && readKey(current.b, current.row, "prepared") === true)) return null;
+  return {
+    id: "handover-now", level: "warn", area: "E",
+    title: "Predare neverificată · schimbul se termină la " + window.end,
+    text: "Revizuiește situația schimbului în fișa de predare și confirmă verificarea.",
+    action: { label: "Continuă predarea", kind: "handover", field: "prepared" },
+  };
+}
 
 export function advice(data, ctx) {
   const out = [];
@@ -193,20 +206,8 @@ export function advice(data, ctx) {
       text: "Nebifat în " + s.skipped + " din ultimele " + s.seen + " schimburi lucrate. E prea greu de făcut, nu mai e util sau trebuie mutat în alt moment?",
       action: { label: "Ajustează rutina", kind: "routine" },
     });
-  const ho = handoverBlock(data);
-  const current = records.find((r) => r.key === ctx.key);
-  const end = ctx.hours?.[ctx.shift % 3];
-  if (ho && end && ctx.time) {
-    const minutesLeft = ((Number(end.slice(0, 2)) * 60 + Number(end.slice(3))) -
-      (Number(ctx.time.slice(0, 2)) * 60 + Number(ctx.time.slice(3))) + 1440) % 1440;
-    if (minutesLeft <= 60 && (!current || current.produced == null))
-      add({
-        id: "handover-now", level: "warn", area: "E",
-        title: "Mai ai " + minutesLeft + " de minute din schimb",
-        text: "Completează cifrele predării acum, cât sunt proaspete, apoi trimite rezumatul.",
-        action: { label: "Completează predarea", kind: "handover" },
-      });
-  }
+  const handover = handoverNotice(data, ctx);
+  if (handover) add(handover);
   if (recent.length >= 3 && recent.filter((r) => r.produced == null && r.plan == null).length >= recent.length / 2)
     add({
       id: "numbers-missing", level: "info", area: "E",

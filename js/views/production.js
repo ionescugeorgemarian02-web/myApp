@@ -1,6 +1,6 @@
 import { app } from "../state.js";
-import { actions, btn, details, el, id, input, norm, openDialog } from "../ui.js";
-import { INTERVAL_NUMBERS, intervalTotals, validInterval } from "../operations.js";
+import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError } from "../ui.js";
+import { INTERVAL_NUMBERS, intervalTotals, intervalError } from "../operations.js";
 import { nonnegative, productionKpis } from "../production.js";
 import { problemsBlock } from "../metrics.js";
 import { rowLabel } from "../records.js";
@@ -12,6 +12,23 @@ export const zoneIntervals = (data, date, shift, zone) => (data.intervals || [])
   .filter((r) => r.date === date && r.shift === shift && norm(r.zone) === norm(zone))
   .sort((a, b) => a.start.localeCompare(b.start));
 
+export function productionFigures(rows, source = "Intervale de producție") {
+  const box = el("div", "", "productionFigures");
+  const totals = intervalTotals(rows);
+  const grid = el("dl", "", "figureGrid");
+  for (const [label, key, fields] of [
+    ["Plan", "plan", ["plan"]], ["Realizat", "produced", ["produced"]], ["Abatere", "variance", ["plan", "produced"]],
+  ]) {
+    const count = rows.filter((row) => fields.every((field) => row[field] != null)).length;
+    const item = el("div", "", "figure");
+    item.append(el("dt", label), el("dd", totals[key] == null ? "—" : fmt(totals[key])),
+      el("dd", !count ? "Date indisponibile" : count < rows.length ? "Date parțiale · " + count + "/" + rows.length : "buc", "figureCoverage"));
+    grid.append(item);
+  }
+  box.append(grid, el("p", "Sursă · " + source + " · " + rows.length + (rows.length === 1 ? " fișă" : " fișe"), "formHelp"));
+  return box;
+}
+
 async function editInterval(c, existing, selection) {
   const initial = existing || {
     id: id(), date: selection.date, shift: selection.shift, zone: selection.zone,
@@ -19,25 +36,34 @@ async function editInterval(c, existing, selection) {
   };
   const draft = { ...initial };
   const fields = el("div", "", "recordFields intervalFields");
-  const errors = el("p", "", "scheduleMessage invalid");
-  errors.setAttribute("role", "alert");
-  function field(key, label, type = "text", options = []) {
-    fields.append(input(label, draft[key], (v) => { draft[key] = v; }, type, options));
-    return fields.lastElementChild.querySelector("input, select, textarea");
+  const extra = details([el("span", "Calitate, timp și cauze"), icon("down")], null, "formStage");
+  const extraFields = el("div", "", "recordFields intervalFields");
+  extra.append(extraFields);
+  const controls = new Map();
+  function field(key, label, type = "text", options = [], parent = fields) {
+    const group = input(label, draft[key], (v) => {
+      draft[key] = v;
+      const control = controls.get(key);
+      if (control.getAttribute("aria-invalid") === "true") fieldError(control, "");
+    }, type, options);
+    parent.append(group);
+    const control = group.querySelector("input, select, textarea");
+    controls.set(key, control);
+    return control;
   }
   field("zone", "Zonă / linie").required = true;
-  field("date", "Data de lucru", "date").required = true;
   field("shift", "Schimb", "select", ["1", "2", "3"]);
+  field("date", "Data de lucru", "date").required = true;
   field("start", "Început", "datetime-local").required = true;
   field("end", "Sfârșit", "datetime-local").required = true;
   for (const [key, label] of INTERVAL_NUMBERS) {
-    const control = field(key, label, "number");
+    const control = field(key, label, "number", [], ["plan", "produced"].includes(key) ? fields : extraFields);
     control.min = "0";
     control.step = ["plannedTime", "downtime"].includes(key) ? "any" : "1";
   }
-  field("equipment", "Echipament afectat");
-  field("cause", "Cauză declarată", "area");
-  field("action", "Acțiune corectivă", "area");
+  field("equipment", "Echipament afectat", "text", [], extraFields);
+  field("cause", "Cauză declarată", "area", [], extraFields);
+  field("action", "Acțiune corectivă", "area", [], extraFields);
   const registry = problemsBlock(app.data);
   const linked = new Map((registry?.b.rows || []).map((r) => [r.id, rowLabel(registry.b, r)]));
   const problem = el("select");
@@ -48,7 +74,8 @@ async function editInterval(c, existing, selection) {
   problem.onchange = () => { draft.problemId = problem.value; };
   const label = el("label", "", "field");
   label.append(el("span", "Problemă asociată"), problem);
-  fields.append(label);
+  extraFields.append(label);
+  controls.set("problemId", problem);
   const footer = actions("Salvează");
   const dialog = document.querySelector("dialog");
   const form = dialog.querySelector("form");
@@ -61,12 +88,26 @@ async function editInterval(c, existing, selection) {
       const value = draft[key];
       draft[key] = value == null || value === "" ? null : nonnegative(value) ?? NaN;
     }
-    errors.textContent = validInterval(draft, rows);
-    if (errors.textContent) event.preventDefault();
+    for (const control of controls.values())
+      if (control.getAttribute("aria-invalid") === "true") fieldError(control, "");
+    const badInput = [...controls].find(([, control]) => control.validity.badInput);
+    const error = badInput ? { field: badInput[0], message: "Completează o valoare validă." } : intervalError(draft, rows);
+    if (!error) return;
+    event.preventDefault();
+    const control = controls.get(error.field);
+    if (extra.contains(control)) extra.open = true;
+    fieldError(control, error.message);
+    control.focus({ preventScroll: true });
+    control.scrollIntoView({ block: "nearest" });
   }
+  form.noValidate = true;
   form.addEventListener("submit", validate);
   try {
-    if (await openDialog(() => [el("h2", existing ? "Editează intervalul" : "Interval nou"), fields, errors, footer]) !== "ok") return;
+    if (await openDialog(() => [
+      el("h2", existing ? "Editează intervalul" : "Interval nou"),
+      el("p", existing ? "Modificările se aplică la salvare." : "Ciornă locală · Fișa se înregistrează la salvare.", "formHelp"),
+      fields, el("p", "0 indică zero bucăți. Lasă câmpul gol dacă cifra nu este disponibilă.", "formHelp"), extra, footer,
+    ]) !== "ok") return;
     if (existing) Object.assign(existing, draft);
     else (app.data.intervals ||= []).push(draft);
     selection.date = draft.date;
@@ -75,6 +116,7 @@ async function editInterval(c, existing, selection) {
     c.refresh();
   } finally {
     form.removeEventListener("submit", validate);
+    form.noValidate = false;
   }
 }
 
@@ -98,21 +140,30 @@ export function productionView(c) {
   filter("Data de lucru", "date", "date");
   filter("Schimb", "shift", "select", ["1", "2", "3"]);
   filter("Zonă / linie", "zone", "text");
-  const add = btn("Interval nou", () => editInterval(c, null, selection), "primary", "plus");
-  box.append(el("h1", "Plan versus realizat"), filters, add, list);
+  const toolbar = el("div", "", "productionTools");
+  const configuredZone = app.data.settings.zone;
+  toolbar.append(configuredZone
+    ? btn("Interval nou", () => editInterval(c, null, selection), "primary", "plus")
+    : btn("Configurează zona", () => app.navigate("Setări", "settings-line", "zone"), "primary", "settings"),
+    btn("Analiză", () => app.navigate("Analiză"), "", "chart"));
+  if (!app.data.settings.scheduleConfirmed)
+    toolbar.append(btn("Confirmă programul", () => app.navigate("Setări", "settings-schedule", "hours")));
+  const header = el("div", "", "productionHead");
+  header.append(el("h1", "Producție"), el("p", "Plan versus realizat", "formHelp"));
+  box.append(header, filters, toolbar, list);
   main.append(box);
   function draw() {
     const rows = zoneIntervals(app.data, selection.date, selection.shift, selection.zone);
     list.replaceChildren();
+    list.append(productionFigures(rows));
     if (!rows.length) {
       list.append(el("p", selection.zone.trim() ? "Date indisponibile pentru această selecție." : "Alege zona pentru a vedea intervalele.", "empty"));
       return;
     }
     const total = intervalTotals(rows);
-    list.append(el("h2", "Total pentru " + rows.length + " intervale raportate"),
-      el("p", "Plan " + amount(total.plan) + " · realizat " + amount(total.produced) + " · abatere " + amount(total.variance) + " · atingere " + amount(total.planPct, "%")),
-      el("p", "Rebut " + amount(total.scrapPct, "%") + " · reprelucrare " + amount(total.reworkPct, "%") + " · FPY " + amount(total.fpy, "%")),
-      el("p", "Totalurile cer câmpul completat în fiecare interval afișat. FPY folosește piesele bune din prima trecere și totalul comparabil introdus.", "formHelp"));
+    list.append(el("p", "Atingerea planului " + amount(total.planPct, "%") + " · rebut " + amount(total.scrapPct, "%") +
+      " · reprelucrare " + amount(total.reworkPct, "%") + " · FPY " + amount(total.fpy, "%"), "formHelp"));
+    list.append(el("h2", "Intervale înregistrate"));
     const recent = rows.slice(-6);
     if (recent.length > 1 && recent.some((row) => productionKpis(row).planPct !== null))
       list.append(bars(recent.map((row) => ({ label: row.start.slice(-5), value: productionKpis(row).planPct })),
