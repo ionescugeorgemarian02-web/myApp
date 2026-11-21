@@ -1,6 +1,6 @@
 // Afișarea sfaturilor și executarea acțiunilor propuse de ele.
 import { app } from "../state.js";
-import { el, btn, icon, input, actions, openDialog, norm } from "../ui.js";
+import { el, btn, icon, input, actions, openDialog, norm, fieldHint } from "../ui.js";
 import { AREA_NAMES } from "../advice.js";
 import { draftRow, handoverDraft } from "../blocks/table.js";
 import { handover, previousHandover, share } from "../logic.js";
@@ -73,8 +73,14 @@ export async function escalationDraft(entry) {
   const form = el("div", "", "sbarDraft");
   if (app.training) form.append(el("p", "INSTRUIRE · DATE FICTIVE", "practiceBanner"));
   form.append(el("p", "Verifică datele și completează solicitarea înainte de copiere.", "formHelp"));
+  const prompts = [
+    "Ce s-a întâmplat și ce necesită atenție acum?",
+    "Unde, când și în ce condiții a apărut?",
+    "Care este impactul confirmat și ce măsură este deja aplicată?",
+    "Cui ceri ajutor, ce decizie aștepți și până când?",
+  ];
   SBAR_LABELS.forEach((label, i) => {
-    form.append(input(label, fields[i], (v) => { fields[i] = v; }, "area"));
+    form.append(fieldHint(input(label, fields[i], (v) => { fields[i] = v; }, "area"), prompts[i]));
   });
   if (await openDialog(() => [el("h2", "Ciornă SBAR"), form, actions("Copiază")]) === "ok")
     await share(sbarText("Escaladare SBAR", fields));

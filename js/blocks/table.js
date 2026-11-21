@@ -1,6 +1,7 @@
 import { HANDOVER_FIELDS, PROBLEM_FIELDS, closureError, closureMissing, handoverSituation, handoverStatus, readKey, problemMatches } from "../operations.js";
 import { csvCell, nonnegative, productionKpis } from "../production.js";
-import { el, input, btn, id, details, now, norm, ask, roDate, validDate, iconBtn, toast, confirmShare, fieldError, icon } from "../ui.js";
+import { el, input, btn, id, details, now, norm, ask, roDate, validDate, iconBtn, toast, confirmShare, fieldError, fieldHint, icon } from "../ui.js";
+import { recordGuidance } from "../guidance.js";
 import { app } from "../state.js";
 import { download } from "../store.js";
 import { share } from "../logic.js";
@@ -250,7 +251,7 @@ function fieldGroups(b) {
       .filter((name) => ["ce am promis", "rezolvat"].includes(name) || name.includes("termen"))],
   ]);
   if (colByKey(b, "safetyType")) return orderedSections(b, [
-    ["Evenimentul", ["data", "schimb", "safetyType", "ce s-a intamplat", "equipment", "gravitate"]],
+    ["Evenimentul", ["data", "schimb", "safetyType", "ce s-a intamplat", "equipment", "gravitate", "actiune imediata", "stare"]],
   ]);
   return [["", b.cols]];
 }
@@ -261,7 +262,7 @@ const longFields = new Set([
   "observatii", "ce am promis", "ce il incurca", "ce as schimba / ce n-as schimba",
   "ce il motiveaza", "ce cere de la mine",
 ]);
-function recordField(b, col, r, c, { classic = false, changed } = {}) {
+function recordField(b, col, r, c, { classic = false, changed, guide } = {}) {
   const name = norm(col.name);
   const value = r.values[col.id];
   let type = col.type;
@@ -372,9 +373,9 @@ function recordField(b, col, r, c, { classic = false, changed } = {}) {
     control.min = "0";
     control.inputMode = "decimal";
   }
-  return field;
+  return fieldHint(field, guide && Object.hasOwn(guide, col.key || name) ? guide[col.key || name] : "");
 }
-function record(b, r, c, groups) {
+function record(b, r, c, groups, guide) {
   const d = details(summaryOf(b, r, c), "row-" + r.id, "record");
   d.classList.toggle("closed", isClosed(b, r));
   const summary = d.firstElementChild;
@@ -408,7 +409,7 @@ function record(b, r, c, groups) {
       if (name) group.append(el("legend", name));
       const grid = el("div", "", name === "Data și schimbul" ? "recordFields shiftFields" : "recordFields");
       for (const col of cols) {
-        grid.append(recordField(b, col, r, c, { changed: updateSummary }));
+        grid.append(recordField(b, col, r, c, { changed: updateSummary, guide }));
       }
       group.append(grid);
       if (collapsed) {
@@ -499,6 +500,7 @@ export function table(b, c) {
     out.append(tools, fieldsConfig(b, c));
   }
   const classic = b.classic && !journal && !managed;
+  const guide = recordGuidance(b);
   const help = classic ? "Glisează tabelul lateral pentru a vedea toate coloanele."
     : journal ? "Atinge o intrare pentru a o completa. Modificările se salvează automat."
       : "Deschide o fișă pentru a completa câmpurile. Modificările se salvează automat.";
@@ -521,6 +523,8 @@ export function table(b, c) {
     b.cols.forEach((col) => {
       const th = el("th", col.name);
       th.scope = "col";
+      const key = col.key || norm(col.name);
+      if (Object.hasOwn(guide, key)) th.append(el("small", guide[key], "formHelp tableGuidance"));
       tr.append(th);
     });
     tr.append(el("th"));
@@ -596,7 +600,7 @@ export function table(b, c) {
           ["Toate", "Deschise", "Închise", "Restante", "Urgente / critice"]));
       out.append(filters, empty);
     }
-    const entries = rows.map((r) => [r, record(b, r, { ...c, onProblemEdit: update }, groups)]);
+    const entries = rows.map((r) => [r, record(b, r, { ...c, onProblemEdit: update }, groups, guide)]);
     for (const [, item] of entries) list.append(item);
     sort?.();
     update?.();

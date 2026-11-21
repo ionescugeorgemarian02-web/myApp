@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { auditGuidance, intervalGuidance, recordGuidance, taskGuidance } from "../js/guidance.js";
+import { norm } from "../js/ui.js";
 import { seed, organize } from "../js/seed.js";
 import { handoverBlock, problemsBlock } from "../js/metrics.js";
-import { closureError, handoverStatus, intervalTotals, problemMatches, validInterval } from "../js/operations.js";
+import { closureError, handoverStatus, INTERVAL_NUMBERS, intervalTotals, problemMatches, validInterval } from "../js/operations.js";
 
 function record(block, fields) {
   return { values: Object.fromEntries(Object.entries(fields).map(([key, value]) => [
@@ -109,4 +111,22 @@ test("service worker include toate modulele aplicației pentru utilizarea offlin
   const html = await readFile(new URL("index.html", root), "utf8");
   for (const asset of html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g))
     assert.ok(sw.includes(`"${asset[1]}"`), asset[1]);
+});
+
+test("punctele și câmpurile operaționale standard au instrucțiuni, iar textul personal are prioritate", () => {
+  const { pages, templates } = seed();
+  for (const block of [...pages, ...templates].flatMap((page) => page.blocks)) {
+    if (block.type === "audit") {
+      for (const item of block.items) assert.ok(auditGuidance(item), item.title);
+    } else if (block.items) {
+      for (const item of block.items) assert.ok(taskGuidance(item), item.title);
+    } else if (block.cols) {
+      const instructions = recordGuidance(block);
+      for (const col of block.cols) assert.ok(instructions[col.key || norm(col.name)], block.title + " / " + col.name);
+    }
+  }
+  for (const [key] of INTERVAL_NUMBERS) assert.ok(intervalGuidance[key], key);
+  assert.match(taskGuidance({ title: "În timpul schimbului · Fă un tur Gemba" }), /Ce te blochează acum/);
+  assert.equal(taskGuidance({ title: "Fă un tur Gemba", details: "Urmează traseul stabilit cu echipa." }),
+    "Urmează traseul stabilit cu echipa.");
 });

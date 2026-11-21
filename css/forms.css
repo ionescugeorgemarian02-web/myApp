@@ -38,8 +38,9 @@
 .recordFields .field { margin: 0; min-width: 0; }
 .recordFields .field.inline { min-height: 44px; }
 .recordFields .wideField { grid-column: 1 / -1; }
-.formGroup .fieldHelp { display: block; margin-top: 7px; }
 .recBody .recFoot { margin: 0; }
+.operationalRecords .recFoot { flex-wrap: wrap; justify-content: flex-start; }
+.operationalRecords .recFoot > button { white-space: nowrap; }
 details.record, details.more, tr[data-key] { scroll-margin-top: 75px; }
 .recordFields.shiftFields {
   grid-template-columns: minmax(0, 3fr) minmax(70px, 2fr);
@@ -130,3 +131,27 @@ dialog:has(.intervalFields) { width: min(560px, calc(100% - 24px)); }
 .intervalDates { grid-column: 1 / -1; margin: 0; }
 .draftState, .operationalRecords .chip.warn { color: var(--warn); }
 .operationalRecords .chip.critical { color: var(--danger); background: var(--danger-soft); }
+
+.field > .fieldHelp {
+  margin: 4px 0 0;
+  font-size: .82rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.field.inline:has(> .fieldHelp) {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-content: start;
+  gap: 3px 10px;
+}
+.field.inline:has(> .fieldHelp) > span { grid-column: 2; }
+.field.inline:has(> .fieldHelp) > :first-child { grid-row: 1; }
+.field.inline:has(> .fieldHelp) > input { grid-column: 1; grid-row: 1; }
+.taskGuidance {
+  margin: 0 0 12px 32px;
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.45;
+}
+.task > .check:has(+ .taskGuidance:not([hidden])) { min-height: 44px; padding-bottom: 4px; }
+.tableGuidance { display: block; min-width: 11rem; font-weight: 400; }

@@ -75,7 +75,7 @@ function schedule(preferences) {
   });
   validate();
   section.append(
-    el("p", "Alege ora de început pentru fiecare schimb. Caietul folosește aceste ore pe pagina Azi.", "hint"),
+    el("p", "Ia orele de început din programul aprobat. Introdu-le în ordine, de la schimbul 1 la 3, apoi apasă Aplică programul și verifică schimbul afișat în Azi.", "hint"),
     row, message, apply,
   );
   return section;
@@ -159,7 +159,7 @@ function backupCard(data) {
   const section = card("Copie de siguranță");
   const feedback = el("p", "", "settingsFeedback");
   feedback.setAttribute("role", "status");
-  section.append(el("p", "Caietul se salvează în acest browser. Descarcă o copie pentru a-l recupera sau pentru a-l muta pe alt dispozitiv.", "hint"));
+  section.append(el("p", "Apasă Salvează copia și verifică fișierul JSON în Descărcări. Pentru restaurare, salvează întâi caietul curent, apoi alege copia și verifică numele fișierului înainte să confirmi înlocuirea.", "hint"));
   if (data.settings.backup)
     section.append(el("p", "Ultimul export · " + new Date(data.settings.backup).toLocaleDateString("ro"), "settingsMetadata"));
 

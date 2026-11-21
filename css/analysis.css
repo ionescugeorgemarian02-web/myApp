@@ -308,3 +308,6 @@
 .ringSub { font-size: .7rem; color: var(--muted); }
 .anaTabs { min-width: 260px; }
 .anaTabs button { white-space: nowrap; }
+
+.auditRow > .formHelp { grid-column: 1 / -1; margin: 0; }
+.auditRow > .field.auditTools { justify-self: stretch; }

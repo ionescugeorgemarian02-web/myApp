@@ -1,7 +1,7 @@
 // Analiza săptămânii: metrica principală, SQDCP, tendințe, probleme, echipă,
 // sfaturi și revizuirea de vineri. Totul calculat din caiet, pe telefon.
 import { app } from "../state.js";
-import { el, btn, icon, iconBtn, input, roDate, confirmShare } from "../ui.js";
+import { el, btn, icon, iconBtn, input, roDate, confirmShare, fieldHint } from "../ui.js";
 import {
   weekStart, addDays, weekSummary, weekTrend, recordKpis, problems, pareto, oneOnOnes,
   skillsCoverage, baselines, safetyEvents, problemsBlock, ninetyDays,
@@ -142,6 +142,7 @@ export function analysisView(c) {
       note: k.planned ? fmt(k.present, 0) + " prezenți din " + fmt(k.planned, 0) + " planificați" : null }),
   );
   sq.append(grid);
+  sq.append(el("p", "Începe cu indicatorul care s-a abătut cel mai mult. Verifică sursa și câte fișe au date, apoi identifică schimbul sau postul de urmărit.", "formHelp"));
   sq.append(el("p", "Procentele se calculează din totalurile săptămânii. Linia punctată din grafic e valoarea de pornire din pagina Indicatori.", "kpiNote"));
   view.append(sq);
 
@@ -271,7 +272,7 @@ export function analysisView(c) {
 
   // ——— Revizuirea săptămânii ———
   const rv = card("Revizuirea săptămânii", "review");
-  rv.append(el("p", "15 minute, vineri: ce a mers, ce nu, și 3 priorități pentru săptămâna următoare.", "formHelp"));
+  rv.append(el("p", "Vineri, compară rezultatul cu planul și verifică acțiunile restante. Alege trei priorități pentru săptămâna următoare.", "formHelp"));
   const stored = data.reviews?.[cur.key];
   const draft = stored || { priorities: ["", "", ""], note: "" };
   const keep = () => {
@@ -283,7 +284,9 @@ export function analysisView(c) {
   const list3 = el("div", "", "priorities");
   [0, 1, 2].forEach((i) =>
     list3.append(input("Prioritatea " + (i + 1), draft.priorities[i] || "", (v) => { draft.priorities[i] = v; keep(); })));
-  rv.append(list3, input("Ce am învățat săptămâna aceasta", draft.note || "", (v) => { draft.note = v; keep(); }, "area"));
+  rv.append(el("p", "Pentru fiecare prioritate, scrie rezultatul dorit, rolul responsabil și ziua verificării.", "formHelp"),
+    list3, fieldHint(input("Ce am învățat săptămâna aceasta", draft.note || "", (v) => { draft.note = v; keep(); }, "area"),
+      "Alege un fapt care a avut efect. Scrie ce vei repeta sau ce vei încerca diferit."));
   const previous = data.reviews?.[prev.key];
   if (previous?.priorities.some((p) => p.trim())) {
     rv.append(el("h3", "Prioritățile alese săptămâna trecută"));

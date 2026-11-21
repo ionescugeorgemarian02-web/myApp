@@ -22,6 +22,10 @@ async function mobileShift(browser, base) {
     await page.getByText("Programul a fost aplicat").waitFor();
     await page.getByRole("button",{name:"Azi",exact:true}).click();
     await page.getByRole("button",{name:"Adaugă interval", exact:true}).waitFor();
+    const gemba = page.getByRole("checkbox", {name:"Fă un tur Gemba", exact:true});
+    await gemba.waitFor();
+    assert.equal(await gemba.evaluate((node) =>
+      document.getElementById(node.getAttribute("aria-describedby")).textContent.includes("Ce te blochează acum?")), true);
     await page.clock.runFor(15 * 60 * 1000);
     const attention = page.locator(".attentionRegion");
     await attention.getByRole("heading",{name:"Predare neverificată · schimbul se termină la 14:10"}).waitFor();
@@ -80,6 +84,7 @@ async function mobileShift(browser, base) {
     await primary.click();
     const containment = page.getByLabel("Măsură imediată / containment");
     assert.equal(await containment.evaluate((node) => node === document.activeElement), true);
+    await page.getByText(/Lotul a fost separat la 10:35/).waitFor();
     await page.evaluate(async () => {
       const {app} = await import("./js/state.js");
       const {problemsBlock} = await import("./js/metrics.js");
@@ -105,6 +110,7 @@ async function mobileShift(browser, base) {
     await attention.getByRole("button",{name:"Adaugă interval"}).click();
     assert.equal(await dialog.getByLabel("Schimb",{exact:true}).inputValue(),"3");
     assert.equal(await dialog.getByLabel("Data de lucru").inputValue(),"2026-11-23");
+    await dialog.getByText("Pune data calendaristică următoare dacă ai trecut de miezul nopții.", {exact:true}).waitFor();
     await dialog.getByLabel("Început").fill("2026-11-23T23:30");
     await dialog.getByLabel("Sfârșit").fill("2026-11-24T00:30");
     await dialog.getByText("23 nov. 2026 23:30 → 24 nov. 2026 00:30", {exact:true}).waitFor();
@@ -208,8 +214,13 @@ async function mobileShift(browser, base) {
     await dialog.getByLabel("Rebut (buc)").fill("9");
     await dialog.getByRole("button",{name:"Salvează"}).click();
     await dialog.getByText("Verifică reconcilierea", {exact:false}).waitFor();
-    assert.equal(await dialog.getByLabel("Rebut (buc)").evaluate((field) => field === document.activeElement), true);
-    await dialog.getByLabel("Rebut (buc)").fill("1");
+    const scrapField = dialog.getByLabel("Rebut (buc)");
+    assert.equal(await scrapField.evaluate((field) => field === document.activeElement), true);
+    const descriptions = () => scrapField.evaluate((field) => field.getAttribute("aria-describedby").split(" ")
+      .map((id) => document.getElementById(id).textContent));
+    assert.match((await descriptions()).join(" "), /Numără doar piesele.*Verifică reconcilierea/);
+    await scrapField.fill("1");
+    assert.deepEqual(await descriptions(), ["Numără doar piesele clasificate drept rebut în interval."]);
     await dialog.getByRole("button",{name:"Salvează"}).click();
     await page.locator(".figure").filter({hasText:"Realizat"}).getByText("8",{exact:true}).waitFor();
     await page.getByText("Salvat pe dispozitiv",{exact:true}).waitFor();
@@ -282,6 +293,7 @@ async function mobileShift(browser, base) {
 
     await page.goto(new URL("#Leadership", base).href);
     await page.getByRole("button", { name: "Planul meu de dezvoltare" }).click();
+    await page.getByText(/Mergi la fiecare post și întreabă/).waitFor();
     await page.getByRole("checkbox", { name: /Cunoaște echipa, rolurile și responsabilitățile/ }).check();
     await page.getByLabel(/Detalii pentru Cunoaște echipa/).click();
     await page.getByText("Opțiunile punctului", { exact: true }).filter({ visible: true }).click();
@@ -302,6 +314,7 @@ async function mobileShift(browser, base) {
     await page.getByRole("heading", { name: /Audituri și verificări personale/ }).waitFor();
     const safetyWalk = page.getByRole("group", { name: /Zona și căile de acces/ });
     if (!await safetyWalk.isVisible()) await page.getByText("Safety walk", { exact: true }).first().click();
+    await page.getByText(/Parcurge căile permise și observă accesul/).waitFor();
     await safetyWalk.getByRole("button", { name: "NOK", exact: true }).click();
     assert.equal(await safetyWalk.getByRole("button", { name: "NOK", exact: true }).getAttribute("aria-pressed"), "true");
 

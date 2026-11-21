@@ -1,5 +1,5 @@
 import { app } from "../state.js";
-import { actions, btn, day, details, el, icon, openDialog, roDate, toast } from "../ui.js";
+import { actions, btn, day, details, el, icon, id, openDialog, roDate, toast } from "../ui.js";
 import { compareNotes, createNote, deadlineState } from "../notes.js";
 
 let showCompleted = false;
@@ -21,7 +21,9 @@ export async function noteEditor(source = null, existing = null) {
   text.rows = 3;
   text.required = true;
   text.setAttribute("aria-label", "Notiță");
-  text.placeholder = "Ce vrei să reții sau să urmărești?";
+  const hint = el("p", "Scrie ce ai observat sau ce rămâne de verificat. Exemplu «La 14:30 verific dacă au sosit ambalajele la postul 2». Pune termen dacă vrei să apară la atenționări.", "formHelp");
+  hint.id = "note-help-" + id();
+  text.setAttribute("aria-describedby", hint.id);
   text.oninput = () => {
     text.setCustomValidity(text.value.trim() ? "" : "Scrie o notiță înainte de salvare.");
   };
@@ -65,7 +67,7 @@ export async function noteEditor(source = null, existing = null) {
   const answer = await openDialog(() => [
     el("h2", existing ? "Editează notița" : "Notiță nouă"),
     ...(origin ? [el("p", origin, "noteOrigin")] : []),
-    text, priority, fields, footer,
+    hint, text, priority, fields, footer,
   ]);
   if (answer === "delete" && existing) {
     app.remove(app.data.notes, existing);

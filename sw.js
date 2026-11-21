@@ -1,6 +1,6 @@
 // Instalarea reușește numai dacă toate resursele sunt disponibile.
 const prefix = "caiet-" + self.registration.scope + "-",
-  cache = prefix + "v19";
+  cache = prefix + "v20";
 const files = [
   "./",
   "./manifest.json",
@@ -18,6 +18,7 @@ const files = [
   "./js/metrics.js",
   "./js/production.js",
   "./js/operations.js",
+  "./js/guidance.js",
   "./js/leadership.js",
   "./js/quality.js",
   "./js/views/kpis.js",
