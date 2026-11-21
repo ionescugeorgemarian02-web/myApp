@@ -22,7 +22,7 @@ deviceTheme.addEventListener("change", () => {
 });
 
 function card(title) {
-  const section = el("section", "", "card");
+  const section = el("div", "", "settingsBody");
   section.append(el("h2", title));
   return section;
 }
@@ -99,8 +99,8 @@ function appearance(preferences) {
 }
 
 async function switchNotebook(next) {
-  const main = document.querySelector("main"), nav = document.querySelector("nav");
-  main.inert = nav.inert = true;
+  const main = document.querySelector("main"), header = document.querySelector("header");
+  main.inert = header.inert = true;
   try {
     organize(next);
     await replaceNotebook(next);
@@ -110,7 +110,7 @@ async function switchNotebook(next) {
     app.open.clear();
     app.render();
   } finally {
-    main.inert = nav.inert = false;
+    main.inert = header.inert = false;
   }
 }
 
@@ -159,7 +159,17 @@ export function settings(version) {
   const main = document.querySelector("main"), data = app.data;
   const grid = el("div", "", "settingsGrid");
   main.append(el("h1", "Setări", "title"), grid);
-  grid.append(schedule(data.settings), appearance(data.settings), backupCard(data));
+  function addSection(body, key) {
+    const heading = body.querySelector("h2");
+    const section = details(heading.textContent, "settings-" + key, "settingsSection");
+    section.name = "settings-sections";
+    heading.remove();
+    section.append(body);
+    grid.append(section);
+  }
+  addSection(schedule(data.settings), "schedule");
+  addSection(appearance(data.settings), "appearance");
+  addSection(backupCard(data), "backup");
 
   const access = card("Deschiderea caietului");
   access.append(el("p", "Revino la același link în același browser pentru a continua unde ai rămas.", "hint"));
@@ -182,7 +192,7 @@ export function settings(version) {
       storage.textContent = persistent ? "Stocare persistentă activă." : "Stocare standard în browser.";
     }).catch(() => storage.remove());
   }
-  grid.append(access);
+  addSection(access, "access");
 
   const reset = details("Resetarea caietului", "reset-settings", "settingsReset");
   reset.append(el("p", "Pornești din nou cu paginile inițiale. Pentru a păstra ce ai scris, descarcă întâi o copie.", "desc"));

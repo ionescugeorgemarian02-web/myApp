@@ -62,6 +62,13 @@ function results(entries, query) {
   more();
   return out;
 }
+function directoryGroup(title, count, key) {
+  const section = details([icon("folder"), el("strong", title), el("small", String(count))],
+    key, "directoryGroup");
+  section.name = "directory-groups";
+  return section;
+}
+
 export function pages() {
   const main = document.querySelector("main"),
     data = app.data;
@@ -75,8 +82,8 @@ export function pages() {
     app.openPage(p);
   }, "primary small", "plus");
   const heading = el("div", "", "directoryHead");
-  heading.append(el("h1", "Pagini", "title"), create);
-  main.append(heading, el("p", "Alege o pagină sau caută un cuvânt din notițe și înregistrări.", "hint"));
+  heading.append(el("h1", "Caiet", "title"), create);
+  main.append(heading);
   // Căutare.
   let box = el("label", "", "searchBox"),
     q = el("input"),
@@ -104,13 +111,14 @@ export function pages() {
     }
     for (const [g, list] of groups) {
       if (!list.length) continue;
-      area.append(el("h2", g, "groupTitle"));
+      const section = directoryGroup(g, list.length, "group-" + g);
       let grid = el("div", "", "tiles");
       list.forEach((p) => grid.append(tile(p)));
-      area.append(grid);
+      section.append(grid);
+      area.append(section);
     }
     if (data.templates.length) {
-      area.append(el("h2", "Șabloane", "groupTitle"));
+      const section = directoryGroup("Șabloane", data.templates.length, "templates");
       let list = el("div", "", "linkList");
       for (let t of data.templates) {
         let row = el("div", "", "templateRow");
@@ -132,11 +140,12 @@ export function pages() {
         );
         list.append(row);
       }
-      area.append(list);
+      section.append(list);
+      area.append(section);
     }
     let archived = data.pages.filter((p) => p.archived);
     if (archived.length) {
-      let d = details("Pagini arhivate (" + archived.length + ")", "archived", "archivedBox");
+      let d = directoryGroup("Arhivă", archived.length, "archived");
       let grid = el("div", "", "tiles");
       archived.forEach((p) => grid.append(tile(p)));
       d.append(grid);

@@ -25,7 +25,7 @@ export function pageView(p, c) {
   // Bara de sus: înapoi, titlu, editare.
   const bar = el("div", "", "pageBar");
   bar.append(
-    iconBtn("back", "Înapoi la pagini", () => (location.hash = "Pagini")),
+    iconBtn("back", "Înapoi la caiet", () => (location.hash = "Caiet")),
     btn(
       editing ? "Gata" : "Editează",
       () => {

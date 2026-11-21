@@ -1,25 +1,33 @@
 import { day, id, now, validDate } from "./ui.js";
 
-export function createNote(text, source = null, priority = "normal", due = "") {
-  return { id: id(), text, priority, due, done: false, createdAt: now(), source };
+export function createNote(text, source = null, priority = "normal", due = "", dueTime = "") {
+  return { id: id(), text, priority, due, dueTime: due ? dueTime : "", done: false, createdAt: now(), source };
 }
 
-export function needsReminder(note, date = day()) {
-  return !note.done && (note.priority === "important" || (note.due !== "" && note.due <= date));
+const localTime = () => new Date().toTimeString().slice(0, 5);
+
+export function deadlineState(note, date = day(), time = localTime()) {
+  if (!note.due) return "none";
+  if (note.due < date) return "late";
+  if (note.due > date) return "future";
+  return note.dueTime && note.dueTime < time ? "late" : "today";
 }
 
-function dueGroup(note, date) {
-  if (note.due && note.due < date) return 0;
-  if (note.due === date) return 1;
-  return 2;
+export function needsReminder(note, date = day(), time = localTime()) {
+  const state = deadlineState(note, date, time);
+  return !note.done && (note.priority === "important" || state === "late" || state === "today");
 }
 
-export function compareNotes(a, b, date = day()) {
+const dueOrder = { late: 0, today: 1, future: 2, none: 2 };
+
+export function compareNotes(a, b, date = day(), time = localTime()) {
   return Number(a.done) - Number(b.done) ||
-    dueGroup(a, date) - dueGroup(b, date) ||
+    dueOrder[deadlineState(a, date, time)] - dueOrder[deadlineState(b, date, time)] ||
     Number(b.priority === "important") - Number(a.priority === "important") ||
     Number(!a.due) - Number(!b.due) ||
     a.due.localeCompare(b.due) ||
+    Number(!a.dueTime) - Number(!b.dueTime) ||
+    (a.dueTime || "").localeCompare(b.dueTime || "") ||
     b.createdAt.localeCompare(a.createdAt) ||
     a.id.localeCompare(b.id);
 }

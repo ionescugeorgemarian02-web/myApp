@@ -94,18 +94,16 @@ export function checklist(b, c, compact = false) {
         );
         body.append(group);
       }
-      const group = el("fieldset", "", "formGroup");
+      const group = el("div");
       const source = { pageId: c.pageId, blockId: b.id, itemId: i.id, title: i.title, shiftKey };
-      group.append(el("legend", "Notițele punctului"));
       for (const note of notes.sort(compareNotes)) group.append(noteRow(note, c));
       group.append(btn("Adaugă notiță", () => noteEditor(source), "pill", "plus"));
       body.append(group);
-      const tracking = el("fieldset", "", "formGroup");
-      tracking.append(el("legend", "Urmărirea punctului"));
+      const tracking = details("Opțiunile punctului", "track-" + i.id, "taskOptions");
       const dates = el("div", "", "recordFields");
       dates.append(field("due", "Termenul punctului", "date"));
       if (c.editing) dates.append(field("priority", "Prioritate", "select"));
-      tracking.append(dates, el("small", "Pe Azi apar punctele nebifate cu termen astăzi sau depășit.", "fieldHelp"));
+      tracking.append(dates);
       body.append(tracking);
       if (i.checkedAt)
         body.append(el("p", "Bifat la " + new Date(i.checkedAt).toLocaleString("ro", {

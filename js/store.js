@@ -10,9 +10,11 @@ function status(text, state) {
   if (label.textContent !== text) label.textContent = text;
   label.parentElement.dataset.state = state;
 }
+function validTime(time) {
+  return typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
+}
 function hasThreeTimes(hours) {
-  return Array.isArray(hours) && hours.length === 3 &&
-    hours.every((h) => typeof h === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(h));
+  return Array.isArray(hours) && hours.length === 3 && hours.every(validTime);
 }
 export function validHours(hours) {
   return hasThreeTimes(hours) && hours[0] < hours[1] && hours[1] < hours[2];
@@ -93,7 +95,9 @@ export function migrate(data) {
     ["pageId", "blockId", "itemId", "title", "shiftKey"].every((k) => str(s[k])));
   const validNote = (n) => n && str(n.id) && n.id.length > 0 &&
     str(n.text) && n.text.trim().length > 0 && ["normal", "important"].includes(n.priority) &&
-    (n.due === "" || validDate(n.due)) && typeof n.done === "boolean" &&
+    (n.due === "" || validDate(n.due)) &&
+    (n.dueTime === undefined || n.dueTime === "" || (n.due && validTime(n.dueTime))) &&
+    typeof n.done === "boolean" &&
     str(n.createdAt) && /^\d{4}-\d{2}-\d{2}T/.test(n.createdAt) &&
     Number.isFinite(Date.parse(n.createdAt)) && validSource(n.source);
   if (!Array.isArray(data.notes) || !data.notes.every(validNote) ||
