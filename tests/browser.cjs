@@ -11,7 +11,9 @@ async function mobileShift(browser, base) {
     await page.clock.pauseAt(new Date(2026,10,23,12,59,45));
     await page.goto(base);
     await page.getByRole("button",{name:"Am înțeles"}).click();
-    await page.getByRole("button",{name:"Configurează zona",exact:true}).click();
+    // Zona implicită este Sudură, cu toate liniile ei; testul o schimbă din Setări.
+    await page.getByText(/^Sudură · 13 linii$/).waitFor();
+    await page.evaluate(async () => (await import("./js/state.js")).app.navigate("Setări", "settings-line", "zone"));
     assert.equal(await page.getByLabel("Zona sau linia curentă").evaluate((node) => node === document.activeElement), true);
     await page.getByLabel("Zona sau linia curentă").fill("Linia A");
     await page.getByRole("button",{name:"Azi",exact:true}).click();
@@ -200,7 +202,7 @@ async function mobileShift(browser, base) {
     await page.evaluate(()=>navigator.serviceWorker.ready);
     await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),360);
-    await page.getByRole("button",{name:"Configurează zona",exact:true}).click();
+    await page.evaluate(async () => (await import("./js/state.js")).app.navigate("Setări", "settings-line", "zone"));
     await page.getByLabel("Zona sau linia curentă").fill("DEMO A");
     await page.getByRole("button",{name:"Producție",exact:true}).click();
     await page.getByRole("button",{name:"Interval nou"}).click();

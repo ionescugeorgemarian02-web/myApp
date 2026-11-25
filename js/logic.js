@@ -72,6 +72,7 @@ export function report() {
         month: "long",
       })}`,
     ];
+  if (app.data.settings.zone) lines.push("Zona " + app.data.settings.zone);
   let ho = handover();
   const rec = shiftRecords(app.data).find((x) => x.key === c.key);
   if (rec) {

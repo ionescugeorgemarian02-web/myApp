@@ -8,7 +8,7 @@ PWA personală, în limba română, pentru coordonarea unui schimb în producți
 
 1. Deschide adresa aprobată cu internet și așteaptă încărcarea completă. Pe Android folosește meniul Chrome → **Instalează** sau **Adaugă pe ecranul de pornire**. Pe iPhone folosește Safari → **Partajare → Adaugă pe ecranul principal**.
 2. Pornește cu **Setări → Confidențialitate și instruire → Deschide modul de instruire**. Caietul de instruire este separat. Ecranul, rezumatele și exporturile sunt marcate. După încărcare, activează modul avion și redeschide aplicația pentru a verifica offline pe telefonul tău.
-3. Dacă politica locală permite, revino la caietul personal. În **Setări → Liniile mele**, verifică lista liniilor și configurează zona. Confirmă orele în **Programul schimburilor**. Pentru caiete noi, data planului este 23 noiembrie 2026. Caietele existente își păstrează data, editabilă din **Linia mea**.
+3. Dacă politica locală permite, revino la caietul personal. Zona de lucru este **Sudură** și cuprinde toate cele 13 linii. O poți verifica în **Setări → Zona și liniile**. Un interval raportat pe o linie (ex. PSA 3) intră și în totalul zonei Sudură. Confirmă orele în **Programul schimburilor**. Pentru caiete noi, data planului este 23 noiembrie 2026. Caietele existente își păstrează data, editabilă din **Linia mea**.
 4. Deschide același URL și folosește același browser sau aceeași pictogramă pentru a regăsi datele. Verifică persistența după instalare, deoarece platforma poate folosi un spațiu separat pentru aplicația de pe ecranul principal.
 
 ## Fluxuri principale

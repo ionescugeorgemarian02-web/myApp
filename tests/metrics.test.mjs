@@ -311,3 +311,26 @@ test("planul primei săptămâni: începe lunea după o zi de weekend", () => {
   assert.equal(w.behind.length, w.days[0].list.items.length + w.days[1].list.items.length);
   assert.equal(m.firstWeek(d, ctx("2026-12-20")).after, false);
 });
+
+test("zona Sudură cuprinde toate liniile: intervalele pe linii intră în total", async () => {
+  const { zoneIntervals } = await import("../js/views/production.js").catch(() => ({}));
+  const d = seed();
+  assert.equal(d.settings.zone, "Sudură");
+  assert.ok(m.inZone(d, "PSA 3", "Sudură"));
+  assert.ok(m.inZone(d, "sudura", "Sudură"));
+  assert.ok(!m.inZone(d, "Vopsitorie", "Sudură"));
+  assert.ok(m.inZone(d, "PSA 3", "psa 3"));
+  assert.ok(!m.inZone(d, "Fam B1", "PSA 3"), "o linie nu cuprinde altă linie");
+  if (zoneIntervals) {
+    d.intervals = [{ date: "2026-11-25", shift: 1, zone: "PSA 3", start: "2026-11-25T06:00" }, { date: "2026-11-25", shift: 1, zone: "Fam B1", start: "2026-11-25T08:00" }];
+    assert.equal(zoneIntervals(d, "2026-11-25", 1, "Sudură").length, 2);
+  }
+  // Caietele existente fără zonă primesc Sudură o singură dată.
+  delete d.settings.zone;
+  d.settings.featuresVersion = 4;
+  assert.equal(upgrade(d), true);
+  assert.equal(d.settings.zone, "Sudură");
+  d.settings.zone = "Altă zonă";
+  assert.equal(upgrade(d), false);
+  assert.equal(d.settings.zone, "Altă zonă");
+});

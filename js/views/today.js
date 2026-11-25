@@ -85,7 +85,9 @@ function header(c) {
   })));
   const context = el("div", "", "contextLine");
   const zone = el("div");
-  zone.append(el("span", "Zonă de lucru", "formHelp"), el("strong", app.data.settings.zone || "Zonă neconfigurată"));
+  const lineCount = linesNow(app.data, c)?.entries.length || 0;
+  zone.append(el("span", "Zonă de lucru", "formHelp"), el("strong", (app.data.settings.zone || "Zonă neconfigurată") +
+    (app.data.settings.zone && lineCount ? " · " + lineCount + " linii" : "")));
   context.append(zone, shiftSelector(c));
   head.append(date, el("h1", "Panou de schimb"), context, shiftPulse(c));
   if (!app.data.settings.scheduleConfirmed || c.automatic !== c.shift)
@@ -196,7 +198,7 @@ function linesCard(c) {
   if (!ln || !ln.entries.length) return null;
   const box = el("section", "", "todayCard linesCard");
   const t = ln.totals;
-  box.append(cardHead("Liniile mele", t.checked === t.total ? "Toate verificate" : t.checked + " din " + t.total + " verificate",
+  box.append(cardHead(app.data.settings.zone ? "Zona " + app.data.settings.zone + " · liniile" : "Liniile mele", t.checked === t.total ? "Toate verificate" : t.checked + " din " + t.total + " verificate",
     t.pct != null ? fmt(t.pct, 0) + "% plan" : null, t.pct != null && t.pct < 90 && ln.fraction >= 1 ? "bad" : ""));
   const grid = el("div", "", "lineChips");
   const behind = new Set(ln.behind.map((e) => e.name));

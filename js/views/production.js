@@ -3,14 +3,14 @@ import { app } from "../state.js";
 import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError, fieldHint, roDate } from "../ui.js";
 import { INTERVAL_NUMBERS, intervalTotals, intervalError } from "../operations.js";
 import { nonnegative, productionKpis } from "../production.js";
-import { addDays, problemsBlock } from "../metrics.js";
+import { addDays, problemsBlock, inZone, equipmentList } from "../metrics.js";
 import { rowLabel } from "../records.js";
 import { bars, fmt } from "../charts.js";
 
 export const noData = "Date indisponibile";
 const amount = (number, unit = "") => number == null ? noData : fmt(number) + unit;
 export const zoneIntervals = (data, date, shift, zone) => (data.intervals || [])
-  .filter((r) => r.date === date && r.shift === shift && norm(r.zone) === norm(zone))
+  .filter((r) => r.date === date && r.shift === shift && inZone(data, r.zone, zone))
   .sort((a, b) => a.start.localeCompare(b.start));
 
 export function coverageLabel(total, complete, hasData) {
@@ -101,7 +101,14 @@ async function editInterval(c, existing, selection) {
       : start && suggested === start ? "Început propus din ultimul interval raportat." : "";
     dates.hidden = !dates.textContent;
   }
-  field("zone", "Zonă / linie", "text", [], contextFields).required = true;
+  const zoneControl = field("zone", "Zonă / linie", "text", [], contextFields);
+  zoneControl.required = true;
+  // Sugestii: liniile zonei (ex. PSA 3) sau zona întreagă.
+  const options = el("datalist");
+  options.id = "zone-options";
+  for (const name of [...equipmentList(app.data), app.data.settings.zone].filter(Boolean)) options.append(new Option(name));
+  zoneControl.setAttribute("list", options.id);
+  contextFields.append(options);
   field("shift", "Schimb", "select", ["1", "2", "3"], contextFields);
   field("date", "Data de lucru", "date", [], contextFields).required = true;
   field("start", "Început", "datetime-local").required = true;
@@ -222,7 +229,8 @@ export function productionView(c) {
         { ref: 100, unit: "%", label: "Atingerea planului în ultimele intervale raportate" }));
     for (const row of rows) {
       const k = productionKpis(row);
-      const card = details(intervalDates(row.start, row.end) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");
+      const line = norm(row.zone) !== norm(selection.zone) ? row.zone + " · " : "";
+      const card = details(line + intervalDates(row.start, row.end) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");
       card.append(el("p", "Plan " + amount(row.plan) + " · realizat " + amount(row.produced) + " · abatere " + amount(k.variance)),
         el("p", "Bune " + amount(row.good) + " · rebut " + amount(row.scrap) + " · reprelucrare " + amount(row.rework)),
         el("p", "Timp planificat " + amount(row.plannedTime, " min") + " · oprire " + amount(row.downtime, " min") + " · FPY " + amount(k.fpy, "%")),
