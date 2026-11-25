@@ -1,6 +1,6 @@
 // Instalarea reușește numai dacă toate resursele sunt disponibile.
 const prefix = "caiet-" + self.registration.scope + "-",
-  cache = prefix + "v23";
+  cache = prefix + "v24";
 const files = [
   "./",
   "./manifest.json",

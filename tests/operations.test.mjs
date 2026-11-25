@@ -114,20 +114,15 @@ test("service worker include toate modulele aplicației pentru utilizarea offlin
     assert.ok(sw.includes(`"${asset[1]}"`), asset[1]);
 });
 
-test("punctele și câmpurile operaționale standard au instrucțiuni, iar textul personal are prioritate", () => {
+test("fără instrucțiuni generice: apare doar textul scris de utilizator", () => {
   const { pages, templates } = seed();
   for (const block of [...pages, ...templates].flatMap((page) => page.blocks)) {
-    if (block.type === "audit") {
-      for (const item of block.items) assert.ok(auditGuidance(item), item.title);
-    } else if (block.items) {
-      for (const item of block.items) assert.ok(taskGuidance(item), item.title);
-    } else if (block.cols) {
-      const instructions = recordGuidance(block);
-      for (const col of block.cols) assert.ok(instructions[col.key || norm(col.name)], block.title + " / " + col.name);
-    }
+    if (block.cols) assert.deepEqual(recordGuidance(block), {}, block.title);
+    for (const item of block.items || [])
+      assert.equal(block.type === "audit" ? auditGuidance(item) : taskGuidance(item), (item.details || "").trim(), item.title);
   }
-  for (const [key] of INTERVAL_NUMBERS) assert.ok(intervalGuidance[key], key);
-  assert.match(taskGuidance({ title: "În timpul schimbului · Fă un tur Gemba" }), /Ce te blochează acum/);
+  assert.deepEqual(intervalGuidance, {});
+  assert.equal(taskGuidance({ title: "Fă un tur Gemba" }), "");
   assert.equal(taskGuidance({ title: "Fă un tur Gemba", details: "Urmează traseul stabilit cu echipa." }),
     "Urmează traseul stabilit cu echipa.");
 });

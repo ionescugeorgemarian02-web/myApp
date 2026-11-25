@@ -349,3 +349,24 @@ test("rămâne doar rutina EPT: rutina generică și modelul ei se scot o singur
   assert.ok(!d.templates.some((t) => t.title === "Rutina cronologică de schimb"));
   assert.ok(m.routineShifts && d.pages.some((p) => p.title === "Rutina EPT"));
 });
+
+test("verificarea la 2 ore nu mai rămâne „întârziată” după DA, iar linia pornită târziu are ritmul de la pornire", async () => {
+  const e = await import("../js/ept.js");
+  const d = seed();
+  const f = e.formBlock(d).b;
+  const c = ctx("2026-11-25", "10:30");
+  assert.equal(e.slotState(f, c).late.length, 2);
+  for (const i of e.twoHourItems(f)) i.checked = true;
+  assert.equal(e.slotState(f, c).late.length, 0, "DA pe activitate acoperă orele");
+  assert.equal(e.formStatus(f, c).bySec.during.total, 14, "în secțiune intră doar activitățile zilnice");
+  const lb = m.linesBlock(d).b;
+  lb.shifts[c.key] = { UFC: { st: "ok", onAt: "10:00", plan: "100", real: "5" }, GDI: { st: "off", offAt: "06:00", plan: "100", real: "0" } };
+  const now = e.linesNow(d, c);
+  const ufc = now.entries.find((x) => x.name === "UFC");
+  // Pornită la 10:00, la 10:30: 30 din 240 de minute rămase → ~12,5 buc așteptate.
+  assert.ok(Math.abs(ufc.pace.expected - 12.5) < 0.01);
+  assert.equal(now.entries.find((x) => x.name === "GDI").pace, null, "linia care nu rulează nu are ritm");
+  assert.equal(now.off.length, 1);
+  assert.equal(now.totals.off, 1);
+  assert.ok(!now.behind.some((x) => x.name === "GDI"));
+});
