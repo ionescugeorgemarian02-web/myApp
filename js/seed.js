@@ -79,7 +79,7 @@ export const page = (title, blocks = [], group = GROUPS[3]) => ({
   blocks,
 });
 
-const FEATURES = 6;
+const FEATURES = 7;
 const AUDIT_ITEMS = [
   "Echipamentul de protecție e purtat corect la toate posturile",
   "Apărătorile și senzorii de siguranță funcționează",
@@ -115,6 +115,8 @@ export function upgrade(data) {
   // Versiunea 4.1: zona de lucru este Sudură, cu toate liniile ei.
   if (!data.settings.zone) data.settings.zone = ZONE;
   if (!(data.settings.featuresVersion >= 6)) removeGenericRoutine(data);
+  // Versiunea 4.3: fără instrucțiunile generice „Cum o fac”.
+  for (const p of data.pages) for (const b of p.blocks) if (b.form) for (const i of b.items) delete i.how;
   data.settings.featuresVersion = FEATURES;
   return true;
 }

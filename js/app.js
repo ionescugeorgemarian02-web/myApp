@@ -17,7 +17,7 @@ import { runAction } from "./views/advice.js";
 import { problemsBlock, commitments, linesBlock } from "./metrics.js";
 import { formBlock } from "./ept.js";
 import { lines as linesBoard } from "./blocks/lines.js";
-const VERSION = "4.2";
+const VERSION = "4.3";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),

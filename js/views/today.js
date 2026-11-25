@@ -15,7 +15,7 @@ import { fmt } from "../charts.js";
 import { checklist } from "../blocks/checklist.js";
 import { firstWeek, LINE_STATES } from "../metrics.js";
 import { formBlock, nextUp, shiftClock, slotState, sectionOf, linesNow, formStatus } from "../ept.js";
-import { itemCard } from "../blocks/eptform.js";
+import { itemCard, itemView, expanded } from "../blocks/eptform.js";
 
 const longDate = { weekday: "long", day: "numeric", month: "long" };
 const duration = (m) => (m >= 60 ? Math.floor(m / 60) + " h" + (m % 60 ? " " + (m % 60) + " min" : "") : m + " min");
@@ -178,8 +178,17 @@ function nowCard(c) {
     tag.dataset.tone = sectionOf(i.sec).tone;
     list.append(tag, itemCard(b, i, ctx, () => app.refresh()));
   }
+  // Ce ai bifat în faza curentă rămâne vizibil, pe un rând mic.
+  const secs = ["before", "start"].includes(up.phase) ? ["before", "start"] : [up.phase];
+  const done = b.items.filter((i) => i.freq !== "sapt" && secs.includes(i.sec) && (i.checked || i.no));
+  if (done.length) {
+    const doneBox = el("div", "", "nowDone");
+    doneBox.append(el("p", "Bifate în această fază · " + done.length, "nowGroup"));
+    for (const i of done) doneBox.append(i.no && !expanded.has(i.id) ? itemCard(b, i, ctx, () => app.refresh()) : itemView(b, i, ctx, () => app.refresh()));
+    list.append(doneBox);
+  }
   if (!up.list.length)
-    list.append(el("p", st.nu ? "Fișa zilnică e completă, cu " + st.nu + " NU. Verifică dacă ai escaladat." : "Toate activitățile zilnice sunt bifate. Bravo!", "routineDone"));
+    list.prepend(el("p", st.nu ? "Fișa zilnică e completă, cu " + st.nu + " NU. Verifică dacă ai escaladat." : "Toate activitățile zilnice sunt bifate. Bravo!", "routineDone"));
   box.append(list);
   if (up.behind.length) {
     const first = up.behind[0];
@@ -213,7 +222,7 @@ function linesCard(c) {
   }
   box.append(grid);
   const legend = el("p", "", "lineLegend");
-  for (const [st, label] of [["ok", "OK"], ["warn", "Atenție"], ["stop", "Oprită"], ["none", "Neverificată"]]) {
+  for (const [st, label] of [["ok", "OK"], ["warn", "Atenție"], ["stop", "Oprită"], ["off", "Nu rulează"], ["none", "Neverificată"]]) {
     const x = el("span", label);
     x.dataset.st = st;
     legend.append(x);

@@ -59,6 +59,22 @@ function createProblem(b, i, c) {
   app.openPage(pb.p, "row-" + r.id);
 }
 
+// Activitățile bifate se fac mici (un rând); o atingere le deschide din nou.
+export const expanded = new Set();
+export function compactRow(b, i, c, changed) {
+  const v = itemState(b, i, c.date);
+  const row = btn("", () => { expanded.add(i.id); changed(); }, "eptCompact");
+  row.dataset.v = v;
+  row.dataset.key = "item-" + i.id;
+  row.dataset.focus = i.id + "row";
+  const mark = el("span", v === "nu" ? "NU" : "DA", "eptMark");
+  row.append(mark, el("span", i.title, "eptCompactText"), icon("down"));
+  row.setAttribute("aria-label", (v === "nu" ? "NU" : "DA") + ": " + i.title + ". Atinge pentru detalii");
+  return row;
+}
+export const itemView = (b, i, c, changed) =>
+  itemState(b, i, c.date) === "da" && !expanded.has(i.id) ? compactRow(b, i, c, changed) : itemCard(b, i, c, changed);
+
 // O activitate din fișă; folosită și pe ecranul Azi.
 export function itemCard(b, i, c, changed) {
   const v = itemState(b, i, c.date);
@@ -66,6 +82,11 @@ export function itemCard(b, i, c, changed) {
   const card = el("div", "", "eptItem");
   card.dataset.v = v;
   card.dataset.key = "item-" + i.id;
+  if (v && expanded.has(i.id)) {
+    const fold = btn("Restrânge", () => { expanded.delete(i.id); changed(); }, "eptFold", "up");
+    fold.dataset.focus = i.id + "fold";
+    card.append(fold);
+  }
   card.append(el("p", i.title, "eptText"));
   if (i.tag === "rotation") {
     const line = lineOfDay(equipmentList(app.data), c.workDay || c.date);
@@ -123,11 +144,6 @@ export function itemCard(b, i, c, changed) {
   if (week?.v && week.date)
     card.append(el("p", "Bifat săptămâna aceasta: " + roDate(week.date, short), "eptWeekDone"));
   const tools = el("div", "", "eptItemTools");
-  if (i.how) {
-    const how = details([icon("spark"), el("span", "Cum o fac")], "how-" + i.id, "eptObs eptHow");
-    how.append(el("p", i.how, "eptHowText"));
-    tools.append(how);
-  }
   // Observații: se deschid singure la NU.
   const notes = isWeekly(i) ? week.obs || "" : i.notes || "";
   const obs = details([icon("edit"), el("span", notes.trim() ? "Observații · " + notes.trim().slice(0, 40) + (notes.trim().length > 40 ? "…" : "") : "Observații")],
@@ -181,7 +197,7 @@ function head(b, c) {
   const top = el("div", "", "eptHeadTop");
   const phase = phaseOf({ ...c, hours: c.hours || app.data.settings.hours });
   top.append(el("strong", "Schimbul " + c.shift + " · " + roDate(c.workDay, short)),
-    el("span", phase === "before" ? "Înainte de schimb" : "Acum: " + sectionOf(phase).short, "eptPhase"));
+    el("span", c.past ? "Schimb încheiat" : phase === "before" ? "Înainte de schimb" : "Acum: " + sectionOf(phase).short, "eptPhase"));
   const bar = el("div", "", "eptBar");
   bar.setAttribute("role", "img");
   bar.setAttribute("aria-label", st.da + " DA, " + st.nu + " NU din " + st.total);
@@ -214,15 +230,16 @@ function jump(b, c) {
     const all = b.items.filter((i) => (i.sec || "during") === s.id);
     if (!all.length) continue;
     const x = st.bySec[s.id];
-    const weekly = all.filter(isWeekly);
-    const done = x.da + weekly.filter((i) => week[i.id]?.v === "da").length;
+    if (!x.total) continue;
+    const done = x.da;
     const chip = btn("", () => {
       const target = document.getElementById("ept-" + s.id);
       target?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     }, "eptChip");
     chip.dataset.tone = s.tone;
     if (x.nu) chip.dataset.alert = "true";
-    chip.append(el("span", s.short), el("small", done + "/" + all.length));
+    if (done === x.total) chip.dataset.complete = "true";
+    chip.append(el("span", s.short), el("small", done + "/" + x.total));
     nav.append(chip);
   }
   return nav;
@@ -235,9 +252,14 @@ function sectionCard(b, s, c, changed) {
   sec.id = "ept-" + s.id;
   sec.dataset.tone = s.tone;
   const week = weekRead(b, c.date);
-  const done = items.filter((i) => (isWeekly(i) ? week[i.id]?.v : itemState(b, i, c.date)) === "da").length;
+  const daily = items.filter((i) => !isWeekly(i)), weekly = items.filter(isWeekly);
+  const done = daily.filter((i) => i.checked).length;
   const h = el("header", "", "eptSecHead");
-  h.append(el("h2", s.title), el("span", done + "/" + items.length, "eptSecCount"));
+  const counts = el("span", "", "eptSecCounts");
+  counts.append(el("span", done + "/" + daily.length, "eptSecCount"));
+  if (weekly.length) counts.append(el("span", "săpt. " + weekly.filter((i) => week[i.id]?.v === "da").length + "/" + weekly.length, "eptSecCount week"));
+  h.append(el("h2", s.title), counts);
+  if (daily.length && done === daily.length) sec.dataset.complete = "true";
   sec.append(h);
   for (const g of groups(items)) {
     const box = el("div", "", "eptGroup");
@@ -256,7 +278,7 @@ function sectionCard(b, s, c, changed) {
       gh.append(q);
       box.append(gh, note);
     } else box.append(gh);
-    for (const i of g.items) box.append(itemCard(b, i, c, changed));
+    for (const i of g.items) box.append(itemView(b, i, c, changed));
     sec.append(box);
   }
   if (s.id === "rules") sec.append(el("p", ESCALATION, "eptEscalate"));
@@ -292,31 +314,57 @@ function formCsv(b, c) {
   return "\ufeff" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n");
 }
 
-function history(b) {
-  const d = details([icon("clock"), el("span", "Fișele schimburilor anterioare")], "ept-history", "eptMore");
+const SHIFT_RE = /^(\d{4}-\d{2}-\d{2}) · Schimb ([123])$/;
+// Toate fișele salvate (schimbul curent și cele încheiate), cele mai noi primele.
+export function savedForms(b) {
+  const out = Object.entries(b.history || {}).filter(([k]) => SHIFT_RE.test(k));
+  if (b.key && SHIFT_RE.test(b.key)) out.push([b.key, b.items]);
+  return out.sort((a, x) => x[0].localeCompare(a[0]));
+}
+let view = null, archiveDate = "", archiveShift = "";
+export const openForm = (key) => { view = key; };
+
+// Istoricul ca o bază de date: alegi ziua (și schimbul) și deschizi fișa.
+function archive(b, redraw) {
+  const d = details([icon("clock"), el("span", "Fișele salvate · caută după zi")], "ept-history", "eptMore");
+  const box = el("div", "", "eptArchive");
+  const filters = el("div", "", "eptArchiveFilters");
+  const dateField = el("label", "", "field");
+  const date = el("input");
+  date.type = "date";
+  date.value = archiveDate;
+  dateField.append(el("span", "Ziua"), date);
+  const shiftField = el("label", "", "field");
+  const shift = el("select");
+  for (const [v, t] of [["", "Toate"], ["1", "Schimbul 1"], ["2", "Schimbul 2"], ["3", "Schimbul 3"]]) shift.add(new Option(t, v));
+  shift.value = archiveShift;
+  shiftField.append(el("span", "Schimbul"), shift);
+  filters.append(dateField, shiftField);
+  const list = el("div", "", "eptArchiveList");
   const fill = () => {
-    if (!d.open || d.childElementCount > 1) return;
-    const entries = Object.entries(b.history).filter(([k]) => /^\d{4}-\d{2}-\d{2} · Schimb \d$/.test(k))
-      .sort((a, x) => x[0].localeCompare(a[0]));
-    if (!entries.length) d.append(el("p", "Încă nu există schimburi încheiate. Fișa de azi apare aici după schimbare.", "empty"));
-    for (const [key, items] of entries.slice(0, 40)) {
+    list.replaceChildren();
+    const rows = savedForms(b).filter(([k]) => {
+      const [, d0, s0] = SHIFT_RE.exec(k);
+      return (!archiveDate || d0 === archiveDate) && (!archiveShift || s0 === archiveShift);
+    });
+    if (!rows.length) list.append(el("p", archiveDate ? "Nu există o fișă salvată pentru ziua aleasă." : "Încă nu există fișe salvate.", "empty"));
+    for (const [key, items] of rows.slice(0, 60)) {
+      const [, d0, s0] = SHIFT_RE.exec(key);
       const daily = items.filter((i) => !isWeekly(i));
-      const da = daily.filter((i) => i.checked).length, nu = daily.filter((i) => i.no);
-      const [date, shift] = key.split(" · ");
-      const row = details([el("strong", roDate(date, short) + " · " + shift.toLowerCase()),
-        el("span", da + "/" + daily.length + " DA" + (nu.length ? " · " + nu.length + " NU" : ""), nu.length ? "chip late" : "chip")],
-      null, "eptPast");
-      const body = el("div", "", "eptPastBody");
-      if (nu.length) for (const i of nu) body.append(el("p", "NU · " + i.group + (i.notes ? " – " + i.notes : ""), "desc"));
-      const skipped = daily.filter((i) => !i.checked && !i.no);
-      if (skipped.length) body.append(el("p", "Nebifate: " + skipped.map((i) => i.group).filter((x, n, a) => a.indexOf(x) === n).join(", "), "desc"));
-      if (!nu.length && !skipped.length) body.append(el("p", "Toate activitățile zilnice au fost DA.", "desc"));
-      row.append(body);
-      d.append(row);
+      const da = daily.filter((i) => i.checked).length, nu = daily.filter((i) => i.no).length;
+      const row = btn("", () => { view = key === b.key ? null : key; redraw(true); }, "eptArchiveRow");
+      if (key === (view || b.key)) row.setAttribute("aria-current", "true");
+      row.append(el("strong", roDate(d0, short) + " · schimbul " + s0 + (key === b.key ? " (acum)" : "")),
+        el("span", da + "/" + daily.length + " DA" + (nu ? " · " + nu + " NU" : ""), nu ? "chip late" : da === daily.length ? "chip today" : "chip"),
+        icon("chevron"));
+      list.append(row);
     }
   };
-  d.addEventListener("toggle", fill);
+  date.onchange = () => { archiveDate = date.value; fill(); };
+  shift.onchange = () => { archiveShift = shift.value; fill(); };
   fill();
+  box.append(filters, list);
+  d.append(box);
   return d;
 }
 
@@ -339,12 +387,27 @@ export function eptForm(b, c) {
       checklist(b, c));
     return box;
   }
-  c = { ...c, hours: c.hours || app.data.settings.hours };
+  const now = { ...c, hours: c.hours || app.data.settings.hours };
   const box = el("div", "", "ept");
-  const draw = () => {
+  const base = b;
+  const draw = (top) => {
     const y = scrollY;
     const focus = document.activeElement?.dataset?.focus;
-    box.replaceChildren(head(b, c), jump(b, c));
+    // Fișa unui schimb încheiat se deschide din istoric și rămâne modificabilă.
+    if (view && !base.history?.[view]) view = null;
+    if (!base.weekly || typeof base.weekly !== "object") base.weekly = {};
+    const past = view && view !== base.key;
+    const m = past ? SHIFT_RE.exec(view) : null;
+    b = past ? { ...base, items: base.history[view] } : base;
+    c = past ? { ...now, key: view, date: m[1], workDay: m[1], shift: Number(m[2]), past: true } : now;
+    box.replaceChildren();
+    if (past) {
+      const banner = el("div", "", "eptPastBanner");
+      banner.append(el("span", "Fișă salvată · " + roDate(c.workDay, { weekday: "long", day: "numeric", month: "long" }) + " · schimbul " + c.shift),
+        btn("Înapoi la schimbul curent", () => { view = null; draw(true); }, "small", "back"));
+      box.append(banner);
+    }
+    box.append(head(b, c), jump(b, c));
     for (const s of SECTIONS) {
       const sec = sectionCard(b, s, c, draw);
       if (sec) box.append(sec);
@@ -360,9 +423,9 @@ export function eptForm(b, c) {
       }, "primary small", "send"),
       btn("Descarcă pentru Excel", () => download("rutina-ept-" + c.workDay + "-schimb" + c.shift + ".csv", formCsv(b, c), "text/csv;charset=utf-8"), "small", "download"),
     );
-    box.append(tools, history(b), glossary());
+    box.append(tools, archive(base, draw), glossary());
     if (box.isConnected) {
-      scrollTo(0, y);
+      scrollTo(0, top === true ? 0 : y);
       if (focus) box.querySelector('[data-focus="' + focus + '"]')?.focus({ preventScroll: true });
     }
   };

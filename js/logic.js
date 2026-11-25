@@ -100,9 +100,9 @@ export function report() {
   const ln = linesNow(app.data, { ...c, hours: h });
   if (ln?.totals.checked) {
     const t = ln.totals;
-    lines.push("", `Linii: ${t.ok} OK · ${t.warn} atenție · ${t.stop} oprite` + (t.checked < t.total ? ` · ${t.total - t.checked} neverificate` : ""));
-    for (const e of ln.entries.filter((x) => x.st === "stop" || x.st === "warn" || x.obs.trim()))
-      lines.push(`  – ${e.name}: ${LINE_STATES[e.st] || "–"}` + (e.real != null ? `, ${fmt(e.real, 0)}${e.plan ? "/" + fmt(e.plan, 0) : ""} buc` : "") +
+    lines.push("", `Linii: ${t.ok} OK · ${t.warn} atenție · ${t.stop} oprite` + (t.off ? ` · ${t.off} nu rulează` : "") + (t.checked < t.total ? ` · ${t.total - t.checked} neverificate` : ""));
+    for (const e of ln.entries.filter((x) => ["stop", "warn", "off"].includes(x.st) || x.onAt || x.obs.trim()))
+      lines.push(`  – ${e.name}: ${LINE_STATES[e.st] || "–"}` + (e.st !== "off" && e.onAt ? ` (pornită ${e.onAt})` : e.st === "off" && e.offAt ? ` (de la ${e.offAt})` : "") + (e.real != null ? `, ${fmt(e.real, 0)}${e.plan ? "/" + fmt(e.plan, 0) : ""} buc` : "") +
         (e.reb ? `, rebut ${fmt(e.reb, 0)}` : "") + (e.obs.trim() ? ` – ${e.obs.trim()}` : ""));
   }
   for (let p of active())

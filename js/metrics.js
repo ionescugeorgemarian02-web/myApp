@@ -117,7 +117,7 @@ export function shiftRecords(data) {
 
 // ——— Liniile din subordine: starea pe schimb ———
 export const linesBlock = (data) => find(data, "lines", () => true);
-export const LINE_STATES = { ok: "OK", warn: "Atenție", stop: "Oprită" };
+export const LINE_STATES = { ok: "OK", warn: "Atenție", stop: "Oprită", off: "Nu rulează" };
 export const LINE_FIELDS = [
   ["plan", "Plan (buc)"],
   ["real", "Realizat (buc)"],
@@ -130,7 +130,8 @@ export function lineEntries(data, key) {
   const shift = linesBlock(data)?.b.shifts?.[key] || {};
   return equipmentList(data).map((name) => {
     const raw = shift[name] || {};
-    const e = { name, st: ["ok", "warn", "stop"].includes(raw.st) ? raw.st : "", obs: typeof raw.obs === "string" ? raw.obs : "", at: raw.at || null };
+    const e = { name, st: ["ok", "warn", "stop", "off"].includes(raw.st) ? raw.st : "", obs: typeof raw.obs === "string" ? raw.obs : "", at: raw.at || null,
+      onAt: typeof raw.onAt === "string" ? raw.onAt : "", offAt: typeof raw.offAt === "string" ? raw.offAt : "" };
     for (const [k] of LINE_FIELDS) e[k] = nonnegative(raw[k]);
     return e;
   });
@@ -147,6 +148,7 @@ export function lineTotals(entries) {
     ok: entries.filter((e) => e.st === "ok").length,
     warn: entries.filter((e) => e.st === "warn").length,
     stop: entries.filter((e) => e.st === "stop").length,
+    off: entries.filter((e) => e.st === "off").length,
     checked: entries.filter((e) => e.st).length,
     total: entries.length,
   };

@@ -74,56 +74,6 @@ const FORM = [
   ["rules", "Disciplina", "Se asigură că operatorii pot munci pe liniile de producție, prin asigurarea materiei prime și funcționarea mașinilor", "zi"],
 ];
 
-// Instrucțiuni practice „Cum o fac”, în ordinea activităților din fișă.
-const HOW = [
-  "Întreabă colegul ce s-a schimbat în plan, ce alerte de calitate și ce lipsuri de material sunt. Notează ce afectează primele ore.",
-  "Cere lista priorităților pe zone (proiecte, probe, schimbări de reper). Întreabă «Ce trebuie terminat în schimbul meu?».",
-  "Întreabă ce mașini au fost instabile sau oprite și ce s-a făcut. Notează ce urmărești în primele ore și cine de la mentenanță știe.",
-  "Citește emailurile din ultimele 24 de ore: reclamații, alerte de calitate, instruiri cerute. Pune alertele noi pe lista pentru TOP 5.",
-  "Compară planul cu comenzile urgente. Notează primele 5 priorități pe produse sau linii, ca să le duci în TOP 5.",
-  "Verifică ce mașini sunt oprite, în mentenanță sau cu restricții. Dacă o linie din plan nu poate porni, anunță și ajustează planul.",
-  "Verifică materialul pentru primele comenzi, la linie și în depozit. Cere logisticii lipsurile înainte să pornească linia.",
-  "Vezi ce s-a blocat în ultimele 24 de ore, de ce și dacă îți afectează planul. Nu folosi material blocat fără decizia calității.",
-  "Dă Team Leaderului informațiile adunate: priorități, alerte, mașini, materiale. Verifică să le aibă înainte de ședință.",
-  "Treci pe la posturi și verifică EIP: mănuși, mânecuțe/jachete, dopuri, ochelari, bocanci. Corectează pe loc și notează lipsurile.",
-  "Participă la TOP 5-ul unei echipe, prin rotație. Ascultă dacă informațiile sunt corecte și dă-i TL-ului feedback după ședință.",
-  "Numără prezenții față de planificați pe fiecare linie. Notează absențele și întârzierile.",
-  "Acoperă întâi posturile cu prioritate A, apoi restul, după plan. Folosește Polivalența ca să pui oameni instruiți.",
-  "Treceți prin rebut: ce, pe ce linie, de ce, ce acțiune. Pune acțiunile cu responsabil și termen în Probleme.",
-  "Fă auditul LPA pe linia din planificare, cu lista standard. Notează abaterile și transformă-le în acțiuni.",
-  "La fiecare pornire sau schimbare de reper: piesa e în locul dedicat, formularul First Off e completat și semnat, fișa de parametri e la zi.",
-  "La fiecare 2 ore compară realizatul cu comenzile. Dacă o linie e în urmă și nu poate recupera, escaladează imediat. Bifează ora.",
-  "Ia formularele de rutină a 2 TL. Verifică dacă sunt completate corect și dacă au reacționat la NU. Discută cu ei ce lipsește.",
-  "Treci pe la panourile EPT: realizat pe oră față de normă și cauzele notate. Dacă cifrele lipsesc sau sunt greșite, corectează cu TL-ul.",
-  "Când apare o problemă serioasă de calitate sau o reclamație, participă la întâlnirea 8D: echipă, izolare, cauză, acțiuni.",
-  "Verifică tabla QPS a fiecărei celule: problemele au acțiune, responsabil și termen? Ajută sau escaladează ce stă blocat.",
-  "Pregătește cifrele schimbului, rebutul și problemele principale pentru întâlnirea cu EPU Managerul.",
-  "Alege un post cu TL-ul și urmăriți un ciclu după instrucțiune. Notează abaterile și ideile. Cu fiecare TL de 2 ori pe săptămână.",
-  "Verifică protecțiile mașinilor și echipamentul de protecție la posturi (apărători, senzori, ecrane). Anunță imediat orice lipsă.",
-  "Verifică regulile zilei: căi de acces libere, stivuire, circulația stivuitoarelor, lucrul la mașini. Corectează pe loc.",
-  "Verifică dacă operatorii au făcut curățarea, ungerea și inspecția din planul TPM și dacă fișele sunt semnate.",
-  "Ia o piesă de pe linia zilei și verific-o împreună cu calitatea, după planul de control. Notează rezultatul.",
-  "Fă auditul 8 Baze ale Calității o dată pe săptămână, cu lista lui. Cere lista de la calitate dacă nu o ai.",
-  "Revezi auditurile de muncă standardizată făcute de TL în săptămână. Alege ideile care merită implementate.",
-  "Caută în matrice posturile cu mai puțin de 2 oameni instruiți și actualizează planul de training.",
-  "Revezi cu TL indicatorii săptămânii (plan, rebut, opriri, absențe) și stabiliți reacția la cei sub țintă. Vezi Analiză.",
-  "Discută cu TL problemele din rutinele lor: au reacționat și au escaladat corect? Actualizează rutina dacă problema o cere.",
-  "La absențe, nu ține un TL pe linie mai mult de jumătate de schimb. Notează orele la „TL pe linie” în Liniile mele.",
-  "Numără ideile din săptămână și câte sunt pentru HSE. Dacă una cere reacție imediată, tratează-o azi.",
-  "După fiecare pauză, treci din nou pe la posturi și verifică EIP-ul. Corectează pe loc.",
-  "Completează cartea schimbului: producție, probleme, mașini, calitate, absențe, ce rămâne de urmărit.",
-  "Verifică și semnează formularele de rutină ale TL-urilor. Întreabă de fiecare NU ce s-a făcut.",
-  "Treci prin rebutul schimbului pe linii: cantitate, cauză, acțiune. Trece totalul la Rebut în Liniile mele.",
-  "Verifică materialul la stații pentru începutul schimbului următor. Dacă lipsește, cere aprovizionarea acum și scrie în predare.",
-  "Verifică ordinea și curățenia la final pe fiecare linie, față de standardul 5S.",
-  "Cutiile roșii trebuie să fie goale (piesele evaluate) și curate. Ce a rămas se evaluează înainte de predare.",
-  "Fă turul cu EPU Managerul: siguranță, curățenie, linii oprite, ce rămâne pentru schimbul următor.",
-  "Verifică dacă datele schimbului sunt complete: panouri, raportările de producție, Liniile mele, rebut.",
-  "Pregătește predarea: ce merge, ce e oprit, riscuri, acțiuni cu responsabil. În aplicație: Predare și Rezumat.",
-  "Predă schimbul față în față. Cere colegului să repete prima verificare și riscul deschis.",
-  "Știi mereu care sunt posturile cu prioritate A și câți operatori cer. La absențe, acoperă-le primele.",
-  "Asigură-te că operatorii au materie primă și mașini funcționale. Dacă nu, escaladează imediat ca să nu stea linia.",
-];
 // Explicații generale din industria auto. „intern: true” = termen al fabricii,
 // de confirmat cu șeful.
 export const GLOSSARY = {
@@ -151,10 +101,10 @@ export const GLOSSARY = {
 };
 
 export function formItems() {
-  return FORM.map(([sec, group, title, freq, term = "", tag = "", hint = ""], n) => ({
+  return FORM.map(([sec, group, title, freq, term = "", tag = "", hint = ""]) => ({
     id: id(), title, details: hint, ready: "", notes: "", due: "", priority: "normal",
     checked: false, checkedAt: null, no: false, slots: [], problem: "",
-    sec, group, freq, term, tag, how: HOW[n] || "",
+    sec, group, freq, term, tag,
   }));
 }
 export const isForm = (b) => !!b && b.type === "routine" && b.form === "ept";
@@ -216,7 +166,8 @@ export function slotState(b, ctx) {
   const k = shiftClock(ctx);
   const slots = times.map((time, i) => {
     const at = (i + 1) * 120;
-    const done = items.length > 0 && items.every((x) => x.slots?.[i]);
+    // O activitate marcată DA (sau NU, escaladată) nu mai cere verificarea orei.
+    const done = items.length > 0 && items.every((x) => x.checked || x.no || x.slots?.[i]);
     return { i, time, done, passed: !k.before && k.elapsed >= at, late: !k.before && !done && k.elapsed >= at + 15, soon: !k.before && !done && k.elapsed >= at - 30 && k.elapsed < at + 15 };
   });
   // Verificarea de acum e cea mai recentă oră ajunsă și nebifată.
@@ -288,15 +239,24 @@ export function linePace(entry, fraction = 1) {
     pace: expected > 0 ? (entry.real / expected) * 100 : null,
   };
 }
-export function linesNow(data, ctx) {
+export function linesNow(data, ctx, key = ctx.key) {
   const lb = linesBlock(data);
   if (!lb) return null;
-  const k = shiftClock(ctx);
+  const k = key === ctx.key ? shiftClock(ctx) : { before: false, elapsed: 1, len: 1, start: 0 };
   const fraction = k.before ? 0 : k.elapsed / k.len;
-  const entries = lineEntries(data, ctx.key).map((e) => ({ ...e, pace: linePace(e, fraction) }));
+  // O linie pornită mai târziu (ex. după 4 ore) are planul raportat la cât a rulat.
+  const runFraction = (e) => {
+    if (e.st === "off") return 0;
+    if (!e.onAt || key !== ctx.key || k.before) return fraction;
+    const on = (toMin(e.onAt) - k.start + 1440) % 1440;
+    if (on >= k.len) return fraction;
+    return Math.max(0, (k.elapsed - on) / Math.max(1, k.len - on));
+  };
+  const entries = lineEntries(data, key).map((e) => ({ ...e, pace: e.st === "off" ? null : linePace(e, runFraction(e)) }));
   return {
     ...lb, entries, totals: lineTotals(entries), fraction,
     stopped: entries.filter((e) => e.st === "stop"),
+    off: entries.filter((e) => e.st === "off"),
     warned: entries.filter((e) => e.st === "warn"),
     behind: fraction >= 0.125 ? entries.filter((e) => e.pace?.pace != null && e.pace.pace < 90) : [],
   };
