@@ -1,3 +1,4 @@
+import { readKey, shiftEnd } from "./operations.js";
 // Sfaturi generate local, pe telefon, din rezultatele caietului.
 // Fiecare regulă pornește de la o cifră din aplicație și propune o acțiune.
 // Nu se trimite nimic în afara dispozitivului.
@@ -17,6 +18,18 @@ const pct = (v) => (v == null ? "–" : (Math.round(v * 10) / 10).toLocaleString
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 const names = (list) => list.slice(0, 3).join(", ") + (list.length > 3 ? " și alții" : "");
 const toPage = (p, key) => (p ? { kind: "page", pageId: p.id, key } : null);
+
+export function handoverNotice(data, ctx, current = shiftRecords(data).find((r) => r.key === ctx.key)) {
+  const window = data.settings.scheduleConfirmed && shiftEnd(ctx);
+  if (!window || window.remaining > 60 || !handoverBlock(data) ||
+      (current && readKey(current.b, current.row, "prepared") === true)) return null;
+  return {
+    id: "handover-now", level: "warn", area: "E",
+    title: "Predare neverificată · schimbul se termină la " + window.end,
+    text: "Revizuiește situația schimbului în fișa de predare și confirmă verificarea.",
+    action: { label: "Continuă predarea", kind: "handover", field: "prepared" },
+  };
+}
 
 export function advice(data, ctx) {
   const out = [];
@@ -99,7 +112,7 @@ export function advice(data, ctx) {
     add({
       id: "recurrence-" + rec.equipment, level: "warn", area: "C",
       title: rec.equipment + ": " + rec.count + " evenimente în 14 zile",
-      text: "Același loc revine. Fă analiza „5 De ce” cu operatorul și mentenanța, apoi verifică eficacitatea acțiunii după 7 zile.",
+      text: "Același loc revine. Fă analiza „5 De ce” cu operatorul și mentenanța, apoi verifică eficacitatea acțiunii la termenul convenit.",
       action: { label: "Vezi problemele", ...toPage(problemsBlock(data)?.p) },
     });
   if (cur.kpis.downtime != null && prev.kpis.downtime != null && prev.kpis.downtime > 0 &&
@@ -120,7 +133,7 @@ export function advice(data, ctx) {
       title: plural(never.length + stale.length, "om fără discuție 1:1 recentă", "oameni fără discuție 1:1 recentă"),
       text: (never.length ? "Încă nediscutat: " + names(never.map((x) => x.name)) + ". " : "") +
         (stale.length ? "Peste 30 de zile: " + names(stale.map((x) => x.name)) + ". " : "") +
-        "Programează 15 minute cu fiecare.",
+        "Stabilește împreună un moment potrivit.",
       action: { label: "Deschide 1:1", ...toPage(team.p) },
     });
   if (team.promisesLate)
@@ -135,14 +148,14 @@ export function advice(data, ctx) {
       id: "absence-up", level: "info", area: "P",
       title: "Absențele au crescut: " + pct(prev.kpis.absencePct) + " → " + pct(cur.kpis.absencePct),
       text: "Verifică dacă sunt concentrate pe un schimb sau un post și cine poate acoperi posturile descoperite.",
-      action: { label: "Vezi polivalența", ...toPage(skillsCoverage(data).block?.p) },
+      action: { label: "Vezi polivalența", ...toPage(skillsCoverage(data, ctx.shift).block?.p) },
     });
-  const skills = skillsCoverage(data);
+  const skills = skillsCoverage(data, ctx.shift);
   if (skills.posts.length && skills.team.length && skills.gaps.length)
     add({
       id: "skills-gaps", level: "info", area: "P",
-      title: plural(skills.gaps.length, "post acoperit", "posturi acoperite") + " de mai puțin de 2 oameni autonomi",
-      text: "La o absență, postul rămâne descoperit: " + names(skills.gaps.map((g) => g.post)) + ". Planifică instruire în pereche.",
+      title: plural(skills.gaps.length, "post sub necesarul configurat", "posturi sub necesarul configurat"),
+      text: "Verifică acoperirea pentru: " + names(skills.gaps.map((g) => g.post)) + ". Planifică instruire în pereche.",
       action: { label: "Deschide polivalența", ...toPage(skills.block?.p) },
     });
 
@@ -169,20 +182,20 @@ export function advice(data, ctx) {
     add({
       id: "verify", level: "info", area: "E",
       title: plural(verify.length, "problemă așteaptă verificarea", "probleme așteaptă verificarea"),
-      text: "Au trecut 7 zile de la acțiune. Dacă problema nu s-a repetat, închide-o; dacă s-a repetat, reia analiza cauzei.",
+      text: "Compară rezultatul cu criteriul convenit și documentează dovada înainte de închidere.",
       action: { label: "Verifică", ...toPage(verify[0].p, "row-" + verify[0].r.id) },
     });
   if (cur.commitments.closed >= 3 && cur.commitments.rate === 100)
     add({
       id: "ontime-perfect", level: "good", area: "E",
       title: "Toate cele " + cur.commitments.closed + " angajamente ale săptămânii, închise la termen",
-      text: "Disciplina de execuție e vizibilă pentru echipă. Păstrează ritmul revizuirii de vineri.",
+      text: "Disciplina de execuție e vizibilă pentru echipă. Păstrează ritmul de revizuire convenit.",
     });
   else if (cur.commitments.rate != null && prev.commitments.rate != null && cur.commitments.rate + 15 <= prev.commitments.rate)
     add({
       id: "ontime-drop", level: "warn", area: "E",
       title: "Închiderea la termen a scăzut: " + pct(prev.commitments.rate) + " → " + pct(cur.commitments.rate),
-      text: "Pune termene mai realiste sau mai puține angajamente simultan. Revizuiește lista în fiecare dimineață.",
+      text: "Pune termene mai realiste sau mai puține angajamente simultan. Revizuiește lista la momentul convenit.",
       action: { label: "Vezi analiza", kind: "route", route: "Analiză" },
     });
 
@@ -241,25 +254,13 @@ export function advice(data, ctx) {
       text: "Nebifat în " + s.skipped + " din ultimele " + s.seen + " schimburi lucrate. E prea greu de făcut, nu mai e util sau trebuie mutat în alt moment?",
       action: { label: "Ajustează rutina", kind: "routine" },
     });
-  const ho = handoverBlock(data);
-  const current = records.find((r) => r.key === ctx.key);
-  const end = ctx.hours?.[ctx.shift % 3];
-  if (ho && end && ctx.time) {
-    const minutesLeft = ((Number(end.slice(0, 2)) * 60 + Number(end.slice(3))) -
-      (Number(ctx.time.slice(0, 2)) * 60 + Number(ctx.time.slice(3))) + 1440) % 1440;
-    if (minutesLeft <= 60 && (!current || current.produced == null))
-      add({
-        id: "handover-now", level: "warn", area: "E",
-        title: "Mai ai " + minutesLeft + " de minute din schimb",
-        text: "Completează cifrele predării acum, cât sunt proaspete, apoi trimite rezumatul.",
-        action: { label: "Completează predarea", kind: "handover" },
-      });
-  }
+  const handover = handoverNotice(data, ctx);
+  if (handover) add(handover);
   if (recent.length >= 3 && recent.filter((r) => r.produced == null && r.plan == null).length >= recent.length / 2)
     add({
       id: "numbers-missing", level: "info", area: "E",
       title: "Predările din ultimele 3 săptămâni nu au cifre",
-      text: "Completează plan, realizat, rebut și minute de oprire (1 minut pe schimb) ca să apară tendințele și sfaturile pe Livrare, Calitate și Cost.",
+      text: "Completează plan, realizat, rebut și minute de oprire ca să apară tendințele și sfaturile pe Livrare, Calitate și Cost.",
       action: { label: "Deschide predarea", kind: "handover" },
     });
   if (!equipmentList(data).length)
@@ -280,11 +281,5 @@ export function advice(data, ctx) {
       action: { label: "Deschide planul", kind: "plan" },
     });
 
-  if (!out.some((a) => a.level !== "good") && cur.records.length)
-    add({
-      id: "all-good", level: "good", area: "E",
-      title: "Nicio abatere importantă săptămâna aceasta",
-      text: "Folosește timpul câștigat pentru o îmbunătățire mică, aleasă împreună cu echipa.",
-    });
   return out.sort((a, b) => LEVEL[a.level] - LEVEL[b.level] || AREA[a.area] - AREA[b.area]);
 }

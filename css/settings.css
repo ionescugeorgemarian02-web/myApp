@@ -1,8 +1,10 @@
 .settingsGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
 }
 .settingsSection {
+  margin: 0;
   min-width: 0;
   border-bottom: 1px solid var(--line);
 }

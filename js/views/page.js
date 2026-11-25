@@ -50,7 +50,7 @@ function autoIndicators(c) {
     chip.append(el("strong", value), el("span", label + (b != null ? " · pornire " + fmt(b) : "")));
     grid.append(chip);
   }
-  box.append(grid, el("p", "Sursa: cifrele din predarea schimbului și registrul de siguranță. Completează în tabel valoarea de pornire și ținta; tabelul rămâne pentru cifrele oficiale (ex. OEE din SAP).", "formHelp"));
+  box.append(grid, el("p", "Sursa: cifrele din predarea schimbului și registrul de siguranță. Completează în tabel valoarea de pornire și ținta; tabelul rămâne pentru cifrele oficiale.", "formHelp"));
   return box;
 }
 // Parcursul primelor 90 de zile și raportul de progres.
@@ -59,7 +59,7 @@ function ninetyBanner(c) {
   if (!n) return null;
   const box = el("section", "", "card ninety");
   const head = el("div", "", "cardHead");
-  head.append(el("h2", n.done ? "Ai trecut de ziua 90" : "Ziua " + n.day + " din 90"),
+  head.append(el("h2", n.done ? "Ai trecut de ziua 90" : n.day < 1 ? "Înainte de prima zi" : "Ziua " + n.day + " din 90"),
     el("span", n.next ? "reper: ziua " + n.next : "complet", "count"));
   const bar = el("progress", "", "routineBar");
   bar.max = 90;
@@ -115,12 +115,13 @@ export function pageView(p, c, top = false) {
   );
   const h = el("h1", "", "title");
   h.append(el("span", p.emoji || "📄", "titleEmoji"), el("span", p.title));
-  // Paginile din bara de jos (Rutina, Linii): titlul și „Editează” pe un rând.
+  // Paginile din bara de jos (Rutina): titlul și „Editează” pe un rând.
   if (top) {
     bar.classList.add("topBar");
     bar.firstChild.replaceWith(h);
     main.append(bar);
   } else main.append(bar, h);
+  if (c.handoverToolbar) main.append(c.handoverToolbar);
   if (p.archived) main.append(el("p", "Pagină arhivată – nu apare pe Azi.", "hint"));
   if (editing) {
     main.append(el("p", "Mod editare: poți redenumi, muta, adăuga sau șterge.", "hint"));

@@ -1,4 +1,5 @@
 import { el, input, btn, details, toolsFor, now, id, icon, ask, roDate } from "../ui.js";
+import { taskGuidance } from "../guidance.js";
 import { app } from "../state.js";
 import { compareNotes } from "../notes.js";
 import { noteEditor, noteRow } from "../views/notes.js";
@@ -40,7 +41,19 @@ export function checklist(b, c, compact = false) {
       i.checkedAt = i.checked ? now() : null;
       c.refresh();
     };
-    text.append(el("span", i.title, "taskTitle"));
+    const title = el("span", i.title, "taskTitle");
+    title.id = "task-title-" + id();
+    tick.setAttribute("aria-labelledby", title.id);
+    text.append(title);
+    const guidance = el("p", "", "taskGuidance");
+    guidance.id = "task-help-" + id();
+    function updateGuidance() {
+      guidance.textContent = taskGuidance(i);
+      guidance.hidden = !guidance.textContent;
+      if (guidance.hidden) tick.removeAttribute("aria-describedby");
+      else tick.setAttribute("aria-describedby", guidance.id);
+    }
+    updateGuidance();
     function updateMeta() {
       text.querySelector(".meta")?.remove();
       let meta = [];
@@ -59,7 +72,7 @@ export function checklist(b, c, compact = false) {
     }
     updateMeta();
     label.append(tick, text);
-    row.append(label);
+    row.append(label, guidance);
     const summary = el("span", "", "moreIcon");
     summary.append(icon("edit"));
     const d = details(summary, "item-" + i.id, "more");
@@ -67,22 +80,22 @@ export function checklist(b, c, compact = false) {
     function populate() {
       if (!d.open || d.children.length > 1) return;
       const body = el("div", "", "moreBody");
-      if (!c.editing) {
-        if (i.details) body.append(el("p", i.details, "desc"));
-        if (i.ready) body.append(el("p", "Gata când " + i.ready, "desc ready"));
-      }
+      if (!c.editing && i.ready) body.append(el("p", "Gata când " + i.ready, "desc ready"));
       function field(key, name, type) {
-        return input(name, i[key], (value) => {
+        const group = input(name, i[key], (value) => {
           i[key] = value;
           if (key === "title") {
             text.firstChild.textContent = value;
             d.firstChild.setAttribute("aria-label", "Detalii pentru " + value);
           }
+          if (key === "details" || key === "title") updateGuidance();
           if (key === "priority") row.classList.toggle("important", value === "important");
           if (key === "due" || key === "priority") updateMeta();
           if (key === "due") c.updateDeadlines?.();
           c.save();
         }, type, ["normal", "important"]);
+        group.querySelector("input, select, textarea").dataset.field = key;
+        return group;
       }
       if (c.editing) {
         const group = el("fieldset", "", "formGroup");
@@ -92,7 +105,13 @@ export function checklist(b, c, compact = false) {
           field("details", "Instrucțiuni", "area"),
           field("ready", "Când se poate bifa?", "area"),
         );
+        const detailsControl = group.querySelector('[data-field="details"]');
+        if (!i.details && guidance.textContent) detailsControl.placeholder = guidance.textContent;
         body.append(group);
+      } else if (!guidance.textContent) {
+        const instructions = field("details", "Cum faci acest punct?", "area");
+        instructions.querySelector("textarea").placeholder = "Notează ce verifici, pe cine întrebi și când poți bifa.";
+        body.append(instructions);
       }
       const group = el("div");
       const source = { pageId: c.pageId, blockId: b.id, itemId: i.id, title: i.title, shiftKey };

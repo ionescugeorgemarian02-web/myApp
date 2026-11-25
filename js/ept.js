@@ -74,6 +74,56 @@ const FORM = [
   ["rules", "Disciplina", "Se asigură că operatorii pot munci pe liniile de producție, prin asigurarea materiei prime și funcționarea mașinilor", "zi"],
 ];
 
+// Instrucțiuni practice „Cum o fac”, în ordinea activităților din fișă.
+const HOW = [
+  "Întreabă colegul ce s-a schimbat în plan, ce alerte de calitate și ce lipsuri de material sunt. Notează ce afectează primele ore.",
+  "Cere lista priorităților pe zone (proiecte, probe, schimbări de reper). Întreabă «Ce trebuie terminat în schimbul meu?».",
+  "Întreabă ce mașini au fost instabile sau oprite și ce s-a făcut. Notează ce urmărești în primele ore și cine de la mentenanță știe.",
+  "Citește emailurile din ultimele 24 de ore: reclamații, alerte de calitate, instruiri cerute. Pune alertele noi pe lista pentru TOP 5.",
+  "Compară planul cu comenzile urgente. Notează primele 5 priorități pe produse sau linii, ca să le duci în TOP 5.",
+  "Verifică ce mașini sunt oprite, în mentenanță sau cu restricții. Dacă o linie din plan nu poate porni, anunță și ajustează planul.",
+  "Verifică materialul pentru primele comenzi, la linie și în depozit. Cere logisticii lipsurile înainte să pornească linia.",
+  "Vezi ce s-a blocat în ultimele 24 de ore, de ce și dacă îți afectează planul. Nu folosi material blocat fără decizia calității.",
+  "Dă Team Leaderului informațiile adunate: priorități, alerte, mașini, materiale. Verifică să le aibă înainte de ședință.",
+  "Treci pe la posturi și verifică EIP: mănuși, mânecuțe/jachete, dopuri, ochelari, bocanci. Corectează pe loc și notează lipsurile.",
+  "Participă la TOP 5-ul unei echipe, prin rotație. Ascultă dacă informațiile sunt corecte și dă-i TL-ului feedback după ședință.",
+  "Numără prezenții față de planificați pe fiecare linie. Notează absențele și întârzierile.",
+  "Acoperă întâi posturile cu prioritate A, apoi restul, după plan. Folosește Polivalența ca să pui oameni instruiți.",
+  "Treceți prin rebut: ce, pe ce linie, de ce, ce acțiune. Pune acțiunile cu responsabil și termen în Probleme.",
+  "Fă auditul LPA pe linia din planificare, cu lista standard. Notează abaterile și transformă-le în acțiuni.",
+  "La fiecare pornire sau schimbare de reper: piesa e în locul dedicat, formularul First Off e completat și semnat, fișa de parametri e la zi.",
+  "La fiecare 2 ore compară realizatul cu comenzile. Dacă o linie e în urmă și nu poate recupera, escaladează imediat. Bifează ora.",
+  "Ia formularele de rutină a 2 TL. Verifică dacă sunt completate corect și dacă au reacționat la NU. Discută cu ei ce lipsește.",
+  "Treci pe la panourile EPT: realizat pe oră față de normă și cauzele notate. Dacă cifrele lipsesc sau sunt greșite, corectează cu TL-ul.",
+  "Când apare o problemă serioasă de calitate sau o reclamație, participă la întâlnirea 8D: echipă, izolare, cauză, acțiuni.",
+  "Verifică tabla QPS a fiecărei celule: problemele au acțiune, responsabil și termen? Ajută sau escaladează ce stă blocat.",
+  "Pregătește cifrele schimbului, rebutul și problemele principale pentru întâlnirea cu EPU Managerul.",
+  "Alege un post cu TL-ul și urmăriți un ciclu după instrucțiune. Notează abaterile și ideile. Cu fiecare TL de 2 ori pe săptămână.",
+  "Verifică protecțiile mașinilor și echipamentul de protecție la posturi (apărători, senzori, ecrane). Anunță imediat orice lipsă.",
+  "Verifică regulile zilei: căi de acces libere, stivuire, circulația stivuitoarelor, lucrul la mașini. Corectează pe loc.",
+  "Verifică dacă operatorii au făcut curățarea, ungerea și inspecția din planul TPM și dacă fișele sunt semnate.",
+  "Ia o piesă de pe linia zilei și verific-o împreună cu calitatea, după planul de control. Notează rezultatul.",
+  "Fă auditul 8 Baze ale Calității o dată pe săptămână, cu lista lui. Cere lista de la calitate dacă nu o ai.",
+  "Revezi auditurile de muncă standardizată făcute de TL în săptămână. Alege ideile care merită implementate.",
+  "Caută în matrice posturile cu mai puțin de 2 oameni instruiți și actualizează planul de training.",
+  "Revezi cu TL indicatorii săptămânii (plan, rebut, opriri, absențe) și stabiliți reacția la cei sub țintă. Vezi Analiză.",
+  "Discută cu TL problemele din rutinele lor: au reacționat și au escaladat corect? Actualizează rutina dacă problema o cere.",
+  "La absențe, nu ține un TL pe linie mai mult de jumătate de schimb. Notează orele la „TL pe linie” în Liniile mele.",
+  "Numără ideile din săptămână și câte sunt pentru HSE. Dacă una cere reacție imediată, tratează-o azi.",
+  "După fiecare pauză, treci din nou pe la posturi și verifică EIP-ul. Corectează pe loc.",
+  "Completează cartea schimbului: producție, probleme, mașini, calitate, absențe, ce rămâne de urmărit.",
+  "Verifică și semnează formularele de rutină ale TL-urilor. Întreabă de fiecare NU ce s-a făcut.",
+  "Treci prin rebutul schimbului pe linii: cantitate, cauză, acțiune. Trece totalul la Rebut în Liniile mele.",
+  "Verifică materialul la stații pentru începutul schimbului următor. Dacă lipsește, cere aprovizionarea acum și scrie în predare.",
+  "Verifică ordinea și curățenia la final pe fiecare linie, față de standardul 5S.",
+  "Cutiile roșii trebuie să fie goale (piesele evaluate) și curate. Ce a rămas se evaluează înainte de predare.",
+  "Fă turul cu EPU Managerul: siguranță, curățenie, linii oprite, ce rămâne pentru schimbul următor.",
+  "Verifică dacă datele schimbului sunt complete: panouri, raportările de producție, Liniile mele, rebut.",
+  "Pregătește predarea: ce merge, ce e oprit, riscuri, acțiuni cu responsabil. În aplicație: Predare și Rezumat.",
+  "Predă schimbul față în față. Cere colegului să repete prima verificare și riscul deschis.",
+  "Știi mereu care sunt posturile cu prioritate A și câți operatori cer. La absențe, acoperă-le primele.",
+  "Asigură-te că operatorii au materie primă și mașini funcționale. Dacă nu, escaladează imediat ca să nu stea linia.",
+];
 // Explicații generale din industria auto. „intern: true” = termen al fabricii,
 // de confirmat cu șeful.
 export const GLOSSARY = {
@@ -101,10 +151,10 @@ export const GLOSSARY = {
 };
 
 export function formItems() {
-  return FORM.map(([sec, group, title, freq, term = "", tag = "", hint = ""]) => ({
+  return FORM.map(([sec, group, title, freq, term = "", tag = "", hint = ""], n) => ({
     id: id(), title, details: hint, ready: "", notes: "", due: "", priority: "normal",
     checked: false, checkedAt: null, no: false, slots: [], problem: "",
-    sec, group, freq, term, tag,
+    sec, group, freq, term, tag, how: HOW[n] || "",
   }));
 }
 export const isForm = (b) => !!b && b.type === "routine" && b.form === "ept";

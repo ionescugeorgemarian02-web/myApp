@@ -7,7 +7,7 @@ import { trackLifecycle } from "../js/records.js";
 import { formBlock } from "../js/ept.js";
 
 const ctx = (date = "2026-11-21", time = "10:00", shift = 1) =>
-  ({ date, time, workDay: date, shift, key: date + " · Schimb " + shift, hours: ["06:00", "14:00", "22:00"] });
+  ({ date, time, workDay: date, shift, automatic: shift, key: date + " · Schimb " + shift, hours: ["06:00", "14:00", "22:00"] });
 const byName = (b, name) => b.cols.find((c) => c.name === name);
 // Adaugă o predare cu cifre în jurnal.
 function shift(data, date, n, figures) {
@@ -37,8 +37,8 @@ test("săptămâna ISO și datele", () => {
 
 test("caietul nou are modulele versiunii 3 și migrarea rulează o singură dată", () => {
   const d = seed();
-  assert.ok(m.safetyBlock(d) && m.skillsBlock(d) && m.auditBlocks(d).length === 1);
-  assert.deepEqual(m.handoverBlock(d).b.cols.filter((c) => c.key).map((c) => c.key),
+  assert.ok(m.safetyBlock(d) && m.skillsBlock(d) && m.auditBlocks(d).some(({ b }) => b.auditKind === "safety"));
+  assert.deepEqual(m.handoverBlock(d).b.cols.filter((c) => m.SHIFT_FIELDS.some(([key]) => key === c.key)).map((c) => c.key),
     ["plan", "produced", "scrap", "downtime", "planned", "present"]);
   assert.ok(m.problemsBlock(d).b.cols.find((c) => c.name === "Stare").options.includes("Verificare"));
   assert.equal(upgrade(d), false);
@@ -53,6 +53,7 @@ test("un caiet vechi (2.4) primește câmpurile noi fără să piardă datele", 
   // Simulăm caietul vechi: fără chei, fără module noi, cu o predare scrisă.
   const ho = m.handoverBlock(d).b;
   ho.cols = ho.cols.filter((c) => !c.key);
+  byName(ho, "Situația producției / probleme").name = "Probleme";
   ho.rows.push({ id: "x", values: { [byName(ho, "Probleme").id]: "Robot oprit" } });
   d.pages = d.pages.filter((p) => !["Siguranță", "Tur pe linie", "Polivalență"].includes(p.title));
   for (const c of m.problemsBlock(d).b.cols) delete c.key;
@@ -155,14 +156,19 @@ test("echipa: discuții 1:1, promisiuni și polivalență", () => {
   const nume = team.cols.find((c) => c.key === "name");
   team.rows.push({ id: "p1", values: { [nume.id]: "Ana Pop" } }, { id: "p2", values: { [nume.id]: "Ion" } });
   const o = m.oneOnOneBlock(d).b;
-  o.rows.push({ id: "o1", values: { [byName(o, "Data").id]: "2026-11-01", [byName(o, "Nume").id]: "ana pop",
+  o.rows.push({ id: "o1", values: { [byName(o, "Data").id]: "2026-11-01", [byName(o, "Identificator neutru").id]: "ana pop",
     [byName(o, "Ce am promis").id]: "Scaun nou", [byName(o, "Termen promisiune").id]: "2026-11-10", [byName(o, "Rezolvat").id]: false } });
   const one = m.oneOnOnes(d, ctx());
   assert.equal(one.team.find((x) => x.name === "Ana Pop").days, 20);
   assert.equal(one.team.find((x) => x.name === "Ion").days, null);
   assert.equal(one.promisesLate, 1);
   m.skillsBlock(d).b.levels = { p1: { "Post 1": 2, "Post 2": 3 }, p2: { "Post 1": 3 } };
-  const cov = m.skillsCoverage(d);
+  const shift = team.cols.find((column) => column.key === "teamShift");
+  for (const row of team.rows) row.values[shift.id] = "1";
+  d.settings.skillConfig = { labels: [...m.SKILL_LEVELS], requirements: d.settings.equipment.map((post) =>
+    ({ shift: 1, post, count: 2, level: 2 })) };
+  const cov = m.skillsCoverage(d, 1);
+  assert.equal(m.skillsCoverage(d, 2).index, null);
   assert.equal(cov.index, 50);
   assert.deepEqual(cov.gaps.map((g) => g.post), ["Post 2"]);
 });
@@ -187,9 +193,20 @@ test("sfaturile pornesc de la cifre și sunt ordonate după urgență", () => {
 
 test("sfat de final de schimb și raportul de 90 de zile", () => {
   const d = seed();
-  const near = advice(d, ctx("2026-11-21", "13:20", 1));
-  assert.ok(near.some((a) => a.id === "handover-now"));
-  assert.ok(!advice(d, ctx("2026-11-21", "09:00", 1)).some((a) => a.id === "handover-now"));
+  const notice = (c) => advice(d, c).find((a) => a.id === "handover-now");
+  const near = ctx("2026-11-21", "13:20", 1);
+  assert.equal(notice(near), undefined, "ore neconfirmate");
+  d.settings.scheduleConfirmed = true;
+  assert.match(notice(near).title, /14:00/);
+  assert.equal(notice(ctx("2026-11-21", "09:00", 1)), undefined);
+  assert.equal(notice({ ...near, shift: 2 }), undefined, "schimb ales manual");
+  const night = { ...ctx("2026-11-22", "05:30", 3), workDay: "2026-11-21", key: "2026-11-21 · Schimb 3" };
+  assert.match(notice(night).title, /06:00/);
+  shift(d, night.workDay, 3, { plan: 20, produced: 0 });
+  assert.ok(notice(night), "cifrele nu confirmă predarea");
+  const { b } = m.handoverBlock(d);
+  b.rows[0].values[b.cols.find((col) => col.key === "prepared").id] = true;
+  assert.equal(notice(night), undefined, "predare verificată");
   d.settings.startDate = "2026-11-01";
   const n = m.ninetyDays(d, ctx());
   assert.equal(n.day, 21);
@@ -280,6 +297,12 @@ test("liniile completează cifrele schimbului și arată ritmul", async () => {
 
 test("planul primei săptămâni: începe lunea după o zi de weekend", () => {
   const d = seed();
+  // Caietele create înainte de 3.5 au pagina „Săptămâna 1” cu zilele Luni–Vineri.
+  const week = { id: "w1", title: "Săptămâna 1", emoji: "", group: "Primele 90 de zile", order: 0, archived: false, blocks: [] };
+  for (const name of ["Luni", "Marți", "Miercuri", "Joi", "Vineri"])
+    week.blocks.push({ id: name, type: "section", title: name },
+      { id: name + "-l", type: "checklist", title: "Lista de bifat", items: [1, 2].map((n) => ({ id: name + n, title: name + " " + n, checked: false })) });
+  d.pages.push(week);
   d.settings.startDate = "2026-11-21";
   const w = m.firstWeek(d, ctx("2026-11-25"));
   assert.equal(w.monday, "2026-11-23");

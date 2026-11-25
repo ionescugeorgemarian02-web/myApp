@@ -13,6 +13,7 @@ import { colByKey, colByName } from "../records.js";
 import { newRow } from "./table.js";
 import { checklist } from "./checklist.js";
 import { download } from "../store.js";
+import { csvCell } from "../production.js";
 
 const short = { weekday: "short", day: "numeric", month: "short" };
 const STATE_TEXT = { da: "DA", nu: "NU", "": "–" };
@@ -121,6 +122,12 @@ export function itemCard(b, i, c, changed) {
   }
   if (week?.v && week.date)
     card.append(el("p", "Bifat săptămâna aceasta: " + roDate(week.date, short), "eptWeekDone"));
+  const tools = el("div", "", "eptItemTools");
+  if (i.how) {
+    const how = details([icon("spark"), el("span", "Cum o fac")], "how-" + i.id, "eptObs eptHow");
+    how.append(el("p", i.how, "eptHowText"));
+    tools.append(how);
+  }
   // Observații: se deschid singure la NU.
   const notes = isWeekly(i) ? week.obs || "" : i.notes || "";
   const obs = details([icon("edit"), el("span", notes.trim() ? "Observații · " + notes.trim().slice(0, 40) + (notes.trim().length > 40 ? "…" : "") : "Observații")],
@@ -144,7 +151,8 @@ export function itemCard(b, i, c, changed) {
     if (exists) obs.append(btn("Problemă creată – deschide", () => app.openPage(pb.p, "row-" + problem), "small", "chevron"));
     else if (pb) obs.append(btn("Creează problemă cu responsabil și termen", () => createProblem(b, i, c), "small", "alert"));
   }
-  card.append(obs);
+  tools.append(obs);
+  card.append(tools);
   return card;
 }
 
@@ -281,7 +289,7 @@ function formCsv(b, c) {
     const obs = (isWeekly(i) ? week[i.id]?.obs : i.notes) || "";
     rows.push([sectionOf(i.sec).title, i.group, i.title, FREQ_NAMES[i.freq] || "", STATE_TEXT[itemState(b, i, c.date)].replace("–", ""), obs]);
   }
-  return "﻿" + rows.map((r) => r.map((x) => '"' + String(x ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  return "\ufeff" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n");
 }
 
 function history(b) {

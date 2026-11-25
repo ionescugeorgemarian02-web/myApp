@@ -1,9 +1,10 @@
 import { app } from "./state.js";
 import { norm, roDate, validDate, showText, toast } from "./ui.js";
 import { isClosed, rowLabel } from "./records.js";
-import { shiftRecords, recordKpis, safetyEvents, oneOnOnes, ninetyDays, LINE_STATES } from "./metrics.js";
-import { formStatus, linesNow } from "./ept.js";
+import { shiftRecords, recordKpis, safetyEvents, oneOnOnes, ninetyDays, problemsBlock, addDays, handoverBlock, SHIFT_FIELDS } from "./metrics.js";
 import { fmt } from "./charts.js";
+import { LINE_STATES } from "./metrics.js";
+import { formStatus, linesNow } from "./ept.js";
 export const progress = (items) =>
   items.filter((i) => i.checked).length + "/" + items.length;
 export const active = () => app.data.pages.filter((p) => !p.archived);
@@ -14,7 +15,7 @@ export function deadlines() {
     for (let b of p.blocks) {
       for (let i of b.items || [])
         if (!i.checked && validDate(i.due))
-          list.push({ due: i.due, text: i.title, p, key: "item-" + i.id });
+          list.push({ due: i.due, text: i.title, p, key: "item-" + i.id, field: "due" });
       const dueColumns = b.cols?.filter((col) =>
         col.type === "date" && norm(col.name).includes("termen"),
       );
@@ -28,19 +29,13 @@ export function deadlines() {
               text: rowLabel(b, r),
               p,
               key: "row-" + r.id,
+              field: col.key || norm(col.name),
             });
       }
     }
   return list.sort((a, b) => a.due.localeCompare(b.due));
 }
-// Primul tabel care are câmpul „Stare” (de obicei „Probleme și acțiuni”).
-export function problemsTable() {
-  for (let p of active())
-    for (let b of p.blocks)
-      if (b.type === "table" && b.cols.some((c) => norm(c.name) === "stare"))
-        return { p, b };
-  return null;
-}
+export const problemsTable = () => problemsBlock(app.data);
 export function openProblems() {
   let list = [];
   for (let p of active())
@@ -53,26 +48,18 @@ export function openProblems() {
   return list;
 }
 // Jurnalul de predare (are câmpurile „Data” și „Schimb”) și intrarea curentă.
-export function handover() {
-  const c = app.current;
-  for (let p of active())
-    for (let b of p.blocks) {
-      if (b.type !== "journal") continue;
-      let dateCol = b.cols.find(
-          (x) => x.type === "date" && norm(x.name) === "data",
-        ),
-        shiftCol = b.cols.find((x) => norm(x.name) === "schimb");
-      if (!dateCol || !shiftCol) continue;
-      let r = [...b.rows]
-        .reverse()
-        .find(
-          (r) =>
-            r.values[dateCol.id] === c.workDay &&
-            r.values[shiftCol.id] === String(c.shift),
-        );
-      return { p, b, r, skip: [dateCol.id, shiftCol.id] };
-    }
-  return null;
+export function handover(c = app.current) {
+  const journal = handoverBlock(app.data);
+  if (!journal) return null;
+  const { b, p } = journal;
+  const date = b.cols.find((col) => col.type === "date" && norm(col.name) === "data");
+  const shift = b.cols.find((col) => norm(col.name) === "schimb");
+  const r = b.rows.findLast((row) => row.values[date.id] === c.workDay && Number(row.values[shift.id]) === c.shift);
+  return { p, b, r, skip: [date.id, shift.id] };
+}
+export function previousHandover(c) {
+  return handover(c.shift > 1 ? { ...c, shift: c.shift - 1 }
+    : { ...c, shift: 3, workDay: addDays(c.workDay, -1) });
 }
 export function report() {
   const c = app.current,
@@ -89,13 +76,13 @@ export function report() {
   const rec = shiftRecords(app.data).find((x) => x.key === c.key);
   if (rec) {
     const k = recordKpis(rec), parts = [];
-    if (rec.plan != null && rec.produced != null) parts.push("Realizat " + fmt(rec.produced, 0) + " din " + fmt(rec.plan, 0) + " buc (" + fmt(k.planPct) + "%)");
+    if (rec.plan != null && rec.produced != null) parts.push("Realizat " + fmt(rec.produced, 0) + " din " + fmt(rec.plan, 0) + " buc" + (k.planPct == null ? "" : " (" + fmt(k.planPct) + "%)"));
     if (k.scrapPct != null) parts.push("Rebut " + fmt(rec.scrap, 0) + " buc (" + fmt(k.scrapPct) + "%)");
     if (rec.downtime != null) parts.push("Oprire " + fmt(rec.downtime, 0) + " min");
     if (rec.planned != null && rec.present != null) parts.push("Prezenți " + fmt(rec.present, 0) + "/" + fmt(rec.planned, 0));
     if (parts.length) lines.push("", ...parts.map((x) => "▪ " + x));
   }
-  const safety = safetyEvents(app.data).filter((e) => e.date === c.workDay);
+  const safety = safetyEvents(app.data).filter((e) => e.date === c.workDay && e.shift === c.shift);
   if (safety.length) {
     lines.push("", "Siguranță: " + safety.length + " eveniment(e)");
     for (const e of safety) lines.push("  – " + e.label);
@@ -104,7 +91,7 @@ export function report() {
     lines.push("");
     for (let col of ho.b.cols) {
       let v = ho.r.values[col.id];
-      if (ho.skip.includes(col.id) || col.key || v === "" || v == null || v === false)
+      if (ho.skip.includes(col.id) || SHIFT_FIELDS.some(([key]) => key === col.key) || v === "" || v == null || v === false)
         continue;
       lines.push(`• ${col.name}: ${v === true ? "da" : v}`);
     }
@@ -140,15 +127,9 @@ export function report() {
   }
   return lines.join("\n");
 }
-// Pe telefon deschide lista de aplicații (WhatsApp, e-mail…); altfel copiază.
+// Copiere explicită, cu selecție manuală dacă browserul refuză clipboardul.
 export async function share(text) {
-  if (navigator.share)
-    try {
-      await navigator.share({ text });
-      return;
-    } catch (e) {
-      if (e.name === "AbortError") return;
-    }
+  if (app.training) text = "INSTRUIRE · DATE FICTIVE\n\n" + text;
   try {
     await navigator.clipboard.writeText(text);
     toast("Rezumat copiat – lipește-l în mesaj");

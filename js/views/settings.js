@@ -38,6 +38,7 @@ function schedule(preferences) {
   const apply = btn("Aplică programul", async () => {
     if (!validHours(draft)) return;
     preferences.hours = [...draft];
+    preferences.scheduleConfirmed = true;
     delete preferences.slot;
     delete preferences.shift;
     hoursDrafts.delete(preferences);
@@ -53,7 +54,7 @@ function schedule(preferences) {
   function validate() {
     const changed = draft.some((h, i) => h !== preferences.hours[i]);
     const valid = validHours(draft);
-    apply.disabled = !valid || !changed;
+    apply.disabled = !valid || (!changed && preferences.scheduleConfirmed === true);
     message.textContent = !valid
       ? "Completează cele trei ore în ordine crescătoare."
       : changed ? "Program modificat. Apasă „Aplică programul” pentru salvare." : "";
@@ -74,7 +75,7 @@ function schedule(preferences) {
   });
   validate();
   section.append(
-    el("p", "Alege ora de început pentru fiecare schimb. Caietul folosește aceste ore pe pagina Azi.", "hint"),
+    el("p", "Ia orele de început din programul aprobat. Introdu-le în ordine, de la schimbul 1 la 3, apoi apasă Aplică programul și verifică schimbul afișat în Azi.", "hint"),
     row, message, apply,
   );
   return section;
@@ -83,7 +84,7 @@ function schedule(preferences) {
 // Posturile și mașinile liniei: folosite la probleme, siguranță și polivalență.
 function lineCard(preferences) {
   const section = card("Liniile mele");
-  section.append(el("p", "Câte o linie pe rând, în ordinea în care vrei să le vezi. Lista apare în tabloul „Linii”, la „Linie / post” în probleme și siguranță și în matricea de polivalență.", "hint"));
+  section.append(el("p", "Câte o linie pe rând, în ordinea în care vrei să le vezi. Lista apare în tabloul liniilor (Producție), la „Linie / post” în probleme și siguranță și în matricea de polivalență.", "hint"));
   const list = el("textarea");
   list.rows = 8;
   list.value = (preferences.equipment || []).join("\n");
@@ -113,7 +114,10 @@ function lineCard(preferences) {
     preferences.startDate = value;
     app.save();
   }, "date");
-  section.append(list, status, start);
+  section.append(input("Zona sau linia curentă", preferences.zone || "", (value) => {
+    preferences.zone = value.trim();
+    app.save();
+  }), list, status, start);
   return section;
 }
 
@@ -155,7 +159,7 @@ function backupCard(data) {
   const section = card("Copie de siguranță");
   const feedback = el("p", "", "settingsFeedback");
   feedback.setAttribute("role", "status");
-  section.append(el("p", "Caietul se salvează în acest browser. Descarcă o copie pentru a-l recupera sau pentru a-l muta pe alt dispozitiv.", "hint"));
+  section.append(el("p", "Apasă Salvează copia și verifică fișierul JSON în Descărcări. Pentru restaurare, salvează întâi caietul curent, apoi alege copia și verifică numele fișierului înainte să confirmi înlocuirea.", "hint"));
   if (data.settings.backup)
     section.append(el("p", "Ultimul export · " + new Date(data.settings.backup).toLocaleDateString("ro"), "settingsMetadata"));
 
@@ -167,11 +171,12 @@ function backupCard(data) {
     const selected = file.files[0];
     if (!selected) return;
     try {
-      const next = await restore(selected);
+      const next = await restore(selected, app.training);
       const pages = next.pages.length;
       if (await confirmAsk("Înlocuiești caietul?",
         "Fișierul „" + selected.name + "” conține " + pages + (pages === 1 ? " pagină." : " pagini.") +
         " Restaurarea înlocuiește toate datele din caietul deschis.", "Înlocuiește", true)) {
+        next.settings.privacyAcknowledged = data.settings.privacyAcknowledged;
         await switchNotebook(next);
         toast("Copie restaurată");
       }
@@ -184,7 +189,7 @@ function backupCard(data) {
   const actions = el("div", "", "btnRow");
   actions.append(btn("Salvează copia", () => {
     const date = Date.now();
-    backup({ ...data, settings: { ...data.settings, backup: date } });
+    backup({ ...data, settings: { ...data.settings, backup: date } }, app.training);
     data.settings.backup = date;
     app.refresh();
   }, "primary", "download"), btn("Încarcă o copie", () => file.click(), "", "upload"), file);
@@ -200,6 +205,8 @@ export function settings(version) {
     const heading = body.querySelector("h2");
     const section = details(heading.textContent, "settings-" + key, "settingsSection");
     section.name = "settings-sections";
+    if (key === "line") body.querySelector("input").dataset.field = "zone";
+    if (key === "schedule") body.querySelector("input").dataset.field = "hours";
     heading.remove();
     section.append(body);
     grid.append(section);
@@ -208,6 +215,22 @@ export function settings(version) {
   addSection(lineCard(data.settings), "line");
   addSection(appearance(data.settings), "appearance");
   addSection(backupCard(data), "backup");
+
+  const privacy = card("Confidențialitate și instruire");
+  privacy.append(el("p", "Introdu informații interne doar dacă angajatorul permite. Datele și copiile descărcate nu sunt criptate de aplicație. Folosește identificatori neutri.", "hint"),
+    btn(app.training ? "Revino la caietul personal" : "Deschide modul de instruire", async () => {
+      try {
+        await flush();
+        const url = new URL(location.href);
+        if (app.training) url.searchParams.delete("mod");
+        else url.searchParams.set("mod", "instruire");
+        url.hash = "";
+        location.href = url.href;
+      } catch (error) {
+        toast(error.message);
+      }
+    }, "primary"));
+  addSection(privacy, "privacy");
 
   const access = card("Deschiderea caietului");
   access.append(el("p", "Revino la același link în același browser pentru a continua unde ai rămas.", "hint"));

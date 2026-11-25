@@ -1,5 +1,5 @@
 import { app } from "../state.js";
-import { btn, el, input, now } from "../ui.js";
+import { btn, el, fieldHint, input, now } from "../ui.js";
 import { compareNotes } from "../notes.js";
 import { noteEditor, noteRow } from "../views/notes.js";
 
@@ -16,9 +16,9 @@ export function note(b, c) {
     "area",
   );
   field.classList.add("noteField");
-  field.querySelector("textarea").placeholder = "Scrie aici…";
+
   const source = { pageId: c.pageId, blockId: b.id, itemId: "", title: b.title, shiftKey: "" };
-  body.append(field);
+  body.append(fieldHint(field, "Notează ce ai observat și următorul pas. Pentru ceva ce trebuie urmărit la o anumită oră, adaugă o notiță cu termen."));
   const notes = app.data.notes.filter((n) => n.source?.blockId === b.id && n.source.pageId === c.pageId);
   for (const note of notes.sort(compareNotes)) body.append(noteRow(note, c));
   body.append(btn("Adaugă notiță", () => noteEditor(source), "pill", "plus"));
