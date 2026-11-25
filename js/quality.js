@@ -1,4 +1,4 @@
-import { addDays, auditBlocks, commitments, problems, recurrences, safetyEvents, shiftRecords, skillsCoverage } from "./metrics.js";
+import { inZone, addDays, auditBlocks, commitments, problems, recurrences, safetyEvents, shiftRecords, skillsCoverage } from "./metrics.js";
 import { isClosed } from "./records.js";
 import { intervalTotals, readKey } from "./operations.js";
 import { nonnegative } from "./production.js";
@@ -51,7 +51,7 @@ function countsBy(rows, getKey) {
 export function computeKpis(data, ctx, { from, to, zone }) {
   const inside = (date) => validDate(date) && date >= from && date <= to;
   const records = shiftRecords(data).filter((r) => inside(r.date));
-  const intervals = zone.trim() ? (data.intervals || []).filter((r) => inside(r.date) && norm(r.zone) === norm(zone)) : [];
+  const intervals = zone.trim() ? (data.intervals || []).filter((r) => inside(r.date) && inZone(data, r.zone, zone)) : [];
   const totals = intervalTotals(intervals);
   const reports = safetyEvents(data).filter((r) => inside(r.date) && r.type);
   const issues = problems(data, ctx);

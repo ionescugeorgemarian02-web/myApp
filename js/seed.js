@@ -79,7 +79,7 @@ export const page = (title, blocks = [], group = GROUPS[3]) => ({
   blocks,
 });
 
-const FEATURES = 4;
+const FEATURES = 5;
 const AUDIT_ITEMS = [
   "Echipamentul de protecție e purtat corect la toate posturile",
   "Apărătorile și senzorii de siguranță funcționează",
@@ -111,7 +111,9 @@ const named = (b, name) => b.cols.find((c) => norm(c.name) === name);
 export function upgrade(data) {
   if (data.settings.featuresVersion >= FEATURES) return false;
   if (!(data.settings.featuresVersion >= 3)) upgrade3(data);
-  upgrade4(data);
+  if (!(data.settings.featuresVersion >= 4)) upgrade4(data);
+  // Versiunea 4.1: zona de lucru este Sudură, cu toate liniile ei.
+  if (!data.settings.zone) data.settings.zone = ZONE;
   data.settings.featuresVersion = FEATURES;
   return true;
 }
@@ -180,6 +182,7 @@ function upgrade3(data) {
     data.templates.push(t);
   }
 }
+const ZONE = "Sudură";
 // Versiunea 4.0: rutina EPT Supervisor și liniile din subordine.
 function upgrade4(data) {
   const s = data.settings;

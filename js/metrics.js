@@ -57,6 +57,14 @@ export const oneOnOneBlock = (data) => find(data, "table", (b) => colByName(b, "
 export const indicatorsBlock = (data) => find(data, "table", (b) => colByName(b, "valoare de pornire"));
 export const skillsBlock = (data) => find(data, "skills", () => true);
 export const auditBlocks = (data) => [...blocks(data, "audit")];
+// Zona (ex. Sudură) cuprinde toate liniile din listă: un interval raportat pe o
+// linie intră și în totalul zonei.
+export function inZone(data, rowZone, zone) {
+  const z = norm(zone);
+  if (!z) return false;
+  if (norm(rowZone) === z) return true;
+  return z === norm(data.settings.zone) && equipmentList(data).some((line) => norm(line) === norm(rowZone));
+}
 export const equipmentList = (data) =>
   (Array.isArray(data.settings.equipment) ? data.settings.equipment : []).filter((x) => typeof x === "string" && x.trim());
 

@@ -17,7 +17,7 @@ import { runAction } from "./views/advice.js";
 import { problemsBlock, commitments, linesBlock } from "./metrics.js";
 import { formBlock } from "./ept.js";
 import { lines as linesBoard } from "./blocks/lines.js";
-const VERSION = "4.0";
+const VERSION = "4.1";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
@@ -275,7 +275,8 @@ function render() {
   else if (route === "Producție") {
     if (board && !app.data.pages.find((x) => x === board.p)?.archived) {
       const head = el("div", "", "boardHead");
-      head.append(el("h1", "Liniile mele", "title"), btn("Editează", () => app.openPage(board.p), "pill", "edit"));
+      head.append(el("h1", app.data.settings.zone ? "Zona " + app.data.settings.zone : "Liniile mele", "title"),
+        btn("Editează", () => app.openPage(board.p), "pill", "edit"));
       main.append(head, linesBoard(board.b, { ...c, pageId: board.p.id }));
     }
     productionView(c);

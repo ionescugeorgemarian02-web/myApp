@@ -83,8 +83,8 @@ function schedule(preferences) {
 
 // Posturile și mașinile liniei: folosite la probleme, siguranță și polivalență.
 function lineCard(preferences) {
-  const section = card("Liniile mele");
-  section.append(el("p", "Câte o linie pe rând, în ordinea în care vrei să le vezi. Lista apare în tabloul liniilor (Producție), la „Linie / post” în probleme și siguranță și în matricea de polivalență.", "hint"));
+  const section = card("Zona și liniile");
+  section.append(el("p", "Zona ta (ex. Sudură) cuprinde toate liniile de mai jos. Producția raportată pe o linie intră și în totalul zonei. Scrie câte o linie pe rând, în ordinea în care vrei să le vezi.", "hint"));
   const list = el("textarea");
   list.rows = 8;
   list.value = (preferences.equipment || []).join("\n");
@@ -117,7 +117,7 @@ function lineCard(preferences) {
   section.append(input("Zona sau linia curentă", preferences.zone || "", (value) => {
     preferences.zone = value.trim();
     app.save();
-  }), list, status, start);
+  }), el("p", "Liniile zonei", "formHelp"), list, status, start);
   return section;
 }
 
