@@ -17,7 +17,7 @@ import { runAction } from "./views/advice.js";
 import { problemsBlock, commitments, linesBlock } from "./metrics.js";
 import { formBlock } from "./ept.js";
 import { lines as linesBoard } from "./blocks/lines.js";
-const VERSION = "4.3";
+const VERSION = "4.4";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
@@ -61,7 +61,7 @@ function clock() {
   let slot = day(d) + "/" + automatic,
     shift =
       app.data.settings.slot === slot ? app.data.settings.shift : automatic;
-  return {
+  const live = {
     date: local,
     time,
     workDay: day(d),
@@ -71,7 +71,31 @@ function clock() {
     slot,
     key: day(d) + " · Schimb " + shift,
   };
+  // Schimbul în care lucrezi rămâne deschis și după ora de final, marcat
+  // „încheiat”, până pornești tu schimbul următor.
+  const s = app.data.settings;
+  const held = /^(\d{4}-\d{2}-\d{2}) · Schimb ([123])$/.exec(s.workKey || "");
+  if (!held) {
+    s.workKey = live.key;
+    save(app.data);
+    return live;
+  }
+  if (s.workKey === live.key) return live;
+  return { ...live, workDay: held[1], shift: Number(held[2]), key: s.workKey, ended: true,
+    next: { workDay: live.workDay, shift: live.shift, key: live.key } };
 }
+// Pornește schimbul curent (sau cel ales), după ce ai încheiat schimbul anterior.
+app.startShift = (shift) => {
+  const live = clock();
+  const base = live.next || live;
+  const s = app.data.settings;
+  if (shift) {
+    s.slot = live.slot;
+    s.shift = shift;
+  }
+  s.workKey = base.workDay + " · Schimb " + (shift || base.shift);
+  app.refresh();
+};
 // La schimbarea schimbului, rutina pornește cu bife noi; la revenirea într-un
 // schimb deja deschis, recuperăm bifările lui din istoric.
 function sync() {
@@ -326,7 +350,7 @@ function checkClock() {
   if (document.hidden) return;
   const next = clock();
   const previous = app.current;
-  if (next.key !== previous.key || next.date !== previous.date) {
+  if (next.key !== previous.key || next.date !== previous.date || Boolean(next.ended) !== Boolean(previous.ended)) {
     if (document.querySelector("dialog[open]") ||
         document.activeElement?.matches("textarea, select:not(.todayShift), input:not([type=checkbox])")) return;
     render();

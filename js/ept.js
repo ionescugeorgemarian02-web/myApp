@@ -142,6 +142,8 @@ export function minutesInto(ctx) {
 }
 export function shiftClock(ctx) {
   const w = shiftWindow(ctx.hours, ctx.shift);
+  // Schimbul încheiat (păstrat până pornești următorul) e socotit complet.
+  if (ctx.ended) return { ...w, elapsed: w.len, left: 0, before: false, ended: true };
   const m = minutesInto(ctx);
   if (m >= w.len) return { ...w, elapsed: 0, left: w.len, before: true, startsIn: 1440 - m };
   return { ...w, elapsed: m, left: w.len - m, before: false };
@@ -168,7 +170,8 @@ export function slotState(b, ctx) {
     const at = (i + 1) * 120;
     // O activitate marcată DA (sau NU, escaladată) nu mai cere verificarea orei.
     const done = items.length > 0 && items.every((x) => x.checked || x.no || x.slots?.[i]);
-    return { i, time, done, passed: !k.before && k.elapsed >= at, late: !k.before && !done && k.elapsed >= at + 15, soon: !k.before && !done && k.elapsed >= at - 30 && k.elapsed < at + 15 };
+    const open = !k.before && !k.ended;
+    return { i, time, done, passed: !k.before && k.elapsed >= at, late: open && !done && k.elapsed >= at + 15, soon: open && !done && k.elapsed >= at - 30 && k.elapsed < at + 15 };
   });
   // Verificarea de acum e cea mai recentă oră ajunsă și nebifată.
   const open = slots.filter((s) => s.late || s.soon);

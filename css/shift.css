@@ -467,3 +467,8 @@
 .lineChip[data-st="off"] small { color: var(--muted); }
 .lineLegend [data-st="off"]::before { background: var(--muted); }
 .lineDot[data-st="off"]::before { background: var(--muted); border-color: var(--muted); }
+.lineTime { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .88rem; color: var(--muted); }
+.lineTime input { width: auto; min-height: 40px; padding: 4px 10px; font: 600 .95rem var(--mono); }
+.shiftPulse[data-ended="true"] .heroLeft { color: var(--success); }
+.shiftPulse .startShift { width: 100%; justify-content: space-between; margin-top: 4px; }
+.shiftPulse .startShift .icon { order: 1; }
