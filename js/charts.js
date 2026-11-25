@@ -75,14 +75,15 @@ export function bars(items, { ref = null, unit = "", label, warnAbove = null, wa
   return box;
 }
 // Bare orizontale (clasament), de ex. evenimente pe post.
-export function ranking(items, { unit = "", label } = {}) {
+export function ranking(items, { unit = "", label, warnBelow = null, warnAbove = null, max: top = null } = {}) {
   const list = el("ol", "", "ranking");
   list.setAttribute("aria-label", label);
-  const max = Math.max(1, ...items.map((i) => i.value));
+  const max = Math.max(1, top ?? 0, ...items.map((i) => i.value));
   for (const i of items) {
     const li = el("li");
     const bar = el("span", "", "rankBar");
-    bar.style.width = (i.value / max) * 100 + "%";
+    bar.style.width = Math.min(100, (i.value / max) * 100) + "%";
+    if ((warnBelow != null && i.value < warnBelow) || (warnAbove != null && i.value > warnAbove)) bar.classList.add("warn");
     li.append(el("span", i.label, "rankLabel"), bar, el("strong", fmt(i.value, 0) + unit));
     list.append(li);
   }

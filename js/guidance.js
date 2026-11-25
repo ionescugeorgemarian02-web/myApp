@@ -77,7 +77,8 @@ const taskInstructions = new Map(Object.entries({
 
 export function taskGuidance(item) {
   const title = norm(item.title);
-  return item.details?.trim() || taskInstructions.get(title) || taskInstructions.get(title.split(" · ").slice(1).join(" · ")) || "";
+  return item.details?.trim() || taskInstructions.get(title) || taskInstructions.get(title.split(" · ").slice(1).join(" · ")) ||
+    (typeof item.how === "string" ? item.how : "");
 }
 
 const auditInstructions = new Map(Object.entries({

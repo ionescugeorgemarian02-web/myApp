@@ -14,8 +14,10 @@ import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
 import { handover, previousHandover } from "./logic.js";
 import { handoverDraft } from "./blocks/table.js";
 import { runAction } from "./views/advice.js";
-import { problemsBlock, commitments } from "./metrics.js";
-const VERSION = "3.5";
+import { problemsBlock, commitments, linesBlock } from "./metrics.js";
+import { formBlock } from "./ept.js";
+import { lines as linesBoard } from "./blocks/lines.js";
+const VERSION = "4.0";
 app.training = new URLSearchParams(location.search).get("mod") === "instruire";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
@@ -87,6 +89,12 @@ function sync() {
             checkedAt: old?.checkedAt || null,
             notes: old?.notes || "",
             updated: old?.updated || null,
+          });
+          // Câmpurile fișei EPT: NU, verificările la 2 ore, problema creată.
+          if (b.form) Object.assign(i, {
+            no: old?.no || false,
+            slots: old?.slots ? [...old.slots] : [],
+            problem: old?.problem || "",
           });
         }
         delete b.history[app.current.key];
@@ -230,10 +238,13 @@ function render() {
         "download",
       ),
     );
+  if (route === "Linii") route = "Producție";
   let p =
     route.startsWith("p/") &&
     app.data.pages.find((x) => x.id === route.slice(2));
   const registry = problemsBlock(app.data);
+  // Fișa EPT are fila ei; tabloul liniilor stă în fruntea ecranului Producție.
+  const form = formBlock(app.data)?.p, board = linesBlock(app.data);
   const transfer = handover(c);
   if (route === "Predare" && transfer) {
     const previous = previousHandover(c);
@@ -253,17 +264,26 @@ function render() {
   else if (route === "Probleme") {
     main.append(el("h1", "Probleme", "title"), el("p", "Registrul de probleme nu este disponibil în acest caiet.", "empty"),
       btn("Deschide caietul", () => app.navigate("Caiet")));
-  } else if (p) pageView(p, c);
-  else if (route === "Caiet" || route.startsWith("p/")) pages();
+  } else if (route === "Rutina" && form) pageView(form, c, true);
+  else if (p) pageView(p, c);
+  else if (route === "Caiet" || route.startsWith("p/") || route === "Rutina") pages();
   else if (route === "Notițe") notesView(c);
   else if (route === "Analiză") analysisView(c);
   else if (route === "Setări") settings(VERSION);
   else if (route === "Indicatori") kpiView(c);
   else if (route === "Leadership") leadershipView();
-  else if (route === "Producție") productionView(c);
-  else today(c);
+  else if (route === "Producție") {
+    if (board && !app.data.pages.find((x) => x === board.p)?.archived) {
+      const head = el("div", "", "boardHead");
+      head.append(el("h1", "Liniile mele", "title"), btn("Editează", () => app.openPage(board.p), "pill", "edit"));
+      main.append(head, linesBoard(board.b, { ...c, pageId: board.p.id }));
+    }
+    productionView(c);
+  } else today(c);
   const tab = (p && p === registry?.p) || route === "Probleme" ? "Probleme"
     : p && p === transfer?.p ? "Predare"
+    : (p && p === form) || (route === "Rutina" && form) ? "Rutina"
+    : (p && p === board?.p) ? "Producție"
     : ["Producție", "Predare", "Setări"].includes(route) ? route
     : route === "Azi" ? "Azi" : "Caiet";
   lastRoute = route;
@@ -286,7 +306,7 @@ function updateBadge() {
   const late = commitments(app.data, app.current.date, app.current.date, app.current).late;
   (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {});
 }
-for (const [name, symbol] of [["Azi", "today"], ["Producție", "chart"], ["Predare", "handover"], ["Probleme", "alert"], ["Caiet", "pages"]]) {
+for (const [name, symbol] of [["Azi", "today"], ["Rutina", "routine"], ["Producție", "lines"], ["Predare", "handover"], ["Probleme", "alert"], ["Caiet", "pages"]]) {
   const button = btn("", () => app.navigate(name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));

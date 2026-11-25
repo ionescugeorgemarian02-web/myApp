@@ -206,12 +206,31 @@ export function analysisView(c) {
   if (pb) pr.append(btn("Deschide registrul", () => app.openPage(pb.p), "small", "chevron"));
   view.append(pr);
 
+  // ——— Pe linii (din tabloul liniilor) ———
+  const withPlan = cur.lines.filter((x) => x.pct != null);
+  const stops = cur.lines.filter((x) => x.stops || x.down).sort((a, b) => b.stops - a.stops || b.down - a.down);
+  if (withPlan.length || stops.length) {
+    const lc = card("Pe linii", "linesWeek");
+    if (withPlan.length) {
+      lc.append(el("h3", "Plan realizat pe linie (%)"),
+        ranking(withPlan.sort((a, b) => a.pct - b.pct).map((x) => ({ label: x.name, value: x.pct })),
+          { unit: "%", label: "Plan realizat pe linie", warnBelow: 95, max: 100 }));
+    }
+    if (stops.length) {
+      lc.append(el("h3", "Opriri pe linie"),
+        ranking(stops.slice(0, 6).map((x) => ({ label: x.name + (x.stops ? " · " + x.stops + "× oprită" : ""), value: x.down })),
+          { unit: " min", label: "Minute de oprire pe linie" }));
+    }
+    view.append(lc);
+  }
+
   // ——— Rutina și turul ———
-  const rt = card("Rutina și turul pe linie", "routineCard");
+  const rt = card("Rutina EPT și turul pe linie", "routineCard");
   const facts = el("div", "", "statusRow");
   for (const [n, label] of [
     [cur.routine.rate == null ? "–" : fmt(cur.routine.rate, 0) + "%", "Rutină bifată"],
     [String(cur.routine.shifts), "Schimburi lucrate"],
+    [String(cur.routine.no), "Activități NU"],
     [String(cur.audit.checked), "Verificări în tur"],
     [cur.audit.rate == null ? "–" : fmt(cur.audit.rate, 0) + "%", "NOK la tur"],
   ]) {

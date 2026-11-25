@@ -48,6 +48,8 @@ const ICONS = {
     '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>',
   undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
+  routine: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3h6v1.5M8.5 10.5l1.4 1.4 2.6-2.6M14.5 11h1M8.5 16l1.4 1.4 2.6-2.6M14.5 16.5h1"/>',
+  lines: '<path d="M3 20V9.5l5 3v-3l5 3v-3l5 3V4h3v16z"/><path d="M2 20h20M7 16.5h1.5M11.5 16.5H13M16 16.5h1.5"/>',
   chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
   shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M12 9v4M12 16v.5"/>',

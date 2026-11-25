@@ -10,11 +10,12 @@ import { routine } from "../blocks/routine.js";
 import { journal } from "../blocks/journal.js";
 import { audit } from "../blocks/audit.js";
 import { skills } from "../blocks/skills.js";
-import { weekStart, addDays, aggregate, shiftRecords, safetyCounts, safetyEvents, baselines, ninetyDays, weekSummary } from "../metrics.js";
+import { lines } from "../blocks/lines.js";
+import { weekStart, addDays, aggregate, shiftRecords, safetyCounts, safetyEvents, baselines, ninetyDays, weekSummary, firstWeek } from "../metrics.js";
 import { fmt } from "../charts.js";
 import { share } from "../logic.js";
-import { confirmShare } from "../ui.js";
-const renderers = { section, note, checklist, table, routine, journal, audit, skills };
+import { confirmShare, roDate } from "../ui.js";
+const renderers = { section, note, checklist, table, routine, journal, audit, skills, lines };
 const names = {
   checklist: ["Listă de bifat", "☑️"],
   table: ["Tabel", "▦"],
@@ -93,7 +94,7 @@ function progressReport(c, n) {
     "Prima săptămână: " + first.records.length + " schimburi raportate · săptămâna curentă: " + last.records.length,
   ].join("\n");
 }
-export function pageView(p, c) {
+export function pageView(p, c, top = false) {
   const main = document.querySelector("main"),
     data = app.data,
     editing = app.editing === p.id;
@@ -101,7 +102,7 @@ export function pageView(p, c) {
   // Bara de sus: înapoi, titlu, editare.
   const bar = el("div", "", "pageBar");
   bar.append(
-    iconBtn("back", "Înapoi la caiet", () => (location.hash = "Caiet")),
+    top ? el("span") : iconBtn("back", "Înapoi la caiet", () => (location.hash = "Caiet")),
     btn(
       editing ? "Gata" : "Editează",
       () => {
@@ -112,10 +113,14 @@ export function pageView(p, c) {
       editing ? "check" : "edit",
     ),
   );
-  main.append(bar);
   const h = el("h1", "", "title");
   h.append(el("span", p.emoji || "📄", "titleEmoji"), el("span", p.title));
-  main.append(h);
+  // Paginile din bara de jos (Rutina): titlul și „Editează” pe un rând.
+  if (top) {
+    bar.classList.add("topBar");
+    bar.firstChild.replaceWith(h);
+    main.append(bar);
+  } else main.append(bar, h);
   if (c.handoverToolbar) main.append(c.handoverToolbar);
   if (p.archived) main.append(el("p", "Pagină arhivată – nu apare pe Azi.", "hint"));
   if (editing) {
@@ -179,11 +184,29 @@ export function pageView(p, c) {
   }
   if (!editing && p.blocks.some((b) => b.cols?.some((col) => col.name === "Valoare de pornire")))
     main.append(autoIndicators(c));
+  // Planul primei săptămâni: fiecare zi își arată data, iar ziua de azi e marcată.
+  const plan = firstWeek(data, c);
+  const planDays = plan?.p === p ? new Map(plan.days.map((d) => [d.section.id, d.date])) : null;
   for (let b of p.blocks) {
+    if (!editing && (b.form || b.type === "lines")) {
+      const bare = renderers[b.type](b, c);
+      bare.dataset.key = "block-" + b.id;
+      main.append(bare);
+      continue;
+    }
     if (b.type === "section") {
       let head = el("div", "", "sectionHead"),
         next = p.blocks[p.blocks.indexOf(b) + 1];
-      head.append(el("h2", b.title));
+      const date = planDays?.get(b.id);
+      if (date) {
+        const h2 = el("h2", b.title);
+        h2.append(el("small", " · " + roDate(date, { day: "numeric", month: "long" }), "sectionDate"));
+        head.append(h2);
+        if (date === c.date) {
+          head.classList.add("today");
+          h2.append(el("span", "Azi", "chip today"));
+        }
+      } else head.append(el("h2", b.title));
       // Contorul listei de sub secțiune stă lângă titlul secțiunii.
       if ((next?.type === "checklist" || next?.type === "routine") && !editing) head.append(el("span", progress(next.items), "count"));
       main.append(head);

@@ -4,16 +4,19 @@ import { page, GROUPS } from "../seed.js";
 import { link } from "./today.js";
 import { noteEditor } from "./notes.js";
 import { takeLegacyPageNotes } from "../notes.js";
+import { dailyItems } from "../ept.js";
 let query = "";
 function tile(p) {
-  let items = p.blocks.filter((b) => b.type === "checklist" || b.type === "routine").flatMap((b) => b.items),
+  let items = p.blocks.filter((b) => b.type === "checklist" || b.type === "routine").flatMap((b) => (b.form ? dailyItems(b) : b.items)),
     rows = p.blocks.reduce((n, b) => n + (b.rows?.length || 0), 0),
     b = btn("", () => app.openPage(p), "tile");
   const marker = el("span", p.emoji || "📄", "tileEmoji");
   marker.setAttribute("aria-hidden", "true");
   const name = el("span", "", "directoryName");
   name.append(el("strong", p.title));
-  if (items.length) name.append(el("small", items.filter((i) => i.checked).length + " din " + items.length + " bifate"));
+  const board = p.blocks.find((b) => b.type === "lines");
+  if (board) name.append(el("small", "Starea liniilor pe schimb"));
+  else if (items.length) name.append(el("small", items.filter((i) => i.checked).length + " din " + items.length + " bifate"));
   else if (rows) name.append(el("small", rows + (rows === 1 ? " înregistrare" : " înregistrări")));
   b.append(marker, name, icon("chevron"));
   return b;

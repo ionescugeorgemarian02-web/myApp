@@ -22,14 +22,15 @@ async function mobileShift(browser, base) {
     await page.getByText("Programul a fost aplicat").waitFor();
     await page.getByRole("button",{name:"Azi",exact:true}).click();
     await page.getByRole("button",{name:"Adaugă interval", exact:true}).waitFor();
-    const gemba = page.getByRole("checkbox", {name:"Fă un tur Gemba", exact:true});
-    await gemba.waitFor();
-    assert.equal(await gemba.evaluate((node) =>
-      document.getElementById(node.getAttribute("aria-describedby")).textContent.includes("Ce te blochează acum?")), true);
+    // Rutina EPT: activitățile fazei curente, fiecare cu instrucțiunea „Cum o fac”.
+    const now = page.locator(".nowCard");
+    await now.getByRole("heading",{name:"În timpul schimbului"}).waitFor();
+    await now.locator(".eptHow summary").first().click();
+    assert.ok((await now.locator(".eptHowText").first().textContent()).length > 40);
     await page.clock.runFor(15 * 60 * 1000);
     const attention = page.locator(".attentionRegion");
     await attention.getByRole("heading",{name:"Predare neverificată · schimbul se termină la 14:10"}).waitFor();
-    assert.equal(await page.locator(".routinePhase[open] summary").first().textContent().then((label) => label.startsWith("La final")), true);
+    await now.getByRole("heading",{name:"La sfârșitul schimbului"}).waitFor();
     await page.getByLabel("Alege schimbul").selectOption("2");
     await attention.getByRole("button",{name:"Adaugă interval"}).waitFor();
     await page.getByLabel("Alege schimbul").selectOption("1");

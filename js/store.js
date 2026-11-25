@@ -48,6 +48,9 @@ export function migrate(data) {
       case "note":
         return str(b.text);
       case "routine":
+        if (b.weekly !== undefined && !(isObject(b.weekly) && Object.values(b.weekly).every((w) => isObject(w) &&
+          Object.values(w).every((v) => isObject(v) && ["da", "nu", ""].includes(v.v ?? "")))))
+          return false;
         if (
           !b.history ||
           typeof b.history !== "object" ||
@@ -89,6 +92,10 @@ export function migrate(data) {
           unique(b.items) && isObject(b.runs) && Object.values(b.runs).every((run) => isObject(run) &&
             Object.values(run).every((v) => isObject(v) && ["ok", "nok"].includes(v.s) &&
               (v.problem === undefined || str(v.problem))));
+      case "lines":
+        return isObject(b.shifts) && Object.values(b.shifts).every((shift) => isObject(shift) &&
+          Object.values(shift).every((line) => isObject(line) &&
+            Object.values(line).every((v) => v == null || ["string", "number"].includes(typeof v))));
       case "skills":
         return isObject(b.levels) && Object.values(b.levels).every((person) => isObject(person) &&
           Object.values(person).every((level) => [0, 1, 2, 3].includes(level)));

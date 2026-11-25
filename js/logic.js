@@ -3,6 +3,8 @@ import { norm, roDate, validDate, showText, toast } from "./ui.js";
 import { isClosed, rowLabel } from "./records.js";
 import { shiftRecords, recordKpis, safetyEvents, oneOnOnes, ninetyDays, problemsBlock, addDays, handoverBlock, SHIFT_FIELDS } from "./metrics.js";
 import { fmt } from "./charts.js";
+import { LINE_STATES } from "./metrics.js";
+import { formStatus, linesNow } from "./ept.js";
 export const progress = (items) =>
   items.filter((i) => i.checked).length + "/" + items.length;
 export const active = () => app.data.pages.filter((p) => !p.archived);
@@ -94,9 +96,21 @@ export function report() {
       lines.push(`• ${col.name}: ${v === true ? "da" : v}`);
     }
   }
+  const ln = linesNow(app.data, { ...c, hours: h });
+  if (ln?.totals.checked) {
+    const t = ln.totals;
+    lines.push("", `Linii: ${t.ok} OK · ${t.warn} atenție · ${t.stop} oprite` + (t.checked < t.total ? ` · ${t.total - t.checked} neverificate` : ""));
+    for (const e of ln.entries.filter((x) => x.st === "stop" || x.st === "warn" || x.obs.trim()))
+      lines.push(`  – ${e.name}: ${LINE_STATES[e.st] || "–"}` + (e.real != null ? `, ${fmt(e.real, 0)}${e.plan ? "/" + fmt(e.plan, 0) : ""} buc` : "") +
+        (e.reb ? `, rebut ${fmt(e.reb, 0)}` : "") + (e.obs.trim() ? ` – ${e.obs.trim()}` : ""));
+  }
   for (let p of active())
     for (let b of p.blocks)
-      if (b.type === "routine") {
+      if (b.type === "routine" && b.form) {
+        const st = formStatus(b, c);
+        lines.push("", `${b.title}: ${st.da}/${st.total} DA · ${st.nu} NU`);
+        for (const i of st.nuItems) lines.push(`  – NU · ${i.group}${i.notes.trim() ? ": " + i.notes.trim() : ""}`);
+      } else if (b.type === "routine") {
         lines.push("", `${b.title}: ${progress(b.items)} făcute`);
         for (let i of b.items.filter((i) => !i.checked))
           lines.push(`  – nefăcut: ${i.title}`);
