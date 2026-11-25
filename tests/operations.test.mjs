@@ -66,12 +66,13 @@ test("migrarea operațională păstrează rândurile, coloanele și rutina veche
   const row = { id: "old", values: { [b.cols[0].id]: "2026-11-20" } };
   b.rows.push(row);
   const before = structuredClone(row);
-  const routine = structuredClone(data.pages.find((p) => p.title === "Rutina schimbului"));
-  data.templates = data.templates.filter((t) => t.title !== "Rutina cronologică de schimb");
+  const routine = structuredClone(data.pages.find((p) => p.title === "Rutina EPT"));
   assert.equal(organize(data), true);
   assert.equal(organize(data), false);
   assert.deepEqual(b.rows[0], before);
-  assert.deepEqual(data.pages.find((p) => p.title === "Rutina schimbului"), routine);
+  assert.deepEqual(data.pages.find((p) => p.title === "Rutina EPT"), routine);
+  assert.ok(!data.pages.some((p) => p.title === "Rutina schimbului"), "rămâne doar rutina EPT");
+  assert.ok(!data.templates.some((t) => t.title === "Rutina cronologică de schimb"), "fără modelul de rutină");
   assert.ok(b.cols.some((c) => c.key === "prepared"));
 });
 
