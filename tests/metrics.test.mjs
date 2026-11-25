@@ -334,3 +334,18 @@ test("zona Sudură cuprinde toate liniile: intervalele pe linii intră în total
   assert.equal(upgrade(d), false);
   assert.equal(d.settings.zone, "Altă zonă");
 });
+
+test("rămâne doar rutina EPT: rutina generică și modelul ei se scot o singură dată", () => {
+  const d = seed();
+  assert.equal(d.pages.filter((p) => p.blocks.some((b) => b.type === "routine")).length, 1);
+  assert.ok(!d.templates.some((t) => t.blocks.some((b) => b.type === "routine")));
+  // Caiet 4.1 cu rutina veche arhivată și modelul în Șabloane.
+  const old = { id: "o", title: "Rutina schimbului", archived: true, group: "În schimb", blocks: [{ id: "r", type: "routine", title: "Rutina", items: [], history: {}, key: "" }] };
+  d.pages.push(old);
+  d.templates.push({ ...old, id: "t", title: "Rutina cronologică de schimb" });
+  d.settings.featuresVersion = 5;
+  assert.equal(upgrade(d), true);
+  assert.ok(!d.pages.includes(old));
+  assert.ok(!d.templates.some((t) => t.title === "Rutina cronologică de schimb"));
+  assert.ok(m.routineShifts && d.pages.some((p) => p.title === "Rutina EPT"));
+});

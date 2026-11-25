@@ -1,6 +1,6 @@
 import { AUDIT_TEMPLATES } from "./quality.js";
 import { DEVELOPMENT } from "./leadership.js";
-import { HANDOVER_FIELDS, PROBLEM_FIELDS, ROUTINE } from "./operations.js";
+import { HANDOVER_FIELDS, PROBLEM_FIELDS } from "./operations.js";
 import { id, day, norm } from "./ui.js";
 import { item } from "./blocks/checklist.js";
 import { column } from "./records.js";
@@ -79,7 +79,7 @@ export const page = (title, blocks = [], group = GROUPS[3]) => ({
   blocks,
 });
 
-const FEATURES = 5;
+const FEATURES = 6;
 const AUDIT_ITEMS = [
   "Echipamentul de protecție e purtat corect la toate posturile",
   "Apărătorile și senzorii de siguranță funcționează",
@@ -114,6 +114,7 @@ export function upgrade(data) {
   if (!(data.settings.featuresVersion >= 4)) upgrade4(data);
   // Versiunea 4.1: zona de lucru este Sudură, cu toate liniile ei.
   if (!data.settings.zone) data.settings.zone = ZONE;
+  if (!(data.settings.featuresVersion >= 6)) removeGenericRoutine(data);
   data.settings.featuresVersion = FEATURES;
   return true;
 }
@@ -183,6 +184,13 @@ function upgrade3(data) {
   }
 }
 const ZONE = "Sudură";
+// Versiunea 4.2: rămâne doar rutina EPT; rutina generică și modelul ei se scot.
+function removeGenericRoutine(data) {
+  const generic = (p) => p.blocks.some((b) => b.type === "routine" && !b.form) &&
+    p.blocks.every((b) => b.type === "routine" && !b.form);
+  data.pages = data.pages.filter((p) => !generic(p));
+  data.templates = data.templates.filter((t) => !generic(t));
+}
 // Versiunea 4.0: rutina EPT Supervisor și liniile din subordine.
 function upgrade4(data) {
   const s = data.settings;
@@ -227,9 +235,6 @@ function addOperations(data) {
       if (!table.cols.some((c) => c.key === key)) table.cols.push(column(label, type, options, key));
     }
   }
-  const template = block("routine", "Rutina schimbului · model");
-  template.items = ROUTINE.flatMap(([phase, ...steps]) => steps.map((step) => item(phase + " · " + step)));
-  data.templates.push(page("Rutina cronologică de schimb", [template]));
   data.settings.operationsVersion = 1;
   return true;
 }
@@ -303,8 +308,6 @@ export function seed() {
     return page(title, [b]);
   }
   let pages = [
-    list("Rutina schimbului", "routine", ROUTINE.flatMap(([phase, ...steps]) =>
-      steps.map((step) => phase + " · " + step))),
     grid("Predare schimb", "journal", [
       ["Data", "date"],
       ["Schimb", "select", ["1", "2", "3"]],
