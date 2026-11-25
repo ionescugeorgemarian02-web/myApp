@@ -197,7 +197,7 @@ function head(b, c) {
   const top = el("div", "", "eptHeadTop");
   const phase = phaseOf({ ...c, hours: c.hours || app.data.settings.hours });
   top.append(el("strong", "Schimbul " + c.shift + " · " + roDate(c.workDay, short)),
-    el("span", c.past ? "Schimb încheiat" : phase === "before" ? "Înainte de schimb" : "Acum: " + sectionOf(phase).short, "eptPhase"));
+    el("span", c.past || c.ended ? "Schimb încheiat" : phase === "before" ? "Înainte de schimb" : "Acum: " + sectionOf(phase).short, "eptPhase"));
   const bar = el("div", "", "eptBar");
   bar.setAttribute("role", "img");
   bar.setAttribute("aria-label", st.da + " DA, " + st.nu + " NU din " + st.total);

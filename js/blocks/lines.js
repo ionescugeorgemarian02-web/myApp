@@ -134,8 +134,27 @@ function lineCard(b, e, c, pace, redraw, paint) {
   states.setAttribute("role", "group");
   states.setAttribute("aria-label", "Starea liniei " + e.name);
   // Linia care nu rulează (ex. UFC în primele 4 ore) se pornește când vrei.
+  // Ora exactă se poate corecta oricând (ex. linia a pornit de fapt la 10:15).
+  const timeRow = (label, key) => {
+    const l = el("label", "", "lineTime");
+    const t = el("input");
+    t.type = "time";
+    t.value = e[key] || "";
+    t.dataset.focus = e.name + key;
+    t.onchange = () => {
+      if (!t.value) return;
+      const x = entryFor(b, c, e.name);
+      x[key] = t.value;
+      x.at = now();
+      app.save();
+      toast(e.name + ": " + label.toLowerCase() + " " + t.value);
+      redraw();
+    };
+    l.append(el("span", label), t);
+    return l;
+  };
   if (e.st === "off") {
-    card.append(el("p", "Nu rulează" + (e.offAt ? " de la " + e.offAt : "") + ". Planul și ritmul nu se socotesc până o pornești.", "lineOffNote"));
+    card.append(el("p", "Nu rulează. Planul și ritmul nu se socotesc până o pornești.", "lineOffNote"), timeRow("Nu rulează de la", "offAt"));
     const start = btn("Pornește linia", () => {
       const x = entryFor(b, c, e.name);
       x.st = "ok";
@@ -165,6 +184,7 @@ function lineCard(b, e, c, pace, redraw, paint) {
     states.append(s);
   }
   if (e.st !== "off") {
+    if (e.onAt) card.append(timeRow("Pornită la", "onAt"));
     card.append(states);
     const off = btn("Nu rulează", () => {
       const x = entryFor(b, c, e.name);
@@ -226,7 +246,7 @@ function lineCard(b, e, c, pace, redraw, paint) {
 // Alegerea schimbului: ziua și schimbul, cu întoarcere la schimbul curent.
 function picker(b, c, current) {
   const box = el("div", "", "linesPicker");
-  box.append(el("p", (c.past ? "Schimb salvat · " : "Acum · ") + "schimbul " + c.shift + " · " + roDate(c.workDay, short), "linesWhen"));
+  box.append(el("p", (c.past ? "Schimb salvat · " : c.ended ? "Schimb încheiat · " : "Acum · ") + "schimbul " + c.shift + " · " + roDate(c.workDay, short), "linesWhen"));
   const row = el("div", "", "linesPickerRow");
   const date = el("input");
   date.type = "date";

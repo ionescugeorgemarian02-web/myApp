@@ -51,6 +51,9 @@ async function mobileShift(browser, base) {
     await attention.getByRole("heading",{name:"Predarea este verificată"}).waitFor();
     await page.clock.setSystemTime(new Date(2026,10,23,14,15));
     await page.clock.runFor(5000);
+    // Schimbul 1 rămâne deschis, marcat încheiat, până pornești schimbul următor.
+    await page.getByText("Schimb încheiat la 14:10",{exact:true}).waitFor();
+    await page.getByRole("button",{name:"Începe schimbul 2",exact:true}).click();
     await attention.getByRole("button",{name:"Preia schimbul",exact:true}).click();
     const previousRow = page.locator(".record[open]").filter({hasText:"Schimb 1"});
     const previousSituation = previousRow.getByLabel("Situația producției / probleme");
@@ -62,6 +65,7 @@ async function mobileShift(browser, base) {
     await attention.getByRole("button",{name:"Adaugă interval",exact:true}).waitFor();
     await page.clock.setSystemTime(new Date(2026,10,24,5,35));
     await page.clock.runFor(5000);
+    await page.getByRole("button",{name:"Începe schimbul 3",exact:true}).click();
     await attention.getByRole("heading",{name:"Predare neverificată · schimbul se termină la 06:00"}).waitFor();
     await page.getByText(/luni, 23 noiembrie 2026/i).waitFor();
     await page.getByText("Raportează",{exact:true}).click();

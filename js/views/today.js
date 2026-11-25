@@ -29,9 +29,7 @@ function shiftSelector(c) {
     select.add(new Option("Schimbul " + i + " · " + hours[i - 1] + "–" + hours[i % 3], i));
   select.value = String(c.shift);
   select.onchange = () => {
-    app.data.settings.slot = c.slot;
-    app.data.settings.shift = Number(select.value);
-    app.refresh();
+    app.startShift(Number(select.value));
     document.querySelector(".todayShift")?.focus({ preventScroll: true });
   };
   return select;
@@ -100,7 +98,10 @@ function shiftPulse(c) {
   const box = el("div", "", "shiftPulse");
   const k = shiftClock(c);
   const time = el("p", "", "heroTime");
-  time.append(el("span", k.before ? "Schimbul începe peste " + duration(k.startsIn) : "Mai sunt " + duration(k.left), "heroLeft"),
+  if (c.ended) {
+    time.append(el("span", "Schimb încheiat la " + k.to, "heroLeft"), el("span", "finalizat"));
+    box.dataset.ended = "true";
+  } else time.append(el("span", k.before ? "Schimbul începe peste " + duration(k.startsIn) : "Mai sunt " + duration(k.left), "heroLeft"),
     el("span", k.before ? k.from + "–" + k.to : Math.round((k.elapsed / k.len) * 100) + "% din schimb"));
   const bar = el("div", "", "heroBar");
   bar.setAttribute("role", "progressbar");
@@ -133,6 +134,11 @@ function shiftPulse(c) {
     stats.append(s);
   }
   if (stats.childElementCount) box.append(stats);
+  if (c.ended && c.next) {
+    const label = "Începe schimbul " + c.next.shift + (c.next.workDay !== c.workDay ? " · " + roDate(c.next.workDay, { weekday: "short", day: "numeric", month: "short" }) : "");
+    box.append(el("p", "Fișa și liniile rămân pe schimbul " + c.shift + " până pornești schimbul următor.", "formHelp"),
+      btn(label, () => app.startShift(), "primary startShift", "chevron"));
+  }
   return box;
 }
 
@@ -156,7 +162,7 @@ function nowCard(c) {
   const sec = sectionOf(up.phase === "before" ? "before" : up.phase);
   const box = el("section", "", "todayCard nowCard");
   box.dataset.tone = sec.tone;
-  box.append(cardHead(up.phase === "before" ? "Înainte de schimb" : "Acum în rutina EPT", sec.title, st.da + "/" + st.total));
+  box.append(cardHead(c.ended ? "Schimb încheiat · rutina EPT" : up.phase === "before" ? "Înainte de schimb" : "Acum în rutina EPT", sec.title, st.da + "/" + st.total));
   const slots = slotState(b, c);
   box.dataset.sig = [up.phase, slots.due?.time, slots.due?.late, slots.late.length].join("/");
   if (slots.due) {
