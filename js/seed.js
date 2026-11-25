@@ -2,6 +2,7 @@ import { id, day, norm } from "./ui.js";
 import { item } from "./blocks/checklist.js";
 import { column } from "./records.js";
 import { SHIFT_FIELDS } from "./metrics.js";
+import { formItems, isForm, LINES } from "./ept.js";
 export function block(type, title) {
   return {
     id: id(),
@@ -15,6 +16,7 @@ export function block(type, title) {
       journal: { cols: [], rows: [] },
       audit: { items: [], runs: {} },
       skills: { levels: {} },
+      lines: { shifts: {} },
     }[type] || {}),
   };
 }
@@ -25,6 +27,8 @@ export const GROUPS = [
   "Paginile mele",
 ];
 const KNOWN = {
+  "Rutina EPT": ["📋", 0],
+  "Liniile mele": ["🏭", 0],
   "Rutina schimbului": ["✅", 0],
   "Predare schimb": ["🔁", 0],
   "Probleme și acțiuni": ["⚠️", 0],
@@ -69,7 +73,7 @@ export const page = (title, blocks = [], group = GROUPS[3]) => ({
   blocks,
 });
 
-const FEATURES = 3;
+const FEATURES = 4;
 const AUDIT_ITEMS = [
   "Echipamentul de protecție e purtat corect la toate posturile",
   "Apărătorile și senzorii de siguranță funcționează",
@@ -100,6 +104,12 @@ const named = (b, name) => b.cols.find((c) => norm(c.name) === name);
 // tur pe linie, polivalență și registrul de decizii. Rulează o singură dată.
 export function upgrade(data) {
   if (data.settings.featuresVersion >= FEATURES) return false;
+  if (!(data.settings.featuresVersion >= 3)) upgrade3(data);
+  upgrade4(data);
+  data.settings.featuresVersion = FEATURES;
+  return true;
+}
+function upgrade3(data) {
   const s = data.settings;
   if (!Array.isArray(s.equipment)) s.equipment = [];
   if (!s.startDate) s.startDate = day(s.createdAt ? new Date(s.createdAt) : new Date());
@@ -163,8 +173,39 @@ export function upgrade(data) {
     t.emoji = "⚖️";
     data.templates.push(t);
   }
-  s.featuresVersion = FEATURES;
-  return true;
+}
+// Versiunea 4.0: rutina EPT Supervisor și liniile din subordine.
+function upgrade4(data) {
+  const s = data.settings;
+  // Liniile devin lista locurilor (probleme, siguranță, polivalență, tablou).
+  const seen = new Set();
+  s.equipment = [...LINES, ...(Array.isArray(s.equipment) ? s.equipment : [])].filter((x) => {
+    const k = norm(x);
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  for (const p of data.pages)
+    for (const b of p.blocks)
+      for (const c of b.cols || [])
+        if (c.key === "equipment" && c.name === "Post / mașină") c.name = "Linie / post";
+  if (!data.pages.some((p) => p.blocks.some(isForm))) {
+    const b = block("routine", "Rutina EPT");
+    Object.assign(b, { form: "ept", items: formItems(), weekly: {} });
+    const p = page("Rutina EPT", [b], GROUPS[0]);
+    p.emoji = KNOWN["Rutina EPT"][0];
+    data.pages.unshift(p);
+    // Lista generică de la început e înlocuită de fișă (rămâne în Arhivă).
+    const old = data.pages.find((x) => x.title === "Rutina schimbului" && !x.archived &&
+      x.blocks.length === 1 && x.blocks[0].type === "routine" && !x.blocks[0].form);
+    if (old) old.archived = true;
+  }
+  if (!data.pages.some((p) => p.blocks.some((b) => b.type === "lines"))) {
+    const p = page("Liniile mele", [block("lines", "Liniile mele")], GROUPS[0]);
+    p.emoji = KNOWN["Liniile mele"][0];
+    const at = data.pages.findIndex((x) => x.blocks.some(isForm));
+    data.pages.splice(at + 1, 0, p);
+  }
 }
 
 export function seed() {
@@ -320,15 +361,6 @@ export function seed() {
     return page(title, [b]);
   }
   let pages = [
-    list("Rutina schimbului", "routine", [
-      "Preiau schimbul de la colegul anterior.",
-      "Ședința de început (5–10 min): ținta zilei, avertismente de siguranță și calitate, cine unde lucrează.",
-      "Verific echipamentul de protecție.",
-      "Tur pe linie: siguranță, calitate, plan față de realizat, ordine (5S), oameni.",
-      "Verific producția pe oră față de plan.",
-      "Predau schimbul colegului următor.",
-      "Trimit rezumatul către șef.",
-    ]),
     grid("Predare schimb", "journal", [
       ["Data", "date"],
       ["Schimb", "select", ["1", "2", "3"]],

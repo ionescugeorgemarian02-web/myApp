@@ -82,17 +82,17 @@ function schedule(preferences) {
 
 // Posturile și mașinile liniei: folosite la probleme, siguranță și polivalență.
 function lineCard(preferences) {
-  const section = card("Linia mea");
-  section.append(el("p", "Scrie câte un post sau o mașină pe rând (ex. Robot sudură 2). Lista apare la „Post / mașină” în probleme și siguranță și în matricea de polivalență.", "hint"));
+  const section = card("Liniile mele");
+  section.append(el("p", "Câte o linie pe rând, în ordinea în care vrei să le vezi. Lista apare în tabloul „Linii”, la „Linie / post” în probleme și siguranță și în matricea de polivalență.", "hint"));
   const list = el("textarea");
-  list.rows = 5;
+  list.rows = 8;
   list.value = (preferences.equipment || []).join("\n");
-  list.setAttribute("aria-label", "Posturi și mașini, câte unul pe rând");
-  list.placeholder = "Post 1\nRobot sudură 2\nPresa 3";
+  list.setAttribute("aria-label", "Liniile mele, câte una pe rând");
+  list.placeholder = "Fam B1\nPSA 3\nX90 Audi";
   const status = el("p", "", "settingsMetadata");
   const count = () => {
     const n = (preferences.equipment || []).length;
-    status.textContent = n ? n + (n === 1 ? " post salvat." : " posturi salvate.") : "Niciun post adăugat încă.";
+    status.textContent = n ? n + (n === 1 ? " linie salvată." : " linii salvate.") : "Nicio linie adăugată încă.";
   };
   list.onchange = () => {
     const seen = new Set();
@@ -105,7 +105,7 @@ function lineCard(preferences) {
     list.value = preferences.equipment.join("\n");
     app.save();
     count();
-    toast("Lista posturilor a fost salvată");
+    toast("Lista liniilor a fost salvată");
   };
   count();
   const start = input("Prima zi în funcție (pentru planul de 90 de zile)", preferences.startDate || "", (value) => {

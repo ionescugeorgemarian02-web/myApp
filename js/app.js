@@ -8,8 +8,9 @@ import { pageView } from "./views/page.js";
 import { settings, applyTheme } from "./views/settings.js";
 import { notesView } from "./views/notes.js";
 import { analysisView, resetAnalysisWeek } from "./views/analysis.js";
-import { commitments } from "./metrics.js";
-const VERSION = "3.1";
+import { commitments, linesBlock } from "./metrics.js";
+import { formBlock } from "./ept.js";
+const VERSION = "4.0";
 const main = document.querySelector("main"),
   nav = document.querySelector("nav"),
   settingsButton = document.querySelector("#open-settings");
@@ -59,6 +60,7 @@ function clock() {
     shift,
     slot,
     key: day(d) + " · Schimb " + shift,
+    hours,
   };
 }
 // La schimbarea schimbului, rutina pornește cu bife noi; la revenirea într-un
@@ -78,6 +80,12 @@ function sync() {
             checkedAt: old?.checkedAt || null,
             notes: old?.notes || "",
             updated: old?.updated || null,
+          });
+          // Câmpurile fișei EPT: NU, verificările la 2 ore, problema creată.
+          if (b.form) Object.assign(i, {
+            no: old?.no || false,
+            slots: old?.slots ? [...old.slots] : [],
+            problem: old?.problem || "",
           });
         }
         delete b.history[app.current.key];
@@ -173,16 +181,31 @@ function render() {
         "download",
       ),
     );
+  // Fișa EPT și liniile au file proprii în bara de jos.
+  const special = { Rutina: formBlock(app.data)?.p, Linii: linesBlock(app.data)?.p };
   let p =
     route.startsWith("p/") &&
     app.data.pages.find((x) => x.id === route.slice(2));
-  if (p) pageView(p, c);
-  else if (route === "Caiet" || route.startsWith("p/")) pages();
-  else if (route === "Notițe") notesView(c);
-  else if (route === "Analiză") analysisView(c);
-  else if (route === "Setări") settings(VERSION);
-  else today(c);
-  const tab = route.startsWith("p/") ? "Caiet" : ["Caiet", "Notițe", "Analiză", "Setări"].includes(route) ? route : "Azi";
+  let tab = "Azi";
+  if (special[route]) {
+    pageView(special[route], c, true);
+    tab = route;
+  } else if (p) {
+    pageView(p, c);
+    tab = Object.keys(special).find((k) => special[k] === p) || "Caiet";
+  } else if (route === "Caiet" || route.startsWith("p/") || route in special) {
+    pages();
+    tab = "Caiet";
+  } else if (route === "Notițe") {
+    notesView(c);
+    tab = "Caiet";
+  } else if (route === "Analiză") {
+    analysisView(c);
+    tab = route;
+  } else if (route === "Setări") {
+    settings(VERSION);
+    tab = route;
+  } else today(c);
   updateBadge();
   for (const button of [...nav.children, settingsButton]) {
     const on = button.dataset.route === tab;
@@ -201,7 +224,7 @@ function updateBadge() {
   const late = commitments(app.data, app.current.date, app.current.date, app.current).late;
   (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {});
 }
-for (const [name, symbol] of [["Azi", "today"], ["Analiză", "chart"], ["Notițe", "notes"], ["Caiet", "pages"]]) {
+for (const [name, symbol] of [["Azi", "today"], ["Rutina", "routine"], ["Linii", "lines"], ["Analiză", "chart"], ["Caiet", "pages"]]) {
   const button = btn("", () => (location.hash = name));
   button.dataset.route = name;
   button.append(icon(symbol), el("span", name));

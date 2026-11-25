@@ -6,6 +6,7 @@ import {
   oneOnOnes, skillsCoverage, auditStatus, safetyEvents, shiftRecords, recordKpis,
   baselines, ninetyDays, handoverBlock, problemsBlock, safetyBlock, daysBetween, equipmentList,
 } from "./metrics.js";
+import { formBlock, formStatus, slotState, linesNow } from "./ept.js";
 
 const LEVEL = { critical: 0, warn: 1, info: 2, good: 3 };
 const AREA = { S: 0, Q: 1, D: 2, C: 3, P: 4, E: 5 };
@@ -185,6 +186,53 @@ export function advice(data, ctx) {
       action: { label: "Vezi analiza", kind: "route", route: "Analiză" },
     });
 
+  // ——— Rutina EPT și liniile (schimbul curent) ———
+  const hours = ctx.hours || data.settings.hours;
+  const here = { ...ctx, hours };
+  const ln = ctx.time ? linesNow(data, here) : null;
+  if (ln?.stopped.length)
+    add({
+      id: "line-stop", level: "critical", area: "D",
+      title: ln.stopped.length === 1 ? ln.stopped[0].name + " este oprită" : ln.stopped.length + " linii oprite: " + names(ln.stopped.map((e) => e.name)),
+      text: "Notează cauza, anunță mentenanța și superiorul direct dacă afectează planul. Mută operatorii pe posturile cu prioritate A.",
+      action: { label: "Deschide liniile", ...toPage(ln.p, "line-" + ln.stopped[0].name) },
+    });
+  if (ln?.behind.length)
+    add({
+      id: "line-behind", level: "warn", area: "D",
+      title: plural(ln.behind.length, "linie în urma planului", "linii în urma planului") + ": " +
+        names(ln.behind.map((e) => e.name + " " + Math.round(e.pace.pace) + "%")),
+      text: "Procentul arată ritmul față de cât trebuia produs până acum. Cerințele clientului: o deviație negativă se escaladează imediat. Află cauza (oprire, material, oameni, calitate).",
+      action: { label: "Vezi liniile", ...toPage(ln.p, "line-" + ln.behind[0].name) },
+    });
+  const fb = formBlock(data);
+  if (fb && ctx.time) {
+    const st = formStatus(fb.b, here);
+    if (st.nu)
+      add({
+        id: "routine-nu", level: "warn", area: "E",
+        title: plural(st.nu, "activitate marcată NU", "activități marcate NU") + " în rutina EPT",
+        text: "Proces de escaladare: superiorul direct trebuie informat imediat. Scrie motivul la Observații pentru: " + names(st.nuItems.map((i) => i.group)) + ".",
+        action: { label: "Deschide fișa", ...toPage(fb.p, "item-" + st.nuItems[0].id) },
+      });
+    const slots = slotState(fb.b, here);
+    if (slots.late.length)
+      add({
+        id: "two-hour-late", level: "warn", area: "D",
+        title: "Verificarea de la " + slots.late[slots.late.length - 1].time + " nu e bifată",
+        text: "La fiecare 2 ore verifici cerințele clientului și panourile EPT (norma orară) pe fiecare linie. Treci prin linii, notează realizatul și bifează ora.",
+        action: { label: "Fă verificarea", ...toPage(ln?.p || fb.p) },
+      });
+    const weekday = new Date(ctx.date + "T12:00").getDay();
+    if (st.weekPending.length && (weekday === 0 || weekday >= 4))
+      add({
+        id: "weekly-left", level: "info", area: "E",
+        title: plural(st.weekPending.length, "activitate săptămânală nefăcută", "activități săptămânale nefăcute"),
+        text: "Până la finalul săptămânii: " + names([...new Set(st.weekPending.map((i) => i.group))]) + ".",
+        action: { label: "Deschide fișa", ...toPage(fb.p, "item-" + st.weekPending[0].id) },
+      });
+  }
+
   // ——— Rutina și predarea ———
   for (const s of skippedItems(data, ctx).slice(0, 1))
     add({
@@ -217,8 +265,8 @@ export function advice(data, ctx) {
   if (!equipmentList(data).length)
     add({
       id: "no-equipment", level: "info", area: "E",
-      title: "Adaugă posturile și mașinile liniei",
-      text: "Cu lista lor poți alege locul fiecărei probleme, iar caietul îți arată ce revine și unde lipsește polivalența.",
+      title: "Adaugă liniile tale",
+      text: "Cu lista lor ai tabloul liniilor, poți alege locul fiecărei probleme, iar caietul îți arată ce revine și unde lipsește polivalența.",
       action: { label: "Deschide setările", kind: "settings", key: "settings-line" },
     });
 

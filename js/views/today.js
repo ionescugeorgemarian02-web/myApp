@@ -1,16 +1,22 @@
 import { app } from "../state.js";
 import { el, btn, icon, roDate, confirmShare, details } from "../ui.js";
 import { routine } from "../blocks/routine.js";
+import { checklist } from "../blocks/checklist.js";
 import { compareNotes, needsReminder } from "../notes.js";
 import { noteEditor, noteRow } from "./notes.js";
 import { newRow } from "../blocks/table.js";
-import { active, deadlines, openProblems, problemsTable, handover, report, share } from "../logic.js";
-import { shiftRecords, recordKpis, safetyEvents, auditStatus } from "../metrics.js";
+import { active, deadlines, openProblems, problemsTable, report, share } from "../logic.js";
+import { shiftRecords, recordKpis, safetyEvents, auditStatus, firstWeek, LINE_STATES } from "../metrics.js";
+import { formBlock, nextUp, shiftClock, slotState, sectionOf, linesNow } from "../ept.js";
+import { itemCard } from "../blocks/eptform.js";
 import { advice } from "../advice.js";
 import { adviceSection, newSafetyEvent, runAction } from "./advice.js";
 import { fmt } from "../charts.js";
 
 const expandedRoutines = new Set();
+const longDate = { weekday: "long", day: "numeric", month: "long" };
+const duration = (m) => (m >= 60 ? Math.floor(m / 60) + " h" + (m % 60 ? " " + (m % 60) + " min" : "") : m + " min");
+const go = (route) => () => (location.hash = route);
 
 function shiftSelector(c) {
   const select = el("select", "", "todayShift");
@@ -28,86 +34,194 @@ function shiftSelector(c) {
   return select;
 }
 
-function shiftActions(c) {
-  const menu = details([el("span", "Acțiuni de schimb"), icon("down")], null, "todayActions");
-  const actions = el("div", "", "actionChoices");
-  function add(name, symbol, run) {
-    actions.append(btn(name, () => {
-      menu.open = false;
-      menu.querySelector("summary").focus({ preventScroll: true });
-      run();
-    }, "", symbol));
+// Antetul: ziua, schimbul, cât a mai rămas și unde ești cu rutina și liniile.
+function hero(c) {
+  const box = el("section", "", "todayHero");
+  const top = el("div", "", "heroTop");
+  const date = el("p", "", "todayDate");
+  date.append(icon("today"), el("span", roDate(c.date, longDate)));
+  top.append(date, shiftSelector(c));
+  const k = shiftClock(c);
+  const time = el("p", "", "heroTime");
+  time.append(el("span", k.from + " – " + k.to),
+    el("span", k.before ? "începe peste " + duration(k.startsIn) : "mai sunt " + duration(k.left), "heroLeft"));
+  const bar = el("div", "", "heroBar");
+  bar.setAttribute("role", "progressbar");
+  bar.setAttribute("aria-label", "Cât a trecut din schimb");
+  bar.setAttribute("aria-valuemin", "0");
+  bar.setAttribute("aria-valuemax", "100");
+  const pct = k.before ? 0 : Math.round((k.elapsed / k.len) * 100);
+  bar.setAttribute("aria-valuenow", String(pct));
+  const fill = el("i");
+  fill.style.width = pct + "%";
+  bar.append(fill);
+  box.append(top, el("h1", "Schimbul " + c.shift), time, bar);
+  if (c.workDay !== c.date) box.append(el("p", "Schimb început pe " + roDate(c.workDay, longDate), "heroNote"));
+  const stats = el("div", "", "heroStats");
+  const fb = formBlock(app.data);
+  if (fb) {
+    const st = nextUp(fb.b, c).status;
+    const s = btn("", go("Rutina"), "heroStat");
+    s.append(el("small", "Rutina EPT"), el("strong", st.da + "/" + st.total), el("span", st.nu ? st.nu + " NU" : "DA", st.nu ? "bad" : ""));
+    s.setAttribute("aria-label", "Rutina EPT: " + st.da + " din " + st.total + " DA" + (st.nu ? ", " + st.nu + " NU" : ""));
+    stats.append(s);
   }
-  const ho = handover();
-  if (ho) add("Predare", "handover", () => {
-    if (!ho.r) {
-      ho.r = newRow(ho.b, c);
-      app.save();
-    }
-    app.openPage(ho.p, "row-" + ho.r.id);
-  });
+  const ln = linesNow(app.data, c);
+  if (ln?.entries.length) {
+    const t = ln.totals;
+    const s = btn("", go("Linii"), "heroStat");
+    s.append(el("small", "Linii verificate"), el("strong", t.checked + "/" + t.total),
+      el("span", t.stop ? t.stop + (t.stop === 1 ? " oprită" : " oprite") : t.warn ? t.warn + " atenție" : t.pct != null ? fmt(t.pct, 0) + "% plan" : t.checked ? "fără probleme" : "de verificat", t.stop ? "bad" : t.warn ? "warn" : ""));
+    s.setAttribute("aria-label", "Linii verificate: " + t.checked + " din " + t.total);
+    stats.append(s);
+  }
+  if (stats.childElementCount) box.append(stats);
+  return box;
+}
+
+// Acțiunile de schimb, la vedere (o atingere).
+function quickActions(c) {
+  const row = el("div", "", "quickActions");
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "Acțiuni rapide");
+  const add = (label, symbol, run, cls = "") => {
+    const b = btn("", run, "quick " + cls);
+    const circle = el("span", "", "quickIcon");
+    circle.append(icon(symbol));
+    b.append(circle, el("span", label));
+    row.append(b);
+  };
+  add("Notiță", "plus", () => noteEditor(), "main");
   const pt = problemsTable();
   if (pt) add("Problemă", "alert", () => {
-    const row = newRow(pt.b, c);
+    const r = newRow(pt.b, c);
     app.save();
-    app.openPage(pt.p, "row-" + row.id);
+    app.openPage(pt.p, "row-" + r.id);
   });
   if (app.data.pages.some((p) => !p.archived && p.blocks.some((b) => b.cols?.some((col) => col.key === "safetyType"))))
     add("Siguranță", "shield", () => newSafetyEvent());
-  const tour = auditStatus(app.data, c.key)[0];
-  if (tour) add("Tur pe linie", "audit", () => app.openPage(tour.p));
+  add("Predare", "handover", () => runAction({ kind: "handover" }));
   add("Rezumat", "send", async () => {
     const text = report();
     if (await confirmShare(text)) await share(text);
   });
-  menu.append(actions);
-  menu.addEventListener("focusout", (e) => {
-    if (e.relatedTarget && !menu.contains(e.relatedTarget)) menu.open = false;
-  });
-  menu.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      menu.open = false;
-      menu.querySelector("summary").focus();
-    }
-  });
-  return menu;
+  return row;
 }
 
-function header(c) {
-  const head = el("div", "", "todayHead");
-  const title = el("div");
-  const date = el("p", "", "todayDate");
-  date.append(icon("today"), el("span", roDate(c.date, {
-    weekday: "long", day: "numeric", month: "long",
-  })));
-  title.append(date, el("h1", "Panou de schimb"), btn("Notiță nouă", () => noteEditor(), "primary", "plus"));
-  head.append(title);
+function cardHead(eyebrow, title, count, countCls = "") {
+  const head = el("div", "", "cardTop");
+  const t = el("div");
+  if (eyebrow) t.append(el("span", eyebrow, "eyebrow"));
+  t.append(el("h2", title));
+  head.append(t);
+  if (count != null) head.append(el("span", count, "agendaCount " + countCls));
   return head;
 }
 
-function shiftPanel(c) {
-  const tools = el("section", "", "todayTools");
-  const heading = el("div", "", "todaySectionHead");
-  heading.append(icon("clock"), el("h2", "Programul turelor"));
-  tools.append(heading, shiftSelector(c));
-  const schedule = el("ol", "", "shiftSchedule");
-  const hours = app.data.settings.hours;
-  hours.forEach((hour, index) => {
-    const row = el("li");
-    if (c.shift === index + 1) row.setAttribute("aria-current", "true");
-    row.append(el("span", "Schimbul " + (index + 1)), el("time", hour));
-    schedule.append(row);
-  });
-  tools.append(schedule, shiftActions(c));
-  if (c.workDay !== c.date) {
-    const date = el("span", "Schimb început pe " + roDate(c.workDay), "shiftStartDate");
-    tools.append(date);
+// Ce urmează din fișa EPT, după ora din schimb.
+function nowCard(c) {
+  const fb = formBlock(app.data);
+  if (!fb) return null;
+  const { b, p } = fb;
+  const up = nextUp(b, c);
+  const st = up.status;
+  const sec = sectionOf(up.phase === "before" ? "before" : up.phase);
+  const box = el("section", "", "todayCard nowCard");
+  box.dataset.tone = sec.tone;
+  box.append(cardHead(up.phase === "before" ? "Înainte de schimb" : "Acum în rutină", sec.title, st.da + "/" + st.total));
+  const slots = slotState(b, c);
+  if (slots.due) {
+    const due = btn("", go("Linii"), "dueCheck");
+    due.dataset.late = String(!!slots.due.late);
+    const older = slots.late.filter((x) => x !== slots.due).length;
+    const text = el("span", "", "dueText");
+    text.append(el("strong", (slots.due.late ? "Întârziată: verificarea de la " : "Verificarea de la ") + slots.due.time),
+      el("small", "Cerințele clientului și panourile EPT pe linii" + (older ? " · încă " + older + " nebifată" + (older > 1 ? "e" : "") : "")));
+    const ic = el("span", "", "dueIcon");
+    ic.append(icon("clock"));
+    due.append(ic, text, icon("chevron"));
+    box.append(due);
   }
-  return tools;
+  const ctx = { ...c, pageId: p.id };
+  const list = el("div", "", "nowList");
+  for (const i of up.list) {
+    const tag = el("p", i.group, "nowGroup");
+    tag.dataset.tone = sectionOf(i.sec).tone;
+    list.append(tag, itemCard(b, i, ctx, () => app.refresh()));
+  }
+  if (!up.list.length)
+    list.append(el("p", st.nu ? "Fișa zilnică e completă, cu " + st.nu + " NU. Verifică dacă ai escaladat." : "Toate activitățile zilnice sunt bifate. Bravo!", "routineDone"));
+  box.append(list);
+  if (up.behind.length) {
+    const first = up.behind[0];
+    box.append(btn("Rămase din „" + sectionOf(first.sec).short + "”: " + up.behind.length, () => {
+      location.hash = "Rutina";
+      setTimeout(() => document.getElementById("ept-" + first.sec)?.scrollIntoView({ block: "start" }), 60);
+    }, "todayMore warnText", "chevron"));
+  }
+  if (st.weekPending.length && new Date(c.date + "T12:00").getDay() >= 4)
+    box.append(el("p", "Săptămânal: " + st.weekPending.length + " activități încă nefăcute.", "formHelp"));
+  box.append(btn("Deschide fișa completă", go("Rutina"), "todayMore", "chevron"));
+  return box;
+}
+
+// Liniile din subordine, dintr-o privire.
+function linesCard(c) {
+  const ln = linesNow(app.data, c);
+  if (!ln) return null;
+  const box = el("section", "", "todayCard linesCard");
+  const t = ln.totals;
+  box.append(cardHead("Liniile mele", t.checked === t.total && t.total ? "Toate verificate" : t.checked + " din " + t.total + " verificate",
+    t.pct != null ? fmt(t.pct, 0) + "% plan" : null, t.pct != null && t.pct < 90 && ln.fraction >= 1 ? "bad" : ""));
+  if (!ln.entries.length) {
+    box.append(el("p", "Adaugă liniile în Setări.", "empty"));
+    return box;
+  }
+  const grid = el("div", "", "lineChips");
+  const behind = new Set(ln.behind.map((e) => e.name));
+  for (const e of ln.entries) {
+    const chip = btn("", () => app.openPage(ln.p, "line-" + e.name), "lineChip");
+    chip.dataset.st = e.st || "none";
+    if (behind.has(e.name)) chip.dataset.behind = "true";
+    const sub = e.plan > 0 && e.real != null ? fmt((e.real / e.plan) * 100, 0) + "%" : e.st ? LINE_STATES[e.st] : "–";
+    chip.append(el("strong", e.name), el("small", sub));
+    chip.setAttribute("aria-label", e.name + ": " + (e.st ? LINE_STATES[e.st] : "neverificată") + (e.real != null ? ", realizat " + e.real : ""));
+    grid.append(chip);
+  }
+  box.append(grid);
+  const legend = el("p", "", "lineLegend");
+  for (const [st, label] of [["ok", "OK"], ["warn", "Atenție"], ["stop", "Oprită"], ["none", "Neverificată"]]) {
+    const x = el("span", label);
+    x.dataset.st = st;
+    legend.append(x);
+  }
+  box.append(legend);
+  return box;
+}
+
+// Planul primei săptămâni: punctele zilei de azi, cu bifă directă.
+function planCard(c) {
+  const plan = firstWeek(app.data, c);
+  if (!plan || (!plan.running && !plan.after)) return null;
+  const box = el("section", "", "todayCard planCard");
+  if (plan.today) {
+    const items = plan.today.list.items;
+    const done = items.filter((i) => i.checked).length;
+    box.append(cardHead("Planul primei săptămâni", plan.today.name + " · " + roDate(plan.today.date, { day: "numeric", month: "long" }), done + "/" + items.length));
+    box.append(checklist(plan.today.list, { ...c, pageId: plan.p.id }, true));
+  } else if (plan.running) {
+    box.append(cardHead("Planul primei săptămâni", "Azi nu ai puncte în plan", null));
+  } else {
+    box.append(cardHead("Planul primei săptămâni", "Au rămas puncte nebifate", String(plan.left.length), "bad"));
+  }
+  if (plan.behind.length)
+    box.append(btn((plan.today ? "Rămase din zilele trecute: " : "Vezi punctele rămase: ") + plan.behind.length, () => app.openPage(plan.p), "todayMore warnText", "chevron"));
+  else box.append(btn("Deschide planul săptămânii", () => app.openPage(plan.p), "todayMore", "chevron"));
+  return box;
 }
 
 function routineSection(block, c) {
-  const section = el("section", "", "todayRoutine");
+  const section = el("section", "", "todayRoutine todayCard");
   const head = el("div", "", "todaySectionHead");
   const done = block.items.filter((i) => i.checked).length;
   const count = el("span", done + " / " + block.items.length, "routineProgress");
@@ -127,9 +241,6 @@ function routineSection(block, c) {
     if (expandedRoutines.has(block.id)) expandedRoutines.delete(block.id);
     else expandedRoutines.add(block.id);
     apply();
-    if (expandedRoutines.has(block.id) && !matchMedia("(prefers-reduced-motion: reduce)").matches)
-      list.animate([{ opacity: .7, transform: "translateY(-3px)" }, { opacity: 1, transform: "none" }],
-        { duration: 160, easing: "ease-out" });
   }, "todayMore");
   const text = el("span");
   toggle.append(text, icon("down"));
@@ -167,9 +278,7 @@ function drawAgenda(section, c) {
   section.replaceChildren();
   section.hidden = !entries.length;
   if (!entries.length) return;
-  const heading = el("div", "", "todaySectionHead");
-  heading.append(el("h2", "De urmărit"), el("span", String(entries.length), "agendaCount"));
-  section.append(heading);
+  section.append(cardHead("", "De urmărit", String(entries.length)));
   function row({ note, entry }) {
     if (note) return noteRow(note, c);
     const late = entry.due && entry.due < c.date;
@@ -192,24 +301,24 @@ function drawAgenda(section, c) {
 // Cifrele schimbului curent, pe structura SQDCP (Siguranță, Calitate,
 // Livrare, Cost, Oameni). Atingerea unei plăcuțe deschide locul de completare.
 function shiftStrip(c) {
-  const section = el("section", "", "shiftStrip");
-  const head = el("div", "", "todaySectionHead");
-  head.append(el("h2", "Tura mea"), el("span", "Schimbul " + c.shift, "agendaCount"));
-  section.append(head);
+  const section = el("section", "", "shiftStrip todayCard");
+  section.append(cardHead("Cifrele schimbului", "Tura mea", null));
   const rec = shiftRecords(app.data).find((r) => r.key === c.key);
   const k = rec ? recordKpis(rec) : {};
   const events = safetyEvents(app.data).filter((e) => e.date === c.workDay);
   const incidents = events.filter((e) => e.type === "incident").length;
   const tour = auditStatus(app.data, c.key)[0];
+  const ln = linesNow(app.data, c);
   const openHandover = () => runAction({ kind: "handover" });
+  const openNumbers = ln?.entries.length ? go("Linii") : openHandover;
   const tiles = [
     ["S", "Siguranță", incidents ? incidents + (incidents === 1 ? " incident" : " incidente") : events.length ? events.length + (events.length === 1 ? " raportare" : " raportări") : "0 incidente",
       tour ? "Tur " + tour.checked + "/" + tour.total + (tour.nok.length ? " · " + tour.nok.length + " NOK" : "") : "", incidents ? "bad" : "",
       () => (tour ? app.openPage(tour.p) : newSafetyEvent())],
-    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : "–", rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openHandover],
+    ["Q", "Rebut", k.scrapPct != null ? fmt(k.scrapPct) + "%" : "–", rec?.scrap != null ? fmt(rec.scrap, 0) + " buc" : "", "", openNumbers],
     ["D", "Plan", k.planPct != null ? fmt(k.planPct, 0) + "%" : "–", rec?.plan != null ? fmt(rec.produced ?? 0, 0) + "/" + fmt(rec.plan, 0) : "",
-      k.planPct != null && k.planPct < 100 ? "warn" : "", openHandover],
-    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : "–", "", "", openHandover],
+      k.planPct != null && k.planPct < 100 && shiftClock(c).left <= 60 ? "warn" : "", openNumbers],
+    ["C", "Oprire", rec?.downtime != null ? fmt(rec.downtime, 0) + " min" : "–", ln?.totals.stop ? ln.totals.stop + (ln.totals.stop === 1 ? " linie oprită" : " linii oprite") : "", ln?.totals.stop ? "bad" : "", openNumbers],
     ["P", "Prezenți", rec?.planned != null && rec?.present != null ? fmt(rec.present, 0) + "/" + fmt(rec.planned, 0) : "–",
       k.absencePct ? fmt(k.absencePct, 0) + "% absențe" : "", "", openHandover],
   ];
@@ -219,41 +328,50 @@ function shiftStrip(c) {
     tile.dataset.area = area;
     if (state) tile.dataset.state = state;
     tile.setAttribute("aria-label", name + ": " + value + (sub ? ", " + sub : ""));
-    tile.append(el("span", name, "stripName"), el("strong", value), el("small", sub || "\u00a0"));
+    tile.append(el("span", name, "stripName"), el("strong", value), el("small", sub || " "));
     grid.append(tile);
   }
   section.append(grid);
   if (!rec || (rec.plan == null && rec.produced == null))
-    section.append(btn("Completează cifrele schimbului", () => runAction({ kind: "handover" }), "todayMore", "chevron"));
+    section.append(btn(ln?.entries.length ? "Trece cifrele pe linii" : "Completează cifrele schimbului", openNumbers, "todayMore", "chevron"));
+  else if (rec.fromLines) section.append(el("p", "Plan, realizat, rebut și oprire vin din Liniile mele. Prezenții îi treci la Predare.", "formHelp"));
   return section;
 }
 
 export function today(c) {
   const main = document.querySelector("main");
   const home = el("div", "", "todayView");
-  home.append(header(c));
+  home.append(hero(c), quickActions(c));
   const grid = el("div", "", "todayGrid");
   const work = el("div", "", "todayWork");
-  const agenda = el("section", "", "todayAgenda");
+  const side = el("div", "", "todaySide");
+  const agenda = el("section", "", "todayAgenda todayCard");
   const updateDeadlines = () => drawAgenda(agenda, c);
   updateDeadlines();
+  const now = nowCard(c);
+  if (now) work.append(now);
   work.append(shiftStrip(c));
   const all = advice(app.data, c);
   const tips = all.filter((a) => a.level !== "good");
   const shown = tips.length ? tips : all.slice(0, 1);
-  if (shown.length)
-    work.append(adviceSection(shown, {
+  if (shown.length) {
+    const tipsCard = adviceSection(shown, {
       limit: 2, title: "Sfaturi pentru tura ta",
-      more: { label: "Toate sfaturile", run: () => (location.hash = "Analiză") },
-    }));
-  work.append(agenda);
-  for (const page of active()) {
-    for (const block of page.blocks) {
-      if (block.type === "routine" && block.items.length)
-        work.append(routineSection(block, { ...c, pageId: page.id, updateDeadlines }));
-    }
+      more: { label: "Toate sfaturile", run: go("Analiză") },
+    });
+    tipsCard.classList.add("todayCard");
+    work.append(tipsCard);
   }
-  grid.append(work, shiftPanel(c));
+  work.append(agenda);
+  for (const page of active())
+    for (const block of page.blocks)
+      if (block.type === "routine" && !block.form && block.items.length)
+        work.append(routineSection(block, { ...c, pageId: page.id, updateDeadlines }));
+  const lines = linesCard(c);
+  if (lines) side.append(lines);
+  const plan = planCard(c);
+  if (plan) side.append(plan);
+  grid.append(work, side);
   home.append(grid);
   main.append(home);
 }

@@ -4,6 +4,7 @@ import { seed, upgrade } from "../js/seed.js";
 import * as m from "../js/metrics.js";
 import { advice } from "../js/advice.js";
 import { trackLifecycle } from "../js/records.js";
+import { formBlock } from "../js/ept.js";
 
 const ctx = (date = "2026-11-21", time = "10:00", shift = 1) =>
   ({ date, time, workDay: date, shift, key: date + " · Schimb " + shift, hours: ["06:00", "14:00", "22:00"] });
@@ -18,7 +19,7 @@ function shift(data, date, n, figures) {
 function problem(data, { date, text, eq = "", owner = "", due = "", status = "Deschis" }) {
   const { b } = m.problemsBlock(data);
   const r = { id: text, created: date + "T09:00:00.000Z", values: {
-    [byName(b, "Data").id]: date, [byName(b, "Problemă").id]: text, [byName(b, "Post / mașină").id]: eq,
+    [byName(b, "Data").id]: date, [byName(b, "Problemă").id]: text, [b.cols.find((c) => c.key === "equipment").id]: eq,
     [byName(b, "Responsabil").id]: owner, [byName(b, "Termen").id]: due, [byName(b, "Stare").id]: status,
   } };
   b.rows.push(r);
@@ -63,7 +64,8 @@ test("un caiet vechi (2.4) primește câmpurile noi fără să piardă datele", 
   assert.ok(ho.cols.some((c) => c.key === "plan"));
   assert.ok(m.safetyBlock(d) && m.skillsBlock(d) && m.auditBlocks(d).length);
   assert.ok(d.templates.some((t) => t.title === "Registru de decizii"));
-  assert.deepEqual(d.settings.equipment, []);
+  assert.equal(d.settings.equipment.length, 13, "liniile din subordine");
+  assert.equal(d.settings.equipment[0], "Fam B1");
 });
 
 test("cifrele schimbului: procentele se calculează din totaluri", () => {
@@ -131,14 +133,19 @@ test("metrica principală: angajamente închise la termen", () => {
 
 test("rutina: puncte sărite des în schimburile lucrate", () => {
   const d = seed();
-  const rb = d.pages.find((p) => p.title === "Rutina schimbului").blocks[0];
+  const rb = formBlock(d).b;
+  const daily = rb.items.filter((i) => i.freq !== "sapt");
+  const skip = daily.find((i) => i.group === "Stoc blocat");
   for (let i = 0; i < 6; i++)
-    rb.history["2026-11-1" + i + " · Schimb 1"] = rb.items.map((it, j) => ({ ...it, checked: j !== 6 }));
+    rb.history["2026-11-1" + i + " · Schimb 1"] = rb.items.map((it) => ({ ...it, checked: it !== skip }));
   rb.key = "2026-11-21 · Schimb 1";
   const s = m.skippedItems(d, ctx());
   assert.equal(s.length, 1);
-  assert.equal(s[0].title, "Trimit rezumatul către șef.");
-  assert.equal(m.routineShifts(d).length, 7);
+  assert.equal(s[0].title, "Stoc blocat: " + skip.title);
+  const shifts = m.routineShifts(d);
+  assert.equal(shifts.length, 7);
+  assert.equal(shifts[0].total, daily.length, "activitățile săptămânale nu intră pe schimb");
+  assert.equal(shifts[0].done, daily.length - 1);
 });
 
 test("echipa: discuții 1:1, promisiuni și polivalență", () => {
@@ -202,4 +209,82 @@ test("progres: problemele rămase deschise la final de săptămână", () => {
   assert.equal(w46.problemsOpened, 1);
   assert.equal(w46.problemsClosed, 1);
   assert.equal(w47.backlog, 1);
+});
+
+test("fișa EPT: 47 de activități, secțiuni, glosar și activitățile săptămânale", async () => {
+  const e = await import("../js/ept.js");
+  const items = e.formItems();
+  assert.equal(items.length, 47);
+  assert.equal(items.filter((i) => i.freq === "sapt").length, 7);
+  assert.equal(items.filter((i) => i.freq === "2h").length, 2);
+  assert.ok(items.every((i) => e.SECTIONS.some((s) => s.id === i.sec)));
+  assert.ok(items.every((i) => !i.term || e.GLOSSARY[i.term]), "fiecare termen are explicație");
+  assert.equal(items.find((i) => i.group === "Raport de schimb").sec, "end", "raportul de schimb e la sfârșit, ca pe fișă");
+  assert.equal(e.LINES.length, 13);
+});
+
+test("timpul în schimb: faza, orele de verificare și schimbul de noapte", async () => {
+  const e = await import("../js/ept.js");
+  const c = ctx("2026-11-25", "10:15");
+  assert.deepEqual(e.slotTimes(c.hours, 1), ["08:00", "10:00", "12:00", "14:00"]);
+  assert.deepEqual(e.slotTimes(c.hours, 3), ["00:00", "02:00", "04:00", "06:00"]);
+  const k = e.shiftClock(c);
+  assert.equal(k.elapsed, 255);
+  assert.equal(k.left, 225);
+  assert.equal(e.phaseOf(c), "during");
+  assert.equal(e.phaseOf(ctx("2026-11-25", "06:20")), "start");
+  assert.equal(e.phaseOf(ctx("2026-11-25", "13:20")), "end");
+  assert.equal(e.phaseOf(ctx("2026-11-25", "05:40", 1)), "before", "schimbul ales n-a început încă");
+  assert.equal(e.phaseOf({ ...ctx("2026-11-25", "23:30", 3) }), "during");
+  const d = seed();
+  const f = e.formBlock(d).b;
+  let st = e.slotState(f, ctx("2026-11-25", "10:05"));
+  assert.deepEqual(st.late.map((s) => s.time), ["08:00"], "după 15 minute verificarea devine întârziată");
+  assert.equal(st.due.time, "10:00", "verificarea de acum e cea mai recentă");
+  assert.equal(st.due.late, false);
+  for (let i = 0; i < 4; i++) e.setSlot(f, i, true, 4);
+  assert.ok(e.twoHourItems(f).every((i) => i.checked), "toate cele 4 ore bifate → DA");
+  st = e.formStatus(f, c);
+  assert.equal(st.da, 2);
+  assert.equal(st.total, 40);
+});
+
+test("liniile completează cifrele schimbului și arată ritmul", async () => {
+  const e = await import("../js/ept.js");
+  const d = seed();
+  const lb = m.linesBlock(d).b;
+  lb.shifts["2026-11-25 · Schimb 1"] = {
+    "Fam B1": { st: "ok", plan: "400", real: "150", reb: "3", down: "10" },
+    "PSA 3": { st: "stop", plan: "200", real: "100", down: "35" },
+  };
+  let rec = m.shiftRecords(d).find((r) => r.key === "2026-11-25 · Schimb 1");
+  assert.equal(rec.plan, 600);
+  assert.equal(rec.produced, 250);
+  assert.equal(rec.downtime, 45);
+  assert.ok(rec.fromLines);
+  shift(d, "2026-11-25", 1, { plan: 700 });
+  rec = m.shiftRecords(d).find((r) => r.key === "2026-11-25 · Schimb 1");
+  assert.equal(rec.plan, 700, "cifra din predare are prioritate");
+  assert.equal(rec.produced, 250);
+  const now = e.linesNow(d, ctx("2026-11-25", "10:15"));
+  assert.equal(now.stopped[0].name, "PSA 3");
+  // 255 din 480 de minute: la Fam B1 trebuiau ~212 buc, s-au făcut 150 (71%).
+  assert.deepEqual(now.behind.map((x) => x.name), ["Fam B1"]);
+  assert.equal(Math.round(now.behind[0].pace.pace), 71);
+  const week = m.weekSummary(d, ctx("2026-11-25"), "2026-11-23").lines;
+  assert.equal(week.find((x) => x.name === "PSA 3").stops, 1);
+  const a = advice(d, ctx("2026-11-25", "10:15"));
+  assert.equal(a[0].id, "line-stop");
+  assert.ok(a.some((x) => x.id === "line-behind"));
+});
+
+test("planul primei săptămâni: începe lunea după o zi de weekend", () => {
+  const d = seed();
+  d.settings.startDate = "2026-11-21";
+  const w = m.firstWeek(d, ctx("2026-11-25"));
+  assert.equal(w.monday, "2026-11-23");
+  assert.equal(w.today.name, "Miercuri");
+  assert.ok(w.running);
+  assert.equal(w.behind.length, w.days[0].list.items.length + w.days[1].list.items.length);
+  assert.equal(m.firstWeek(d, ctx("2026-12-20")).after, false);
 });

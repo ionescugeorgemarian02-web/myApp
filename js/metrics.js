@@ -67,24 +67,101 @@ export const SHIFT_FIELDS = [
   ["planned", "Efectiv planificat"],
   ["present", "Prezenți"],
 ];
+const SHIFT_KEY = /^(\d{4}-\d{2}-\d{2}) · Schimb ([123])$/;
 export function shiftRecords(data) {
-  const ho = handoverBlock(data);
-  if (!ho) return [];
-  const { b, p } = ho;
-  const dateCol = b.cols.find((c) => c.type === "date" && norm(c.name) === "data");
-  const shiftCol = colByName(b, "schimb");
   const byKey = new Map();
-  for (const r of b.rows) {
-    const date = r.values[dateCol.id], shift = Number(r.values[shiftCol.id]);
-    if (!validDate(date) || ![1, 2, 3].includes(shift)) continue;
-    const rec = { date, shift, key: date + " · Schimb " + shift, row: r, p, b };
-    for (const [key] of SHIFT_FIELDS) {
-      const col = colByKey(b, key);
-      rec[key] = col ? num(r.values[col.id]) : null;
+  const ho = handoverBlock(data);
+  if (ho) {
+    const { b, p } = ho;
+    const dateCol = b.cols.find((c) => c.type === "date" && norm(c.name) === "data");
+    const shiftCol = colByName(b, "schimb");
+    for (const r of b.rows) {
+      const date = r.values[dateCol.id], shift = Number(r.values[shiftCol.id]);
+      if (!validDate(date) || ![1, 2, 3].includes(shift)) continue;
+      const rec = { date, shift, key: date + " · Schimb " + shift, row: r, p, b };
+      for (const [key] of SHIFT_FIELDS) {
+        const col = colByKey(b, key);
+        rec[key] = col ? num(r.values[col.id]) : null;
+      }
+      byKey.set(rec.key, rec);
     }
-    byKey.set(rec.key, rec);
+  }
+  // Cifrele trecute pe linii completează ce lipsește din predare.
+  const lb = linesBlock(data);
+  for (const [key, shift] of Object.entries(lb?.b.shifts || {})) {
+    const m = SHIFT_KEY.exec(key);
+    if (!m || !validDate(m[1])) continue;
+    const t = lineTotals(Object.values(shift));
+    if (t.plan == null && t.real == null && t.reb == null && t.down == null) continue;
+    const rec = byKey.get(key) || { date: m[1], shift: Number(m[2]), key, row: null, p: null, b: null,
+      ...Object.fromEntries(SHIFT_FIELDS.map(([k]) => [k, null])) };
+    rec.fromLines = true;
+    rec.plan ??= t.plan;
+    rec.produced ??= t.real;
+    rec.scrap ??= t.reb;
+    rec.downtime ??= t.down;
+    byKey.set(key, rec);
   }
   return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+// ——— Liniile din subordine: starea pe schimb ———
+export const linesBlock = (data) => find(data, "lines", () => true);
+export const LINE_STATES = { ok: "OK", warn: "Atenție", stop: "Oprită" };
+export const LINE_FIELDS = [
+  ["plan", "Plan (buc)"],
+  ["real", "Realizat (buc)"],
+  ["reb", "Rebut (buc)"],
+  ["down", "Oprire (min)"],
+  ["op", "Operatori"],
+  ["tl", "TL pe linie (ore)"],
+];
+export function lineEntries(data, key) {
+  const shift = linesBlock(data)?.b.shifts?.[key] || {};
+  return equipmentList(data).map((name) => {
+    const raw = shift[name] || {};
+    const e = { name, st: ["ok", "warn", "stop"].includes(raw.st) ? raw.st : "", obs: typeof raw.obs === "string" ? raw.obs : "", at: raw.at || null };
+    for (const [k] of LINE_FIELDS) e[k] = num(raw[k]);
+    return e;
+  });
+}
+export function lineTotals(entries) {
+  const sum = (k) => {
+    const v = entries.map((e) => num(e[k])).filter((x) => x != null);
+    return v.length ? v.reduce((s, x) => s + x, 0) : null;
+  };
+  const plan = sum("plan"), real = sum("real");
+  return {
+    plan, real, reb: sum("reb"), down: sum("down"), op: sum("op"), tl: sum("tl"),
+    pct: plan > 0 && real != null ? (real / plan) * 100 : null,
+    ok: entries.filter((e) => e.st === "ok").length,
+    warn: entries.filter((e) => e.st === "warn").length,
+    stop: entries.filter((e) => e.st === "stop").length,
+    checked: entries.filter((e) => e.st).length,
+    total: entries.length,
+  };
+}
+// Totalurile fiecărei linii într-un interval (pentru analiza săptămânii).
+export function lineWeek(data, from, to) {
+  const lb = linesBlock(data);
+  const names = equipmentList(data);
+  const out = new Map(names.map((n) => [n, { name: n, plan: 0, real: 0, reb: 0, down: 0, stops: 0, warns: 0, shifts: 0, withPlan: 0 }]));
+  for (const [key, shift] of Object.entries(lb?.b.shifts || {})) {
+    const m = SHIFT_KEY.exec(key);
+    if (!m || !inRange(m[1], from, to)) continue;
+    for (const [name, raw] of Object.entries(shift)) {
+      const x = out.get(name);
+      if (!x || !raw) continue;
+      const plan = num(raw.plan), real = num(raw.real);
+      x.shifts++;
+      if (plan > 0 && real != null) { x.plan += plan; x.real += real; x.withPlan++; }
+      x.reb += num(raw.reb) || 0;
+      x.down += num(raw.down) || 0;
+      if (raw.st === "stop") x.stops++;
+      if (raw.st === "warn") x.warns++;
+    }
+  }
+  return [...out.values()].map((x) => ({ ...x, pct: x.plan > 0 ? (x.real / x.plan) * 100 : null }));
 }
 export function recordKpis(r) {
   return {
@@ -242,9 +319,12 @@ export function routineShifts(data) {
     const entries = Object.entries(b.history);
     if (b.key) entries.push([b.key, b.items]);
     for (const [key, items] of entries) {
-      const m = /^(\d{4}-\d{2}-\d{2}) · Schimb (\d)$/.exec(key);
-      if (!m || !items.length) continue;
-      out.push({ block: b, key, date: m[1], shift: Number(m[2]), done: items.filter((i) => i.checked).length, total: items.length, items });
+      const m = SHIFT_KEY.exec(key);
+      // Activitățile săptămânale nu intră în conformitatea pe schimb.
+      const daily = items.filter((i) => i.freq !== "sapt");
+      if (!m || !daily.length) continue;
+      out.push({ block: b, key, date: m[1], shift: Number(m[2]), done: daily.filter((i) => i.checked).length,
+        no: daily.filter((i) => i.no).length, total: daily.length, items: daily });
     }
   }
   return out.sort((a, b) => a.key.localeCompare(b.key));
@@ -256,7 +336,7 @@ export function skippedItems(data, ctx, last = 10) {
   const counts = new Map();
   for (const s of worked)
     for (const i of s.items) {
-      const c = counts.get(i.id) || { title: i.title, skipped: 0, seen: 0 };
+      const c = counts.get(i.id) || { title: i.group ? i.group + ": " + i.title : i.title, skipped: 0, seen: 0 };
       c.seen++;
       if (!i.checked) c.skipped++;
       counts.set(i.id, c);
@@ -390,8 +470,10 @@ export function weekSummary(data, ctx, start) {
     routine: {
       shifts: routine.length,
       rate: routine.length ? (routine.reduce((s, x) => s + x.done, 0) / routine.reduce((s, x) => s + x.total, 0)) * 100 : null,
+      no: routine.reduce((s, x) => s + (x.no || 0), 0),
       list: routine,
     },
+    lines: lineWeek(data, start, end),
     problemsOpened: probs.filter((x) => inRange(x.opened, start, end)).length,
     problemsClosed: probs.filter((x) => inRange(x.closedOn, start, end)).length,
     // Probleme încă deschise la sfârșitul săptămânii (restanța de lucru).
@@ -403,4 +485,34 @@ export function weekTrend(data, ctx, weeks = 8, end = weekStart(ctx.date)) {
   const out = [];
   for (let i = weeks - 1; i >= 0; i--) out.push(weekSummary(data, ctx, addDays(end, -7 * i)));
   return out;
+}
+
+// ——— Planul primei săptămâni (Luni–Vineri, din pagina cu zilele) ———
+const WEEKDAYS = ["luni", "marti", "miercuri", "joi", "vineri"];
+export function firstWeek(data, ctx) {
+  const p = data.pages.find((x) => !x.archived &&
+    x.blocks.filter((b) => b.type === "section" && WEEKDAYS.includes(norm(b.title))).length >= 3);
+  const start = data.settings.startDate;
+  if (!p || !validDate(start)) return null;
+  // Dacă prima zi a căzut în weekend, planul începe lunea următoare.
+  let monday = weekStart(start);
+  if ((toDate(start).getDay() + 6) % 7 >= 5) monday = addDays(monday, 7);
+  const days = [];
+  p.blocks.forEach((b, i) => {
+    const k = WEEKDAYS.indexOf(norm(b.title));
+    const list = p.blocks[i + 1];
+    if (b.type !== "section" || k < 0 || list?.type !== "checklist") return;
+    days.push({ name: b.title, date: addDays(monday, k), section: b, list });
+  });
+  if (!days.length) return null;
+  const end = addDays(monday, 4);
+  const left = days.flatMap((d) => d.list.items.filter((i) => !i.checked));
+  return {
+    p, monday, end, days,
+    today: days.find((d) => d.date === ctx.date) || null,
+    behind: days.filter((d) => d.date < ctx.date).flatMap((d) => d.list.items.filter((i) => !i.checked)),
+    left,
+    running: ctx.date >= monday && ctx.date <= end,
+    after: ctx.date > end && ctx.date <= addDays(end, 14) && left.length > 0,
+  };
 }

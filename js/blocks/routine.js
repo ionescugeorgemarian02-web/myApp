@@ -1,6 +1,8 @@
 import { checklist } from "./checklist.js";
 import { el, details } from "../ui.js";
+import { eptForm } from "./eptform.js";
 export function routine(b, c, compact) {
+  if (b.form === "ept") return eptForm(b, c);
   let n = checklist(b, c, compact);
   if (!compact) {
     let d = details("Istoricul schimburilor", "hist-" + b.id, "history");
