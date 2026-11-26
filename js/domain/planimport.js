@@ -26,20 +26,24 @@ export function parsePlanText(text, doc) {
     const pn = afterTokens.find(isPn) || null;
     const after = afterTokens.filter(isInt).map(Number);
     let target, ops;
+    let rate = null;
     if (before.length) { target = before[0]; ops = after.length ? after.at(-1) : null; }
-    else { target = after[0] ?? null; ops = after[1] ?? null; }
+    else { target = after[0] ?? null; ops = after[1] ?? null; rate = after[2] ?? null; }
     if (!target) { skipped.push(line.name); continue; }
     if (rows.some((r) => r.lineId === line.id)) { errors.push(line.name + " apare de două ori."); continue; }
-    rows.push({ lineId: line.id, lineName: line.name, pn, target, ops });
+    rows.push({ lineId: line.id, lineName: line.name, pn, target, ops, norm: rate });
   }
   return { rows, errors, skipped, total: rows.reduce((a, r) => a + r.target, 0) };
 }
 
-export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanned = false } = {}) {
+export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanned = false, hours = null, norms = null } = {}) {
   const sk = shiftKey(workDay, shift.id);
   doc.plans[sk] ||= {};
   for (const r of rows) if (doc.plans[sk][r.lineId]?.baseline) throw Error(r.lineName + " are deja un plan confirmat (baseline). Folosește replanificarea, cu motiv.");
   let created = 0;
+  // Profil orar (total pe ore): planul fiecărei linii se împarte pe ore păstrând totalurile pe linie și pe oră.
+  const split = hours ? splitByProfile(rows.map((r) => r.target), hours) : null;
+  rows.forEach((r, i) => (r._hourly = split ? split[i] : null));
   for (const r of rows) {
     const line = doc.master.lines.find((l) => l.id === r.lineId);
     let pnId = null;
@@ -48,10 +52,17 @@ export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanne
       if (!p) { p = { id: uid(), code: r.pn, name: "", ict: null, cycleSec: null }; doc.master.pns.push(p); created++; }
       pnId = p.id;
       if (!line.pnIds.includes(p.id)) line.pnIds.push(p.id);
+      if (r.norm > 0) p.cycleSec = Math.round((3600 / r.norm) * 100) / 100; // ciclu planificat din norma orară (nu ICT)
     }
     if (r.ops) line.requiredOps = r.ops;
+    if (r.norm > 0) line.hourlyNorm = r.norm;
     doc.plans[sk][r.lineId] = { lineId: r.lineId, notPlanned: false, baseline: null, revisions: [],
-      runs: [{ id: uid(), pnId, start: shift.start, end: shift.end, target: r.target, method: "productive", ops: r.ops, priority: "B", note: "" }] };
+      runs: [{ id: uid(), pnId, start: shift.start, end: shift.end, target: r.target, method: r._hourly ? "manual" : "productive", hourly: r._hourly || undefined, ops: r.ops, priority: "B", note: "" }] };
+    delete r._hourly;
+  }
+  for (const [name, n] of Object.entries(norms || {})) {
+    const l = doc.master.lines.find((x) => norm(x.name) === norm(name));
+    if (l && Number.isInteger(n) && n >= 0) l.hourlyNorm = n;
   }
   if (markOthersNotPlanned)
     for (const l of doc.master.lines) if (!rows.some((r) => r.lineId === l.id) && !doc.plans[sk][l.id]?.baseline)
@@ -74,9 +85,38 @@ export function decodePlanLink(code) {
   } catch { throw Error("Linkul de plan este deteriorat."); }
   const ok = p && p.v === 1 && /^\d{4}-\d{2}-\d{2}$/.test(p.day) && typeof p.shift === "string" && Array.isArray(p.rows) && p.rows.length <= 100 &&
     p.rows.every((r) => Array.isArray(r) && typeof r[0] === "string" && (r[1] === null || typeof r[1] === "string") && Number.isInteger(r[2]) && r[2] >= 0 && (r[3] === null || (Number.isInteger(r[3]) && r[3] >= 0)));
-  if (!ok) throw Error("Linkul de plan are un format greșit.");
-  return { v: 1, day: p.day, shift: p.shift, rows: p.rows.map((r) => [r[0], r[1], r[2], r[3]]), others: !!p.others };
+  const intOk = (x) => Number.isInteger(x) && x >= 0;
+  const extraOk = p.rows.every((r) => r[4] === undefined || r[4] === null || intOk(r[4])) &&
+    (p.hours === undefined || (Array.isArray(p.hours) && p.hours.length <= 24 && p.hours.every(intOk))) &&
+    (p.norms === undefined || (p.norms && typeof p.norms === "object" && !Array.isArray(p.norms) && Object.values(p.norms).every(intOk)));
+  if (!ok || !extraOk) throw Error("Linkul de plan are un format greșit.");
+  const out = { v: 1, day: p.day, shift: p.shift, rows: p.rows.map((r) => (r[4] === undefined ? [r[0], r[1], r[2], r[3]] : [r[0], r[1], r[2], r[3], r[4]])), others: !!p.others };
+  if (p.hours) out.hours = p.hours.slice();
+  if (p.norms) out.norms = Object.fromEntries(Object.entries(p.norms).filter(([k]) => !["__proto__", "constructor", "prototype"].includes(k)));
+  return out;
 }
 export function rowsFromPayload(p, doc) {
-  return parsePlanText(p.rows.map((r) => [r[0], r[1] || "", r[2], r[3] ?? ""].join("; ")).join("\n"), doc);
+  return parsePlanText(p.rows.map((r) => [r[0], r[1] || "", r[2], r[3] ?? "", r[4] ?? ""].join("; ")).join("\n"), doc);
+}
+
+// Împarte planurile pe ore după un profil cu același total: rotunjire controlată care păstrează
+// exact atât totalul fiecărei linii, cât și totalul fiecărei ore.
+export function splitByProfile(plans, profile) {
+  const T = plans.reduce((a, b) => a + b, 0);
+  if (profile.reduce((a, b) => a + b, 0) !== T) throw Error("Profilul orar nu are același total ca planul.");
+  const exact = plans.map((p) => profile.map((w) => (T ? (p * w) / T : 0)));
+  const m = exact.map((row) => row.map(Math.floor));
+  const rowNeed = plans.map((p, i) => p - m[i].reduce((a, b) => a + b, 0));
+  const colNeed = profile.map((w, j) => w - m.reduce((a, row) => a + row[j], 0));
+  const cells = [];
+  exact.forEach((row, i) => row.forEach((x, j) => cells.push([x - Math.floor(x), i, j])));
+  cells.sort((a, b) => b[0] - a[0]);
+  for (const [, i, j] of cells) if (rowNeed[i] > 0 && colNeed[j] > 0) { m[i][j]++; rowNeed[i]--; colNeed[j]--; }
+  // Reparare (rar): dacă au rămas unități, se mută între celule fără a strica totalurile.
+  for (let i = 0; i < plans.length; i++) while (rowNeed[i] > 0) {
+    const j = colNeed.findIndex((c) => c > 0);
+    if (j < 0) break;
+    m[i][j]++; rowNeed[i]--; colNeed[j]--;
+  }
+  return m;
 }

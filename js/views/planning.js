@@ -175,14 +175,18 @@ export function importLinkView(_p, q) {
     applied ? note("Acest plan a fost deja aplicat la " + new Date(applied).toLocaleString("ro-RO") + ". Îl poți aplica din nou dacă s-a schimbat ceva.", "run") : null,
     res.errors.map((e) => note(e, "stop")),
     h("div.tablewrap", null, h("table.t", null,
-      h("thead", null, h("tr", null, ["Linie", "PN", "Plan", "Op."].map((x) => h("th", null, x)))),
-      h("tbody", null, res.rows.map((r) => h("tr", null, h("td", null, r.lineName), h("td", null, r.pn || "—"), h("td.num", null, fmtN(r.target)), h("td.num", null, r.ops ?? "—")))),
-      h("tfoot", null, h("tr", null, h("td", null, "Total"), h("td"), h("td.num", null, fmtN(res.total)), h("td"))))),
+      h("thead", null, h("tr", null, ["Linie", "PN", "Plan", "Op.", "Normă/oră"].map((x) => h("th", null, x)))),
+      h("tbody", null, res.rows.map((r) => h("tr", null, h("td", null, r.lineName), h("td", null, r.pn || "—"), h("td.num", null, fmtN(r.target)), h("td.num", null, r.ops ?? "—"), h("td.num", null, r.norm ?? "—")))),
+      h("tfoot", null, h("tr", null, h("td", null, "Total"), h("td"), h("td.num", null, fmtN(res.total)), h("td"), h("td"))))),
+    payload.hours ? h("div.panel.pad", { style: { marginTop: "12px" } }, h("b", null, "Împărțirea pe ore"),
+      h("div.hprof", null, payload.hours.map((v, i) => h("span", null, h("small", null, "Ora " + (i + 1)), h("b.num", null, fmtN(v))))),
+      h("p.small.muted", null, "Fiecare linie primește partea ei din fiecare oră; totalurile pe linie și pe oră rămân exacte.")) : null,
     payload.others ? h("p.small.muted", { style: { marginTop: "8px" } }, "Liniile care nu apar: fără producție planificată.") : null,
     h("div.sticky-actions", null, btn("Renunță", () => (location.hash = "#/"), "ghost"), btn("Aplică planul", () => {
       if (res.errors.length || !res.rows.length) return toast("Linkul conține rânduri invalide.", { err: true });
+      if (payload.hours && payload.hours.length !== slotsOf(payload.day, shift).length) return toast("Profilul orar nu are câte o valoare pentru fiecare oră a schimbului.", { err: true });
       const r = commit((d) => {
-        const out = applyPlanImport(d, res.rows, payload.day, shift, { markOthersNotPlanned: payload.others });
+        const out = applyPlanImport(d, res.rows, payload.day, shift, { markOthersNotPlanned: payload.others, hours: payload.hours || null, norms: payload.norms || null });
         d.meta.appliedLinks = { ...(d.meta.appliedLinks || {}), [key]: new Date().toISOString() };
         return out;
       }, null, { undo: false });
