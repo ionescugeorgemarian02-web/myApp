@@ -92,7 +92,7 @@ export function summarize(rows, now) {
     repPlan: rep.reduce((a, r) => a + r.plan, 0),
     repActual: rep.reduce((a, r) => a + r.actual, 0),
     delta: rep.length ? rep.reduce((a, r) => a + r.actual - r.plan, 0) : null,
-    missingClosed: rows.filter((r) => r.state === "overdue" || (r.state === "incomplete" && r.slot.to <= now)).length,
+    missingClosed: rows.filter((r) => r.state === "overdue" || (r.state === "incomplete" && r.actual === null && r.slot.to <= now)).length, // fără bucăți raportate; lipsa rebutului se vede la „incomplete”
     planTotal: rows.every((r) => r.plan !== null) ? rows.reduce((a, r) => a + r.plan, 0) : null,
     planToNow,
     actual: known.length ? known.reduce((a, r) => a + r.actual, 0) : null,

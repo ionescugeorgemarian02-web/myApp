@@ -55,6 +55,8 @@ export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanne
       if (r.norm > 0) p.cycleSec = Math.round((3600 / r.norm) * 100) / 100; // ciclu planificat din norma orară (nu ICT)
     }
     if (r.ops) line.requiredOps = r.ops;
+    // Reparație: un link anterior cu operatori lipsă salva norma ca operatori (ex. 30 operatori = 30 buc/oră).
+    else if (r.ops == null && r.norm > 0 && line.requiredOps === r.norm) line.requiredOps = null;
     if (r.norm > 0) line.hourlyNorm = r.norm;
     doc.plans[sk][r.lineId] = { lineId: r.lineId, notPlanned: false, baseline: null, revisions: [],
       runs: [{ id: uid(), pnId, start: shift.start, end: shift.end, target: r.target, method: r._hourly ? "manual" : "productive", hourly: r._hourly || undefined, ops: r.ops, priority: "B", note: "" }] };
@@ -72,6 +74,7 @@ export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanne
 
 // Link de plan: datele merg doar în link (fragmentul #, nu ajunge la server și nu e în cod).
 // Format: { v: 1, day: "YYYY-MM-DD", shift: "S1", rows: [[linie, pn, plan, operatori]], others: bool }
+const BAD_KEYS = ["__proto__", "constructor", "prototype"];
 const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 export function encodePlanLink(payload) {
   return b64url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -88,15 +91,28 @@ export function decodePlanLink(code) {
   const intOk = (x) => Number.isInteger(x) && x >= 0;
   const extraOk = p.rows.every((r) => r[4] === undefined || r[4] === null || intOk(r[4])) &&
     (p.hours === undefined || (Array.isArray(p.hours) && p.hours.length <= 24 && p.hours.every(intOk))) &&
-    (p.norms === undefined || (p.norms && typeof p.norms === "object" && !Array.isArray(p.norms) && Object.values(p.norms).every(intOk)));
+    (p.norms === undefined || (p.norms && typeof p.norms === "object" && !Array.isArray(p.norms) && Object.values(p.norms).every(intOk))) &&
+    (p.actuals === undefined || (p.actuals && typeof p.actuals === "object" && !Array.isArray(p.actuals) &&
+      Object.values(p.actuals).every((a) => Array.isArray(a) && a.length <= 24 && a.every((x) => x === null || intOk(x)))));
   if (!ok || !extraOk) throw Error("Linkul de plan are un format greșit.");
   const out = { v: 1, day: p.day, shift: p.shift, rows: p.rows.map((r) => (r[4] === undefined ? [r[0], r[1], r[2], r[3]] : [r[0], r[1], r[2], r[3], r[4]])), others: !!p.others };
   if (p.hours) out.hours = p.hours.slice();
-  if (p.norms) out.norms = Object.fromEntries(Object.entries(p.norms).filter(([k]) => !["__proto__", "constructor", "prototype"].includes(k)));
+  if (p.norms) out.norms = Object.fromEntries(Object.entries(p.norms).filter(([k]) => !BAD_KEYS.includes(k)));
+  if (p.actuals) out.actuals = Object.fromEntries(Object.entries(p.actuals).filter(([k]) => !BAD_KEYS.includes(k)).map(([k, a]) => [k, a.slice()]));
   return out;
 }
 export function rowsFromPayload(p, doc) {
-  return parsePlanText(p.rows.map((r) => [r[0], r[1] || "", r[2], r[3] ?? "", r[4] ?? ""].join("; ")).join("\n"), doc);
+  // Pozițional (nu prin text): o coloană goală (ex. operatori necunoscuți) nu mută valorile următoare.
+  const byName = new Map(doc.master.lines.map((l) => [norm(l.name), l]));
+  const rows = [], errors = [], skipped = [];
+  for (const [name, pn, target, ops, rate] of p.rows) {
+    const line = byName.get(norm(name));
+    if (!line) { errors.push("Linia „" + name + "” nu există în catalog."); continue; }
+    if (!target) { skipped.push(line.name); continue; }
+    if (rows.some((r) => r.lineId === line.id)) { errors.push(line.name + " apare de două ori."); continue; }
+    rows.push({ lineId: line.id, lineName: line.name, pn: pn || null, target, ops: ops ?? null, norm: rate ?? null });
+  }
+  return { rows, errors, skipped, total: rows.reduce((a, r) => a + r.target, 0) };
 }
 
 // Împarte planurile pe ore după un profil cu același total: rotunjire controlată care păstrează
@@ -119,4 +135,28 @@ export function splitByProfile(plans, profile) {
     m[i][j]++; rowNeed[i]--; colNeed[j]--;
   }
   return m;
+}
+
+// Realizatul pe ore venit din link (ex. raportul orar din Excel): { linie: [ora1, ora2, …] }, null = lipsă.
+// Se salvează ca raport orar cu rebut/rework necunoscute (raport incomplet, nu 0). Un raport introdus
+// pe telefon are prioritate; rapoartele venite anterior din link se actualizează.
+export function applyActuals(doc, actuals, workDay, shift, at = new Date().toISOString()) {
+  const sk = shiftKey(workDay, shift.id);
+  let saved = 0, kept = 0;
+  const unknown = [];
+  for (const [name, list] of Object.entries(actuals || {})) {
+    const line = doc.master.lines.find((l) => norm(l.name) === norm(name));
+    if (!line) { unknown.push(name); continue; }
+    const pnId = doc.plans[sk]?.[line.id]?.runs?.[0]?.pnId ?? null;
+    list.forEach((total, i) => {
+      if (!Number.isInteger(total)) return;
+      doc.reports[sk] ||= {};
+      doc.reports[sk][line.id] ||= {};
+      const cur = doc.reports[sk][line.id][i];
+      if (cur && cur.source !== "link") { kept++; return; }
+      doc.reports[sk][line.id][i] = { splits: [{ pnId, total, scrap: null, rework: null }], note: "", reason: "", issueId: null, na: false, at, source: "link" };
+      saved++;
+    });
+  }
+  return { saved, kept, unknown };
 }

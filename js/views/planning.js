@@ -6,7 +6,7 @@ import { fmtN, nn } from "../core/num.js";
 import { slotsOf, fmtHM, fmtDay, nextShift, shiftKey } from "../core/time.js";
 import { distribute, hourlyPlan, total, METHODS, planIssues, runSlotMinutes, confirmBaseline, revisePlan, runWindow } from "../domain/plan.js";
 import { gantt } from "../ui/charts.js";
-import { parsePlanText, applyPlanImport, decodePlanLink, rowsFromPayload } from "../domain/planimport.js";
+import { parsePlanText, applyPlanImport, applyActuals, decodePlanLink, rowsFromPayload } from "../domain/planimport.js";
 import { pnItems, pnField, pageHead, prodTabs } from "./common.js";
 import { presentIds } from "../domain/workforce.js";
 
@@ -181,15 +181,39 @@ export function importLinkView(_p, q) {
     payload.hours ? h("div.panel.pad", { style: { marginTop: "12px" } }, h("b", null, "Împărțirea pe ore"),
       h("div.hprof", null, payload.hours.map((v, i) => h("span", null, h("small", null, "Ora " + (i + 1)), h("b.num", null, fmtN(v))))),
       h("p.small.muted", null, "Fiecare linie primește partea ei din fiecare oră; totalurile pe linie și pe oră rămân exacte.")) : null,
+    payload.actuals ? actualsPanel(payload, res) : null,
     payload.others ? h("p.small.muted", { style: { marginTop: "8px" } }, "Liniile care nu apar: fără producție planificată.") : null,
     h("div.sticky-actions", null, btn("Renunță", () => (location.hash = "#/"), "ghost"), btn("Aplică planul", () => {
       if (res.errors.length || !res.rows.length) return toast("Linkul conține rânduri invalide.", { err: true });
       if (payload.hours && payload.hours.length !== slotsOf(payload.day, shift).length) return toast("Profilul orar nu are câte o valoare pentru fiecare oră a schimbului.", { err: true });
       const r = commit((d) => {
         const out = applyPlanImport(d, res.rows, payload.day, shift, { markOthersNotPlanned: payload.others, hours: payload.hours || null, norms: payload.norms || null });
+        if (payload.actuals) out.actuals = applyActuals(d, payload.actuals, payload.day, shift);
         d.meta.appliedLinks = { ...(d.meta.appliedLinks || {}), [key]: new Date().toISOString() };
         return out;
       }, null, { undo: false });
-      if (r.ok) { toast("Plan aplicat: " + r.result.lines + " linii, " + fmtN(r.result.total) + " buc, " + r.result.created + " PN-uri noi salvate."); location.hash = "#/production"; }
+      if (r.ok) {
+        const a = r.result.actuals;
+        toast("Plan aplicat: " + r.result.lines + " linii, " + fmtN(r.result.total) + " buc, " + r.result.created + " PN-uri noi salvate." +
+          (a ? " Rapoarte orare: " + a.saved + " salvate" + (a.kept ? ", " + a.kept + " păstrate de pe telefon" : "") + "." : ""));
+        location.hash = "#/production";
+      }
     }, "primary big")));
+}
+
+// Realizatul pe ore din link: tabel compact linie × oră; „—” = lipsă (nu 0).
+function actualsPanel(payload, res) {
+  const n = Math.max(...Object.values(payload.actuals).map((a) => a.length), 0);
+  const names = Object.keys(payload.actuals);
+  const colSum = Array.from({ length: n }, (_, i) => names.reduce((s, k) => (Number.isInteger(payload.actuals[k][i]) ? s + payload.actuals[k][i] : s), 0));
+  const planOf = (k) => res.rows.find((r) => r.lineName.toLowerCase() === k.toLowerCase())?.target;
+  return h("div.panel.pad", { style: { marginTop: "12px" } }, h("b", null, "Realizat pe ore"),
+    h("div.tablewrap", null, h("table.t", null,
+      h("thead", null, h("tr", null, h("th", null, "Linie"), Array.from({ length: n }, (_, i) => h("th.num", null, "Ora " + (i + 1))), h("th.num", null, "Total"), h("th.num", null, "Plan"))),
+      h("tbody", null, names.map((k) => {
+        const a = payload.actuals[k], t = a.filter(Number.isInteger).reduce((x, y) => x + y, 0);
+        return h("tr", null, h("td", null, k), Array.from({ length: n }, (_, i) => h("td.num", null, Number.isInteger(a[i]) ? fmtN(a[i]) : "—")), h("td.num", null, fmtN(t)), h("td.num", null, planOf(k) != null ? fmtN(planOf(k)) : "—"));
+      })),
+      h("tfoot", null, h("tr", null, h("td", null, "Total"), colSum.map((v) => h("td.num", null, fmtN(v))), h("td.num", null, fmtN(colSum.reduce((x, y) => x + y, 0))), h("td"))))),
+    h("p.small.muted", null, "Se salvează ca rapoarte orare. Rebutul și rework-ul nu sunt în link: rapoartele rămân incomplete până le completezi. Un raport introdus deja pe telefon nu se suprascrie."));
 }
