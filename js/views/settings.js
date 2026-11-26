@@ -1,272 +1,170 @@
-import { app } from "../state.js";
-import { el, btn, input, details, confirmAsk, toast } from "../ui.js";
-import { backup, restore, replaceNotebook, validHours, flush } from "../store.js";
-import { seed, organize } from "../seed.js";
+// MAI MULT — meniu, setări (program, praguri, temă, pontaj), cataloage (master data), backup și limitele stocării locale.
+import { h, put, btn, icon, tag, sect, seg, chips, empty, note, sheet, field, input, numInput, area, select, toast, item, confirmSheet, promptSheet } from "../ui/kit.js";
+import { S, ctx, commit, now, byId, applyTheme, VERSION } from "../state.js";
+import { uid, emptyDoc } from "../core/doc.js";
+import { nn } from "../core/num.js";
+import { validHM } from "../core/time.js";
+import { exportDoc, readBackup, replaceDoc, loadLegacy, download } from "../core/store.js";
+import { migrateV4 } from "../core/migrate.js";
+import { demoDoc } from "../core/seed.js";
+import { pageHead, backLink } from "./common.js";
 
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const hoursDrafts = new WeakMap();
-const deviceTheme = matchMedia("(prefers-color-scheme: dark)");
-
-export function applyTheme(preference) {
-  const light = preference === "Luminoasă" || (preference === "Automat" && !deviceTheme.matches);
-  const root = document.documentElement;
-  const theme = light ? "Luminoasă" : "Întunecată";
-  if (root.dataset.theme === theme) return;
-  root.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]').content =
-    getComputedStyle(root).getPropertyValue("--bg").trim();
+export function moreView() {
+  const link = (href, ic, t, s) => item({ href, title: t, sub: s, lead: h("span.lead-ic", null, icon(ic)) });
+  return h("div", null, pageHead("Mai mult"),
+    h("div.list", null,
+      link("#/tasks", "list", "Sarcini", "Action Center: listă și Kanban"),
+      link("#/handover", "handover", "Predarea schimbului", "Generată automat din date"),
+      link("#/routine", "check", "Rutina mea EPT", "Supervisor standard work"),
+      link("#/oee", "chart", "Rapoarte și analiză", "OEE, Pareto, trenduri"),
+      link("#/incidents", "wrench", "Istoric incidente", "MTTR, MTBF, recurențe"),
+      link("#/catalog", "box", "Cataloage", "Linii, mașini, PN-uri, oameni, coduri de defect"),
+      link("#/settings", "settings", "Setări și backup", "Program, praguri, temă, copii de siguranță")),
+    h("p.tiny.faint", { style: { marginTop: "16px" } }, "myApp " + VERSION + " · date locale, fără sincronizare · " + (S.training ? "mod Instruire (date sintetice)" : "mod real")));
 }
 
-deviceTheme.addEventListener("change", () => {
-  if (app.data?.settings.theme === "Automat") applyTheme("Automat");
-});
-
-function card(title) {
-  const section = el("div", "", "settingsBody");
-  section.append(el("h2", title));
-  return section;
+export function settingsView() {
+  const doc = S.doc, st = doc.settings;
+  const save = (msg) => commit(() => 0, msg, { undo: false });
+  return h("div", null, backLink("#/more", "Mai mult"), pageHead("Setări"),
+    sect("Aspect"),
+    h("div.panel.pad", null, field("Temă", seg([["auto", "Automată"], ["light", "Luminoasă"], ["dark", "Întunecată"]], st.theme, (v) => { commit(() => (st.theme = v), null, { undo: false }); applyTheme(); }))),
+    sect("Programul schimburilor"),
+    h("div.panel.pad.stack", null, st.shifts.map((sh) => h("div.shiftcfg", null,
+      h("b", null, sh.name),
+      h("div.fields.c2", null, ...["start", "end"].map((k) => field(k === "start" ? "Început" : "Final", input(sh[k], null, { type: "time",
+        onchange: (e) => { const v = e.target.value; if (!validHM(v)) { toast("Ora nu este validă.", { err: true }); e.target.value = sh[k]; return; } commit(() => (sh[k] = v), "Program salvat"); } })))),
+      h("div.small.muted", null, "Pauze: " + (sh.breaks.length ? sh.breaks.map((b) => b.start + "–" + b.end).join(", ") : "niciuna configurată")),
+      h("div.row.wrap", null, btn("Adaugă pauză", async () => {
+        const v = await promptSheet("Pauză · " + sh.name, "Interval (ex. 10:00-10:20)");
+        const m = /^(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})$/.exec(v || "");
+        if (!m || !validHM(m[1]) || !validHM(m[2])) { if (v) toast("Format: 10:00-10:20", { err: true }); return; }
+        commit(() => sh.breaks.push({ start: m[1], end: m[2] }), "Pauză adăugată");
+      }, "ghost", "plus"), sh.breaks.length ? btn("Șterge pauzele", () => commit(() => (sh.breaks = []), "Pauze șterse"), "ghost") : null))),
+      note("Pauzele scad minutele productive din plan și din OEE. Nu sunt presupuse: configurează-le după programul real."),
+      note("Atenție: schimbarea orelor reinterpretează intervalele orare ale schimburilor deja raportate. Modifică programul între schimburi.", "warn")),
+    sect("Praguri pentru asistent"),
+    h("div.panel.pad.fields.c2", null, ...[["underTarget", "Sub target (%)"], ["stopAlertMin", "Alertă oprire (min)"], ["escalateStopMin", "Escaladare oprire (min)"], ["reportGraceMin", "Toleranță raport orar (min)"], ["tlLineMaxMin", "TL pe linie, maxim (min, regulă locală)"]].map(([k, l]) =>
+      field(l, numInput(st.thresholds[k], (v) => { const n = nn(v, true); if (n !== null) st.thresholds[k] = n; }, { onchange: () => save("Prag salvat") })))),
+    sect("Liste configurabile"),
+    h("div.panel.pad.stack", null, listEditor("Departamente", st.departments), listEditor("Categorii de personal", st.personCategories), listEditor("Categorii de incident", st.incidentCategories),
+      h("div", null, h("b", null, "Coduri de pontaj"), h("p.small.muted", null, st.attendance.map((a) => a.label + (a.present ? " (prezent)" : "")).join(", ")), btn("Adaugă cod", async () => {
+        const v = await promptSheet("Cod de pontaj", "Denumire"); if (!v) return;
+        const present = await confirmSheet("Contează ca prezent?", "„" + v + "” înseamnă că persoana este disponibilă pentru alocare?", "Da, prezent");
+        commit(() => st.attendance.push({ id: "c" + uid().slice(0, 6), label: v, present }), "Cod adăugat");
+      }, "ghost", "plus"))),
+    sect("Copie de siguranță"),
+    h("div.panel.pad.stack", null,
+      note("Datele sunt salvate doar în acest browser (IndexedDB) și nu sunt criptate de aplicație. Ștergerea datelor browserului, pierderea telefonului sau schimbarea adresei aplicației le fac inaccesibile. Exportă regulat și păstrează copia într-un loc aprobat.", "warn"),
+      h("div.row.wrap", null, btn("Descarcă copia (JSON)", () => exportDoc(doc), "primary", "download"),
+        h("label.btn", null, icon("upload"), "Restaurează din copie", h("input.sr", { type: "file", accept: "application/json,.json", onchange: (e) => restore(e.target.files[0]) }))),
+      !S.training ? btn("Descarcă datele caietului v4.4 (neatinse)", async () => { const old = await loadLegacy(); if (!old) return toast("Nu există caiet v4.4 pe acest dispozitiv."); download("caiet-v44-" + ctx().workDay + ".json", JSON.stringify(old), "application/json"); }, "ghost", "history") : null,
+      !S.training ? btn("Reimportă din v4.4", async () => {
+        const old = await loadLegacy(); if (!old) return toast("Nu există caiet v4.4.");
+        if (!(await confirmSheet("Înlocuiești datele v2?", "Datele myApp 2 de pe dispozitiv se înlocuiesc cu importul din v4.4. Exportă întâi o copie.", "Înlocuiește", true))) return;
+        const d = migrateV4(old, now()); await replaceDoc(d); location.reload();
+      }, "ghost") : null),
+    sect("Mod de lucru"),
+    h("div.panel.pad.stack", null,
+      S.training ? note("Mod Instruire: date sintetice, separate de datele reale.", "warn") : note("Mod real. Introdu date interne doar dacă politica angajatorului permite utilizarea dispozitivului."),
+      h("div.row.wrap", null, S.training ? btn("Ieși din Instruire", () => (location.href = location.pathname)) : btn("Deschide modul Instruire", () => (location.href = location.pathname + "?mod=instruire"), "", "eye"),
+        S.training ? btn("Regenerează datele sintetice", async () => { if (await confirmSheet("Regenerezi?", "Datele de instruire se înlocuiesc.", "Regenerează")) { await replaceDoc(demoDoc(now())); location.reload(); } }, "ghost") : null)));
 }
-
-function schedule(preferences) {
-  const section = card("Programul schimburilor");
-  const draft = hoursDrafts.get(preferences) || [...preferences.hours];
-  const row = el("div", "", "scheduleTimes");
-  const message = el("p", "", "scheduleMessage");
-  message.id = "scheduleMessage";
-  message.setAttribute("aria-live", "polite");
-
-  const apply = btn("Aplică programul", async () => {
-    if (!validHours(draft)) return;
-    preferences.hours = [...draft];
-    preferences.scheduleConfirmed = true;
-    delete preferences.slot;
-    delete preferences.shift;
-    hoursDrafts.delete(preferences);
-    app.refresh();
-    try {
-      await flush();
-      toast("Programul a fost aplicat");
-    } catch {
-      toast("Salvarea a eșuat. Verifică spațiul liber din browser.");
-    }
-  }, "primary", "check");
-
-  function validate() {
-    const changed = draft.some((h, i) => h !== preferences.hours[i]);
-    const valid = validHours(draft);
-    apply.disabled = !valid || (!changed && preferences.scheduleConfirmed === true);
-    message.textContent = !valid
-      ? "Completează cele trei ore în ordine crescătoare."
-      : changed ? "Program modificat. Apasă „Aplică programul” pentru salvare." : "";
-    message.classList.toggle("invalid", !valid);
-    row.querySelectorAll("input").forEach((field, i) => {
-      field.setAttribute("aria-invalid", !draft[i] || (i > 0 && draft[i] <= draft[i - 1]));
-    });
-  }
-
-  draft.forEach((hour, i) => {
-    const field = input("Schimb " + (i + 1), hour, (value) => {
-      draft[i] = value;
-      hoursDrafts.set(preferences, draft);
-      validate();
-    }, "time");
-    field.querySelector("input").setAttribute("aria-describedby", message.id);
-    row.append(field);
-  });
-  validate();
-  section.append(
-    el("p", "Ia orele de început din programul aprobat. Introdu-le în ordine, de la schimbul 1 la 3, apoi apasă Aplică programul și verifică schimbul afișat în Azi.", "hint"),
-    row, message, apply,
-  );
-  return section;
+function listEditor(title, arr) {
+  return h("div", null, h("b", null, title), h("div.chipline", null, arr.map((x, i) => h("span.pchip", null, x, h("button.x", { type: "button", "aria-label": "Șterge " + x, onclick: () => commit(() => arr.splice(i, 1), "Șters") }, "×"))),
+    h("button.pchip.add", { type: "button", onclick: async () => { const v = await promptSheet(title, "Denumire"); if (v) commit(() => arr.push(v), "Adăugat"); } }, "+ adaugă")));
 }
-
-// Posturile și mașinile liniei: folosite la probleme, siguranță și polivalență.
-function lineCard(preferences) {
-  const section = card("Zona și liniile");
-  section.append(el("p", "Zona ta (ex. Sudură) cuprinde toate liniile de mai jos. Producția raportată pe o linie intră și în totalul zonei. Scrie câte o linie pe rând, în ordinea în care vrei să le vezi.", "hint"));
-  const list = el("textarea");
-  list.rows = 8;
-  list.value = (preferences.equipment || []).join("\n");
-  list.setAttribute("aria-label", "Liniile mele, câte una pe rând");
-  list.placeholder = "Fam B1\nPSA 3\nX90 Audi";
-  const status = el("p", "", "settingsMetadata");
-  const count = () => {
-    const n = (preferences.equipment || []).length;
-    status.textContent = n ? n + (n === 1 ? " linie salvată." : " linii salvate.") : "Nicio linie adăugată încă.";
-  };
-  list.onchange = () => {
-    const seen = new Set();
-    preferences.equipment = list.value.split("\n").map((x) => x.trim()).filter((x) => {
-      const k = x.toLowerCase();
-      if (!x || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    list.value = preferences.equipment.join("\n");
-    app.save();
-    count();
-    toast("Lista liniilor a fost salvată");
-  };
-  count();
-  const start = input("Prima zi în funcție (pentru planul de 90 de zile)", preferences.startDate || "", (value) => {
-    if (!value) return;
-    preferences.startDate = value;
-    app.save();
-  }, "date");
-  section.append(input("Zona sau linia curentă", preferences.zone || "", (value) => {
-    preferences.zone = value.trim();
-    app.save();
-  }), el("p", "Liniile zonei", "formHelp"), list, status, start);
-  return section;
-}
-
-function appearance(preferences) {
-  const section = card("Aspect");
-  const choices = el("div", "", "segmented light");
-  choices.setAttribute("role", "group");
-  choices.setAttribute("aria-label", "Tema caietului");
-  for (const theme of ["Întunecată", "Luminoasă", "Automat"]) {
-    const selected = preferences.theme === theme;
-    const choice = btn(theme, () => {
-      preferences.theme = theme;
-      app.refresh();
-    }, selected ? "on" : "");
-    choice.setAttribute("aria-pressed", selected);
-    choices.append(choice);
-  }
-  section.append(el("p", "„Automat” folosește tema dispozitivului.", "hint"), choices);
-  return section;
-}
-
-async function switchNotebook(next) {
-  const main = document.querySelector("main"), header = document.querySelector("header");
-  main.inert = header.inert = true;
+async function restore(file) {
+  if (!file) return;
   try {
-    organize(next);
-    await replaceNotebook(next);
-    app.data = next;
-    app.undo = null;
-    app.editing = null;
-    app.open.clear();
-    app.render();
-  } finally {
-    main.inert = header.inert = false;
-  }
+    const d = await readBackup(file, S.training);
+    if (!(await confirmSheet("Restaurezi copia?", "Datele curente se înlocuiesc cu copia din " + (d.createdAt || "").slice(0, 10) + ". Exportă întâi datele curente dacă ai nevoie de ele.", "Restaurează", true))) return;
+    await replaceDoc(d);
+    location.reload();
+  } catch (e) { toast(e.message, { err: true, ms: 8000 }); }
 }
 
-function backupCard(data) {
-  const section = card("Copie de siguranță");
-  const feedback = el("p", "", "settingsFeedback");
-  feedback.setAttribute("role", "status");
-  section.append(el("p", "Apasă Salvează copia și verifică fișierul JSON în Descărcări. Pentru restaurare, salvează întâi caietul curent, apoi alege copia și verifică numele fișierului înainte să confirmi înlocuirea.", "hint"));
-  if (data.settings.backup)
-    section.append(el("p", "Ultimul export · " + new Date(data.settings.backup).toLocaleDateString("ro"), "settingsMetadata"));
-
-  const file = el("input");
-  file.type = "file";
-  file.accept = ".json,application/json";
-  file.hidden = true;
-  file.onchange = async () => {
-    const selected = file.files[0];
-    if (!selected) return;
-    try {
-      const next = await restore(selected, app.training);
-      const pages = next.pages.length;
-      if (await confirmAsk("Înlocuiești caietul?",
-        "Fișierul „" + selected.name + "” conține " + pages + (pages === 1 ? " pagină." : " pagini.") +
-        " Restaurarea înlocuiește toate datele din caietul deschis.", "Înlocuiește", true)) {
-        next.settings.privacyAcknowledged = data.settings.privacyAcknowledged;
-        await switchNotebook(next);
-        toast("Copie restaurată");
-      }
-    } catch (e) {
-      feedback.textContent = "Import nereușit. " + e.message;
-    } finally {
-      file.value = "";
-    }
-  };
-  const actions = el("div", "", "btnRow");
-  actions.append(btn("Salvează copia", () => {
-    const date = Date.now();
-    backup({ ...data, settings: { ...data.settings, backup: date } }, app.training);
-    data.settings.backup = date;
-    app.refresh();
-  }, "primary", "download"), btn("Încarcă o copie", () => file.click(), "", "upload"), file);
-  section.append(actions, feedback);
-  return section;
+// ——— Cataloage (master data) ———
+let ctab = "lines";
+export function catalogView(_p, q) {
+  if (q.get("tab")) { ctab = q.get("tab"); history.replaceState(null, "", "#/catalog"); }
+  const doc = S.doc;
+  const tabs = seg([["lines", "Linii " + doc.master.lines.length], ["pns", "PN-uri " + doc.master.pns.length], ["people", "Oameni " + doc.master.people.length], ["faults", "Defecte " + doc.master.faults.length]], ctab, (v) => { ctab = v; S.render(); });
+  const T = { lines: linesTab, pns: pnsTab, people: peopleTab, faults: faultsTab };
+  return h("div", null, backLink("#/more", "Mai mult"), pageHead("Cataloage", "Master data · configurate local; nu se publică nicăieri"),
+    !S.training ? note("Repository-ul aplicației este public, dar cataloagele tale rămân doar pe acest dispozitiv. Folosește denumiri permise de politica locală.") : note("Date sintetice de instruire.", "warn"),
+    h("div", { style: { margin: "12px 0" } }, tabs), T[ctab]());
 }
-
-export function settings(version) {
-  const main = document.querySelector("main"), data = app.data;
-  const grid = el("div", "", "settingsGrid");
-  main.append(el("h1", "Setări", "title"), grid);
-  function addSection(body, key) {
-    const heading = body.querySelector("h2");
-    const section = details(heading.textContent, "settings-" + key, "settingsSection");
-    section.name = "settings-sections";
-    if (key === "line") body.querySelector("input").dataset.field = "zone";
-    if (key === "schedule") body.querySelector("input").dataset.field = "hours";
-    heading.remove();
-    section.append(body);
-    grid.append(section);
-  }
-  addSection(schedule(data.settings), "schedule");
-  addSection(lineCard(data.settings), "line");
-  addSection(appearance(data.settings), "appearance");
-  addSection(backupCard(data), "backup");
-
-  const privacy = card("Confidențialitate și instruire");
-  privacy.append(el("p", "Introdu informații interne doar dacă angajatorul permite. Datele și copiile descărcate nu sunt criptate de aplicație. Folosește identificatori neutri.", "hint"),
-    btn(app.training ? "Revino la caietul personal" : "Deschide modul de instruire", async () => {
-      try {
-        await flush();
-        const url = new URL(location.href);
-        if (app.training) url.searchParams.delete("mod");
-        else url.searchParams.set("mod", "instruire");
-        url.hash = "";
-        location.href = url.href;
-      } catch (error) {
-        toast(error.message);
-      }
-    }, "primary"));
-  addSection(privacy, "privacy");
-
-  const access = card("Deschiderea caietului");
-  access.append(el("p", "Revino la același link în același browser pentru a continua unde ai rămas.", "hint"));
-  if (app.standalone()) access.append(el("p", "Aplicația este instalată.", "settingsMetadata"));
-  else if (app.installPrompt) access.append(btn("Instalează aplicația", app.install, "", "phone"));
-  else {
-    const guide = details("Cum adaug o pictogramă pe telefon?", "install-guide", "settingsHelp");
-    const instructions = [
-      "Android · În meniul Chrome, alege „Adaugă pe ecranul de pornire”.",
-      "iPhone · În Safari, alege Partajare, apoi „Adaugă pe ecranul principal”.",
-    ];
-    if (isIOS) instructions.reverse();
-    for (const text of instructions) guide.append(el("p", text, "desc"));
-    access.append(guide);
-  }
-  if (navigator.storage?.persisted) {
-    const storage = el("p", "", "settingsMetadata");
-    access.append(storage);
-    navigator.storage.persisted().then((persistent) => {
-      storage.textContent = persistent ? "Stocare persistentă activă." : "Stocare standard în browser.";
-    }).catch(() => storage.remove());
-  }
-  addSection(access, "access");
-
-  const reset = details("Resetarea caietului", "reset-settings", "settingsReset");
-  reset.append(el("p", "Pornești din nou cu paginile inițiale. Pentru a păstra ce ai scris, descarcă întâi o copie.", "desc"));
-  reset.append(btn("Resetează caietul", async () => {
-    if (await confirmAsk("Resetezi caietul?", "Toate datele din acest browser vor fi șterse.", "Continuă", true) &&
-      await confirmAsk("Ștergi toate înregistrările?", "După resetare le poți recupera doar dintr-o copie descărcată.", "Șterge tot", true)) {
-      try {
-        await switchNotebook(seed());
-        toast("Caiet resetat");
-      } catch {
-        toast("Resetarea a eșuat. Verifică spațiul liber și încearcă din nou.");
-      }
-    }
-  }, "danger", "trash"));
-  main.append(reset, el("p", "Caietul Șefului de Schimb · versiunea " + version, "footer"));
+const bulk = (title, label, fn) => async () => { const v = await promptSheet(title, label, { multiline: true, okLabel: "Adaugă" }); if (v) commit((d) => fn(d, v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)), "Adăugat"); };
+function linesTab() {
+  const doc = S.doc;
+  return h("div", null, h("div.row.wrap", null, btn("Linie nouă", () => lineSheet(), "primary", "plus"), btn("Adaugă mai multe (câte una pe rând)", bulk("Linii noi", "Denumiri, câte una pe rând", (d, names) => names.forEach((n) => d.master.lines.push({ id: uid(), code: n, name: n, zone: d.settings.zone || "", machines: [], pnIds: [], tlId: null, requiredOps: null, active: true }))), "ghost")),
+    doc.master.lines.length ? h("div.list", { style: { marginTop: "12px" } }, doc.master.lines.map((l) => item({ title: l.name + (l.active === false ? " (inactivă)" : ""), sub: [l.zone, l.machines.length + " operații", "necesar " + (l.requiredOps ?? "—") + " operatori", (l.pnIds || []).length + " PN-uri", l.demandPerShift ? "cerere " + l.demandPerShift + "/schimb" : ""].filter(Boolean).join(" · "), onClick: () => lineSheet(l) })))
+      : empty("Nicio linie", "Adaugă cele 13 linii/programe ale tale. Le poți adăuga pe toate odată.", null));
+}
+function lineSheet(existing) {
+  const l = existing ? structuredClone(existing) : { id: uid(), code: "", name: "", zone: S.doc.settings.zone || "", machines: [], pnIds: [], tlId: null, requiredOps: null, demandPerShift: null, active: true };
+  const body = h("div.fields");
+  const draw = () => put(body, 
+    h("div.fields.c2", null, field("Denumire", input(l.name, (v) => (l.name = v))), field("Identificator", input(l.code, (v) => (l.code = v)))),
+    h("div.fields.c3", null, field("Zonă", input(l.zone, (v) => (l.zone = v))), field("Operatori necesari", numInput(l.requiredOps ?? "", (v) => (l.requiredOps = nn(v, true)))), field("Cerere / schimb", numInput(l.demandPerShift ?? "", (v) => (l.demandPerShift = nn(v, true))), "pentru takt")),
+    field("Team Leader responsabil", select([["", "—"], ...S.doc.master.people.filter((p) => p.role === "tl").map((p) => [p.id, p.name])], l.tlId || "", (v) => (l.tlId = v || null))),
+    h("b", null, "Mașini / operații"),
+    ...l.machines.map((m, i) => h("div.row", null, input(m.name, (v) => (m.name = v), { "aria-label": "Mașina " + (i + 1) }),
+      select([[1, "nec. 1"], [2, "nec. 2"], [3, "nec. 3"], [4, "nec. 4"]], m.requiredLevel || 3, (v) => (m.requiredLevel = Number(v)), { "aria-label": "Nivel necesar", style: { maxWidth: "110px" } }),
+      h("button.ibtn", { type: "button", "aria-label": "Elimină", onclick: () => { l.machines.splice(i, 1); draw(); } }, icon("trash")))),
+    btn("Adaugă operație", () => { l.machines.push({ id: uid(), name: "OP" + (l.machines.length + 1) * 10, op: "", requiredLevel: 3 }); draw(); }, "ghost", "plus"),
+    h("b", null, "PN-uri compatibile"),
+    h("div.chipline", null, S.doc.master.pns.map((p) => h("button.pchip", { type: "button", "aria-pressed": String(l.pnIds.includes(p.id)), onclick: () => { l.pnIds = l.pnIds.includes(p.id) ? l.pnIds.filter((x) => x !== p.id) : [...l.pnIds, p.id]; draw(); } }, p.code))),
+    h("label.check", null, h("input", { type: "checkbox", checked: l.active !== false, onchange: (e) => (l.active = e.target.checked) }), "Activă"));
+  draw();
+  const sh = sheet({ title: existing ? l.name : "Linie nouă", body, wide: true, footer: [btn("Salvează", () => {
+    if (!l.name.trim()) return toast("Scrie denumirea.", { err: true });
+    commit((d) => { const i = d.master.lines.findIndex((x) => x.id === l.id); if (i >= 0) d.master.lines[i] = l; else d.master.lines.push(l); }, "Linie salvată");
+    sh.close();
+  }, "primary")] });
+}
+function pnsTab() {
+  const doc = S.doc;
+  return h("div", null, h("div.row.wrap", null, btn("PN nou", () => pnSheet(), "primary", "plus"), btn("Adaugă mai multe", bulk("PN-uri noi", "Coduri, câte unul pe rând", (d, codes) => codes.forEach((c) => d.master.pns.push({ id: uid(), code: c, name: "", ict: null, cycleSec: null }))), "ghost")),
+    note("ICT (timpul ideal de ciclu) este necesar pentru OEE. Nu se inventează: fără ICT, Performance apare „Date insuficiente”."),
+    doc.master.pns.length ? h("div.list", { style: { marginTop: "12px" } }, doc.master.pns.map((p) => item({ title: p.code, sub: [p.name, "ICT " + (p.ict ?? "—") + " s", "ciclu " + (p.cycleSec ?? "—") + " s"].filter(Boolean).join(" · "), end: !p.ict ? tag("warn", "ICT lipsă") : null, onClick: () => pnSheet(p) }))) : empty("Niciun PN", "Adaugă PN-urile cu timpii confirmați.", null));
+}
+function pnSheet(existing) {
+  const p = existing ? { ...existing } : { id: uid(), code: "", name: "", ict: null, cycleSec: null };
+  const sh = sheet({ title: existing ? p.code : "PN nou", body: h("div.fields", null, field("Cod", input(p.code, (v) => (p.code = v))), field("Denumire", input(p.name, (v) => (p.name = v))),
+    h("div.fields.c2", null, field("ICT ideal (s/buc)", numInput(p.ict ?? "", (v) => (p.ict = nn(v)), { inputmode: "decimal" }), "cel mai rapid ciclu posibil"), field("Ciclu planificat (s/buc)", numInput(p.cycleSec ?? "", (v) => (p.cycleSec = nn(v)), { inputmode: "decimal" }), "confirmat pentru plan"))),
+  footer: [btn("Salvează", () => {
+    if (!p.code.trim()) return toast("Scrie codul.", { err: true });
+    if (p.ict && p.cycleSec && p.cycleSec < p.ict) return toast("Ciclul planificat nu poate fi mai rapid decât ICT-ul ideal.", { err: true });
+    commit((d) => { const i = d.master.pns.findIndex((x) => x.id === p.id); if (i >= 0) d.master.pns[i] = p; else d.master.pns.push(p); }, "PN salvat"); sh.close();
+  }, "primary")] });
+}
+function peopleTab() {
+  const doc = S.doc;
+  return h("div", null, h("div.row.wrap", null, btn("Persoană nouă", () => personSheet(), "primary", "plus"), btn("Adaugă mai multe", bulk("Oameni noi", "Nume sau identificatori neutri, câte unul pe rând", (d, names) => names.forEach((n) => d.master.people.push({ id: uid(), name: n, role: "operator", category: "Operator", shiftId: null, active: true }))), "ghost")),
+    doc.master.people.length ? h("div.list", { style: { marginTop: "12px" } }, doc.master.people.map((p) => item({ title: p.name + (p.active === false ? " (inactiv)" : ""), sub: [p.category, p.role === "tl" ? "Team Leader" : ""].filter(Boolean).join(" · "), onClick: () => personSheet(p) }))) : empty("Nicio persoană", "Adaugă echipa.", null));
+}
+function personSheet(existing) {
+  const p = existing ? { ...existing } : { id: uid(), name: "", role: "operator", category: "Operator", shiftId: null, active: true };
+  const body = h("div.fields");
+  const draw = () => put(body, field("Nume / identificator", input(p.name, (v) => (p.name = v))),
+    field("Rol", seg([["operator", "Operator"], ["tl", "Team Leader"], ["aux", "Auxiliar"]], p.role, (v) => { p.role = v; draw(); })),
+    field("Categorie", select(S.doc.settings.personCategories.map((x) => [x, x]), p.category, (v) => (p.category = v))),
+    h("label.check", null, h("input", { type: "checkbox", checked: p.active !== false, onchange: (e) => (p.active = e.target.checked) }), "Activ"));
+  draw();
+  const sh = sheet({ title: existing ? p.name : "Persoană nouă", body, footer: [btn("Salvează", () => {
+    if (!p.name.trim()) return toast("Scrie numele.", { err: true });
+    commit((d) => { const i = d.master.people.findIndex((x) => x.id === p.id); if (i >= 0) d.master.people[i] = p; else d.master.people.push(p); }, "Salvat"); sh.close();
+  }, "primary")] });
+}
+function faultsTab() {
+  const doc = S.doc;
+  return h("div", null, btn("Cod nou", async () => {
+    const v = await promptSheet("Cod de defect", "Cod și denumire (ex. AV-01 Defect mecanic)");
+    const m = /^(\S+)\s+(.+)$/.exec(v || "");
+    if (m) commit((d) => d.master.faults.push({ id: uid(), code: m[1], name: m[2], loss: "availability" }), "Cod adăugat");
+  }, "primary", "plus"),
+  doc.master.faults.length ? h("div.list", { style: { marginTop: "12px" } }, doc.master.faults.map((f, i) => h("div.item", null, h("div.main", null, h("div.t", null, f.code + " · " + f.name), h("div.s", null, ({ availability: "Availability", performance: "Performance", quality: "Quality" })[f.loss])),
+    h("button.ibtn", { type: "button", "aria-label": "Șterge", onclick: () => commit((d) => d.master.faults.splice(i, 1), "Cod șters") }, icon("trash"))))) : empty("Niciun cod", "Codurile de defect fac Pareto-ul utilizabil. Lista se configurează local.", null));
 }

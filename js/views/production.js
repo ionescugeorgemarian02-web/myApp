@@ -1,247 +1,122 @@
-import { intervalGuidance } from "../guidance.js";
-import { app } from "../state.js";
-import { actions, btn, details, el, icon, id, input, norm, openDialog, fieldError, fieldHint, roDate } from "../ui.js";
-import { INTERVAL_NUMBERS, intervalTotals, intervalError } from "../operations.js";
-import { nonnegative, productionKpis } from "../production.js";
-import { addDays, problemsBlock, inZone, equipmentList } from "../metrics.js";
-import { rowLabel } from "../records.js";
-import { bars, fmt } from "../charts.js";
+// PRODUCȚIE — overview linii (identificare imediată a problemelor) și pagina liniei.
+import { h, btn, icon, tag, kpi, sect, chips, empty, note, sheet, field, input, toast, item, confirmSheet } from "../ui/kit.js";
+import { S, ctx, commit, now, byId, pnCode, personName } from "../state.js";
+import { fmtN, fmtPct, fmtSigned } from "../core/num.js";
+import { fmtHM, fmtDur, atTime, validHM } from "../core/time.js";
+import { ruler, planActual, cumulative, timeSplit } from "../ui/charts.js";
+import { LINE_STATUS, correctEvent, lineEvents } from "../domain/lines.js";
+import { SLOT_STATE } from "../domain/reports.js";
+import { INC_STATUS } from "../domain/incidents.js";
+import { isOpen, TASK_STATUS } from "../domain/tasks.js";
+import { statusTag, lineEventSheet, taskFromSheet, backLink, pageHead } from "./common.js";
 
-export const noData = "Date indisponibile";
-const amount = (number, unit = "") => number == null ? noData : fmt(number) + unit;
-export const zoneIntervals = (data, date, shift, zone) => (data.intervals || [])
-  .filter((r) => r.date === date && r.shift === shift && inZone(data, r.zone, zone))
-  .sort((a, b) => a.start.localeCompare(b.start));
-
-export function coverageLabel(total, complete, hasData) {
-  if (!total) return "Fără raportări";
-  if (!complete && !hasData) return "Fără cifre raportate";
-  if (complete < total) return "Date parțiale · " + complete + "/" + total;
-  return "";
-}
-
-function intervalDates(start, end) {
-  const firstDay = start.slice(0, 10);
-  const lastDay = end.slice(0, 10);
-  const full = (value) => roDate(value.slice(0, 10), { day: "numeric", month: "short", year: "numeric" }) + " " + value.slice(11);
-  return firstDay === lastDay ? full(start) + " → " + end.slice(11) : full(start) + " → " + full(end);
-}
-
-function suggestedStart({ date, shift, zone }, hours) {
-  const rows = zoneIntervals(app.data, date, Number(shift), zone);
-  const end = rows.at(-1)?.end;
-  if (!end || (app.data.intervals || []).some((row) => norm(row.zone) === norm(zone) && row.start <= end && end < row.end))
-    return "";
-  if (!app.data.settings.scheduleConfirmed) return end;
-  const from = date + "T" + hours[shift - 1];
-  const until = (Number(shift) === 3 ? addDays(date, 1) : date) + "T" + hours[shift % 3];
-  return end >= from && end < until ? end : "";
-}
-
-export function addInterval(c) {
-  return editInterval(c, null, { date: c.workDay, shift: c.shift, zone: app.data.settings.zone || "" });
-}
-
-export function productionFigures(rows, source = "Intervale de producție") {
-  const box = el("div", "", "productionFigures");
-  const totals = intervalTotals(rows);
-  const grid = el("dl", "", "figureGrid");
-  for (const [label, key, fields] of [
-    ["Plan", "plan", ["plan"]], ["Realizat", "produced", ["produced"]], ["Abatere", "variance", ["plan", "produced"]],
-  ]) {
-    const count = rows.filter((row) => fields.every((field) => row[field] != null)).length;
-    const item = el("div", "", "figure");
-    item.append(el("dt", label), el("dd", totals[key] == null ? "—" : fmt(totals[key])),
-      el("dd", coverageLabel(rows.length, count, rows.some((row) => fields.some((field) => row[field] != null))) || "buc", "figureCoverage"));
-    grid.append(item);
-  }
-  box.append(grid, el("p", "Sursă · " + source + " · " + rows.length + (rows.length === 1 ? " fișă" : " fișe"), "formHelp"));
-  return box;
-}
-
-async function editInterval(c, existing, selection) {
-  const initial = existing || {
-    id: id(), date: selection.date, shift: selection.shift, zone: selection.zone,
-    start: "", end: "", cause: "", action: "", equipment: "", problemId: "",
+let filter = "all";
+const PROBLEM = (L) => L.status === "stop" || L.status === "notrunning" || (L.planned && L.status === "unknown") || L.rows.some((r) => r.state === "overdue") || (L.attainment !== null && L.attainment * 100 < S.doc.settings.thresholds.underTarget);
+export function productionView(_p, q, st) {
+  if (q.get("f")) { filter = q.get("f"); history.replaceState(null, "", "#/production"); }
+  if (!S.doc.master.lines.length) return h("div", null, pageHead("Linii"), empty("Nicio linie în catalog", "Adaugă liniile tale cu mașini, operații și PN-uri. Denumirile rămân doar pe acest dispozitiv.", btn("Deschide catalogul", () => (location.hash = "#/catalog"), "primary")));
+  const F = {
+    all: () => true, problems: PROBLEM, run: (L) => L.status === "run", stop: (L) => L.status === "stop" || L.status === "notrunning",
+    reports: (L) => L.rows.some((r) => r.state === "overdue" || r.state === "incomplete"), notplanned: (L) => !L.planned,
   };
-  const draft = { ...initial };
-  let suggested = existing ? "" : suggestedStart(draft, c.hours);
-  if (suggested) draft.start = suggested;
-  const context = el("fieldset", "", "formGroup intervalContext");
-  const contextFields = el("div", "", "recordFields intervalFields");
-  context.append(el("legend", "Contextul intervalului"), contextFields);
-  const dates = el("p", "", "formHelp intervalDates");
-  dates.setAttribute("aria-live", "polite");
-  const fields = el("div", "", "recordFields intervalFields");
-  const extra = details([el("span", "Calitate, timp și cauze"), icon("down")], null, "formStage");
-  const extraFields = el("div", "", "recordFields intervalFields");
-  extra.append(extraFields);
-  const controls = new Map();
-  function field(key, label, type = "text", options = [], parent = fields) {
-    const group = input(label, draft[key], (v) => {
-      draft[key] = v;
-      const control = controls.get(key);
-      if (control.getAttribute("aria-invalid") === "true") fieldError(control, "");
-      if (!existing && ["zone", "shift", "date"].includes(key) && (!draft.start || draft.start === suggested)) {
-        suggested = suggestedStart(draft, c.hours);
-        draft.start = controls.get("start").value = suggested;
-        fieldError(controls.get("start"), "");
-      }
-      if (["date", "shift", "zone", "start", "end"].includes(key)) updateDates();
-    }, type, options);
-    parent.append(fieldHint(group, intervalGuidance[key]));
-    const control = group.querySelector("input, select, textarea");
-    controls.set(key, control);
-    return control;
-  }
-  function updateDates() {
-    const { start, end } = draft;
-    dates.textContent = start && end && end > start && start.slice(0, 10) !== end.slice(0, 10)
-      ? intervalDates(start, end)
-      : start && suggested === start ? "Început propus din ultimul interval raportat." : "";
-    dates.hidden = !dates.textContent;
-  }
-  const zoneControl = field("zone", "Zonă / linie", "text", [], contextFields);
-  zoneControl.required = true;
-  // Sugestii: liniile zonei (ex. PSA 3) sau zona întreagă.
-  const options = el("datalist");
-  options.id = "zone-options";
-  for (const name of [...equipmentList(app.data), app.data.settings.zone].filter(Boolean)) options.append(new Option(name));
-  zoneControl.setAttribute("list", options.id);
-  contextFields.append(options);
-  field("shift", "Schimb", "select", ["1", "2", "3"], contextFields);
-  field("date", "Data de lucru", "date", [], contextFields).required = true;
-  field("start", "Început", "datetime-local").required = true;
-  field("end", "Sfârșit", "datetime-local").required = true;
-  fields.append(dates);
-  updateDates();
-  for (const [key, label] of INTERVAL_NUMBERS) {
-    const control = field(key, label, "number", [], ["plan", "produced"].includes(key) ? fields : extraFields);
-    control.min = "0";
-    control.step = ["plannedTime", "downtime"].includes(key) ? "any" : "1";
-  }
-  field("equipment", "Echipament afectat", "text", [], extraFields);
-  field("cause", "Cauză declarată", "area", [], extraFields);
-  field("action", "Acțiune corectivă", "area", [], extraFields);
-  const registry = problemsBlock(app.data);
-  const linked = new Map((registry?.b.rows || []).map((r) => [r.id, rowLabel(registry.b, r)]));
-  const problem = el("select");
-  problem.add(new Option("Fără legătură", ""));
-  for (const [value, label] of linked) problem.add(new Option(label, value));
-  if (draft.problemId && !linked.has(draft.problemId)) problem.add(new Option("Legătură arhivată sau ștearsă", draft.problemId));
-  problem.value = draft.problemId;
-  problem.onchange = () => { draft.problemId = problem.value; };
-  const label = el("label", "", "field");
-  label.append(el("span", "Problemă asociată"), problem);
-  extraFields.append(fieldHint(label, intervalGuidance.problemId));
-  controls.set("problemId", problem);
-  const footer = actions("Salvează");
-  const dialog = document.querySelector("dialog");
-  const form = dialog.querySelector("form");
-  const rows = app.data.intervals || [];
-  function validate(event) {
-    if (event.submitter?.value !== "ok") return;
-    draft.zone = draft.zone.trim();
-    draft.shift = Number(draft.shift);
-    for (const [key] of INTERVAL_NUMBERS) {
-      const value = draft[key];
-      draft[key] = value == null || value === "" ? null : nonnegative(value) ?? NaN;
-    }
-    for (const control of controls.values())
-      if (control.getAttribute("aria-invalid") === "true") fieldError(control, "");
-    const badInput = [...controls].find(([, control]) => control.validity.badInput);
-    const error = badInput ? { field: badInput[0], message: "Completează o valoare validă." } : intervalError(draft, rows);
-    if (!error) return;
-    event.preventDefault();
-    const control = controls.get(error.field);
-    if (extra.contains(control)) extra.open = true;
-    fieldError(control, error.message);
-    control.focus({ preventScroll: true });
-    control.scrollIntoView({ block: "nearest" });
-  }
-  form.noValidate = true;
-  form.addEventListener("submit", validate);
-  try {
-    if (await openDialog(() => [
-      el("h2", existing ? "Editează intervalul" : "Interval nou"),
-      el("p", "Ciornă nesalvată", "formHelp draftState"),
-      context, fields, extra, footer,
-    ]) !== "ok") return;
-    if (existing) Object.assign(existing, draft);
-    else (app.data.intervals ||= []).push(draft);
-    selection.date = draft.date;
-    selection.shift = draft.shift;
-    selection.zone = draft.zone;
-    app.refresh();
-  } finally {
-    form.removeEventListener("submit", validate);
-    form.noValidate = false;
-  }
+  const lines = st.lines.filter(F[filter] || F.all);
+  const count = (k) => st.lines.filter(F[k]).length;
+  return h("div", null,
+    pageHead("Linii", st.planned.length + " planificate · " + st.counts.run + " în funcțiune · " + st.counts.stop + " oprite",
+      [btn("Planificare", () => (location.hash = "#/planning"), "", "calendar"), btn("OEE", () => (location.hash = "#/oee"), "", "chart")]),
+    chips([["all", "Toate " + st.lines.length], ["problems", "Probleme " + count("problems")], ["run", "În funcțiune " + count("run")], ["stop", "Oprite " + count("stop")], ["reports", "Rapoarte lipsă " + count("reports")], ["notplanned", "Neplanificate " + count("notplanned")]], filter, (v) => { filter = v; S.render(); }),
+    h("div.rail", { style: { marginTop: "12px" } }, lines.length ? lines.map((L) => railRow(L, st)) : note("Nicio linie în acest filtru.")));
+}
+function railRow(L, st) {
+  const th = S.doc.settings.thresholds;
+  const d = L.planned ? L.sum.delta : null;
+  const miss = L.sum.missingClosed;
+  const cov = st.people.coverage.find((c) => c.lineId === L.line.id);
+  return h("a.rl.s-" + L.status, { href: "#/line/" + L.line.id },
+    h("span.rl-bar", { "aria-hidden": "true" }),
+    h("span.rl-main", null,
+      h("span.rl-top", null, h("b.rl-n.num", null, L.line.name), statusTag(L.status), L.statusSince !== null && L.status !== "notplanned" ? h("span.small.muted", null, fmtDur(L.statusSince)) : null),
+      h("span.rl-sub.small.muted", null, (L.activePn ? pnCode(L.activePn) : "fără PN") + (cov ? " · oameni " + cov.present + "/" + cov.need : "") + (L.openInc.length ? " · " + L.openInc.length + " incident" : "") + (miss ? " · " + (miss === 1 ? "1 raport lipsă" : miss + " rapoarte lipsă") : "")),
+      L.planned ? ruler(L.rows, { now: now(), from: st.from, to: st.to, under: th.underTarget, compact: true }) : h("span.small.faint", null, "Fără producție planificată în schimb")),
+    h("span.rl-end", null, h("span.rl-d.num" + (d === null ? ".na" : d < 0 ? ".neg" : ".pos"), null, d === null ? "—" : fmtSigned(d)),
+      h("span.tiny.muted", null, L.planned ? fmtN(L.sum.repActual) + " / " + fmtN(L.sum.repPlan) : "")));
 }
 
-let selection, selectionNotebook;
-export function productionView(c) {
-  const context = c.key + "/" + (app.data.settings.zone || "");
-  if (!selection || selectionNotebook !== app.data || selection.context !== context) {
-    selectionNotebook = app.data;
-    selection = { context, date: c.workDay, shift: c.shift, zone: app.data.settings.zone || "" };
-  }
-  const main = document.querySelector("main");
-  const box = el("section", "", "card productionView");
-  const list = el("div", "", "records");
-  const filters = el("div", "", "recordFields");
-  function filter(label, key, type, options) {
-    filters.append(input(label, selection[key], (v) => {
-      selection[key] = key === "shift" ? Number(v) : v;
-      draw();
-    }, type, options));
-  }
-  filter("Data de lucru", "date", "date");
-  filter("Schimb", "shift", "select", ["1", "2", "3"]);
-  filter("Zonă / linie", "zone", "text");
-  const toolbar = el("div", "", "productionTools");
-  const configuredZone = app.data.settings.zone;
-  toolbar.append(configuredZone
-    ? btn("Interval nou", () => editInterval(c, null, selection), "primary", "plus")
-    : btn("Configurează zona", () => app.navigate("Setări", "settings-line", "zone"), "primary", "settings"),
-    btn("Analiză", () => app.navigate("Analiză"), "", "chart"));
-  if (!app.data.settings.scheduleConfirmed)
-    toolbar.append(btn("Confirmă programul", () => app.navigate("Setări", "settings-schedule", "hours")));
-  const header = el("div", "", "productionHead");
-  header.append(el("h1", "Producție"), el("p", "Plan versus realizat", "formHelp"));
-  box.append(header, filters, toolbar, list);
-  main.append(box);
-  function draw() {
-    const rows = zoneIntervals(app.data, selection.date, selection.shift, selection.zone);
-    list.replaceChildren();
-    list.append(productionFigures(rows));
-    if (!rows.length) {
-      list.append(el("p", selection.zone.trim() ? "Date indisponibile pentru această selecție." : "Alege zona pentru a vedea intervalele.", "empty"));
-      return;
-    }
-    const total = intervalTotals(rows);
-    list.append(el("p", "Atingerea planului " + amount(total.planPct, "%") + " · rebut " + amount(total.scrapPct, "%") +
-      " · reprelucrare " + amount(total.reworkPct, "%") + " · FPY " + amount(total.fpy, "%"), "formHelp"));
-    list.append(el("h2", "Intervale înregistrate"));
-    const recent = rows.slice(-6);
-    if (recent.length > 1 && recent.some((row) => productionKpis(row).planPct !== null))
-      list.append(bars(recent.map((row) => ({ label: row.start.slice(-5), value: productionKpis(row).planPct })),
-        { ref: 100, unit: "%", label: "Atingerea planului în ultimele intervale raportate" }));
-    for (const row of rows) {
-      const k = productionKpis(row);
-      const line = norm(row.zone) !== norm(selection.zone) ? row.zone + " · " : "";
-      const card = details(line + intervalDates(row.start, row.end) + " · " + amount(k.planPct, "%"), "interval-" + row.id, "record intervalCard");
-      card.append(el("p", "Plan " + amount(row.plan) + " · realizat " + amount(row.produced) + " · abatere " + amount(k.variance)),
-        el("p", "Bune " + amount(row.good) + " · rebut " + amount(row.scrap) + " · reprelucrare " + amount(row.rework)),
-        el("p", "Timp planificat " + amount(row.plannedTime, " min") + " · oprire " + amount(row.downtime, " min") + " · FPY " + amount(k.fpy, "%")),
-        el("p", "Echipament: " + (row.equipment || noData) + " · cauză: " + (row.cause || noData)),
-        el("p", "Acțiune: " + (row.action || noData)));
-      const registry = problemsBlock(app.data);
-      if (row.problemId && registry?.b.rows.some((r) => r.id === row.problemId))
-        card.append(btn("Deschide problema", () => app.openPage(registry.p, "row-" + row.problemId)));
-      card.append(btn("Editează", () => editInterval(c, row, selection)), btn("Șterge", () => c.remove(app.data.intervals, row), "danger"));
-      list.append(card);
-    }
-  }
-  draw();
+export function lineView([id], _q, st) {
+  const L = st.lines.find((x) => x.line.id === id);
+  if (!L) return h("div", null, backLink("#/production", "Linii"), empty("Linia nu există", "A fost ștearsă sau nu este activă."));
+  const th = S.doc.settings.thresholds, t = now();
+  const cur = L.curSlot;
+  const s = L.status;
+  const actions = h("div.lact", null,
+    s === "run" ? null : act(s === "stop" || s === "notrunning" || s === "changeover" ? "Reia" : "Pornește", "play", "run", () => lineEventSheet(id, "run")),
+    s === "run" || s === "changeover" ? act("Oprește", "stop", "stop", () => lineEventSheet(id, "stop")) : null,
+    s !== "notrunning" ? act("Nu rulează", "pause", "", () => lineEventSheet(id, "notrunning")) : null,
+    act("Schimbă PN", "swap", "change", () => lineEventSheet(id, "changeover")),
+    act("Raportează producție", "chart", "", () => (location.hash = "#/report/" + id)),
+    act("Incident", "wrench", "", () => (location.hash = "#/incident/new?line=" + id)),
+    act("Problemă", "alert", "", () => taskFromSheet({ lineId: id, source: { type: "production", label: L.line.name }, heading: "Problemă pe " + L.line.name })));
+  const d = L.planned ? L.sum.delta : null;
+  const people = (S.doc.assignments[L.sk] || []).filter((a) => a.lineId === id);
+  const evs = lineEvents(S.doc.events, id).filter((e) => new Date(e.at) >= new Date(st.from.getTime() - 8 * 3600000) && new Date(e.at) < st.to).reverse();
+  const tasks = S.doc.tasks.filter((x) => x.lineId === id && isOpen(x));
+  const fo = S.doc.audits.filter((a) => a.type === "firstoff" && a.lineId === id && a.extra?.sk === L.sk);
+  return h("div", null,
+    backLink("#/production", "Linii"),
+    h("div.head", null, h("div", null, h("h1", null, L.line.name), h("p.row.wrap", null, statusTag(s),
+      L.statusSince !== null && s !== "notplanned" ? h("span", null, "de " + fmtDur(L.statusSince) + (L.last ? " · " + (L.last.reason || "fără motiv") : "")) : null,
+      h("span", null, "PN " + (L.activePn ? pnCode(L.activePn) : "—"))))),
+    note("Butoanele creează înregistrări digitale cu ora reală, nu comenzi către utilaje."),
+    actions,
+    h("div.kpis.c4", { style: { marginTop: "16px" } },
+      kpi("Plan schimb", fmtN(L.planTotal), L.planned ? (L.plan?.baseline ? "baseline " + fmtN(L.plan.baseline.total) : "neconfirmat") : "neplanificată", "", "#/planning?line=" + id),
+      kpi("Realizat", fmtN(L.sum.repActual), "plan ore raportate " + fmtN(L.sum.repPlan), "", "#/report/" + id),
+      kpi("Delta", d === null ? "—" : fmtSigned(d), (L.attainment !== null ? fmtPct(L.attainment, 0) + " din plan" : "fără ore raportate") + (L.sum.missingClosed ? " · " + (L.sum.missingClosed === 1 ? "1 oră lipsă" : L.sum.missingClosed + " ore lipsă") : ""), d === null ? "" : d < 0 ? "stop" : "run"),
+      kpi("Ora curentă", cur ? fmtN(cur.actual) + " / " + fmtN(cur.plan) : "—", cur ? cur.slot.label : "în afara schimbului"),
+      kpi("OEE", L.oee?.oee != null ? fmtPct(L.oee.oee, 0) : "—", L.oee?.oee != null ? L.oeeSlots + " ore complete" : L.oee?.why?.oee || "Date insuficiente", "", "#/oee?line=" + id),
+      kpi("Downtime", Math.round(L.mins.stop + L.mins.notrunning) + " min", Math.round(L.mins.changeover) + " min changeover" + (L.mins.unknown ? " · " + Math.round(L.mins.unknown) + " min fără status" : "")),
+      kpi("Rebut", L.sum.scrap.missing ? "—" : fmtN(L.sum.scrap.sum), L.sum.scrap.missing ? "lipsesc valori" : "în orele raportate"),
+      kpi("Oameni", String(people.length), "necesar " + (L.line.requiredOps ?? "—"), "", "#/team/allocation")),
+    L.planned ? [sect("Pe ore", h("a", { href: "#/report/" + id }, "Raportează")), ruler(L.rows, { now: t, from: st.from, to: st.to, under: th.underTarget, onSlot: (r) => (location.hash = "#/report/" + id + "/" + r.slot.i) })] : null,
+    h("div.grid.c2-lg", { style: { marginTop: "16px" } },
+      L.planned ? h("div.panel.pad", null, h("h3.ph3", null, "Plan vs. realizat"), planActual(L.rows, { under: th.underTarget })) : null,
+      L.planned ? h("div.panel.pad", null, h("h3.ph3", null, "Cumulat"), cumulative(L.rows), h("div.legend", null, h("span", null, h("i.l-plan"), "plan"), h("span", null, h("i.l-act"), "realizat"))) : null,
+      h("div.panel.pad", null, h("h3.ph3", null, "Timpul schimbului"), timeSplit(L.mins) || h("p.small.muted", null, "Fără evenimente de stare."))),
+    L.planned ? [sect("Rapoarte orare"), slotTable(L, id)] : null,
+    sect("Evenimente", h("span.aside", null, "atinge pentru corecție")),
+    evs.length ? h("div.list", null, evs.map((e) => item({ title: LINE_STATUS[e.type].label + " · " + fmtHM(new Date(e.at)) + (e.void ? " (anulat)" : ""),
+      sub: [e.reason, e.pnId ? "PN " + pnCode(e.pnId) : "", e.history?.length ? "corectat de " + e.history.length + "×" : "", "înregistrat " + fmtHM(new Date(e.recordedAt))].filter(Boolean).join(" · "),
+      onClick: () => correctSheet(e) }))) : h("p.small.muted", null, "Niciun eveniment. Înregistrează pornirea liniei."),
+    sect("Incidente", h("a", { href: "#/incident/new?line=" + id }, "Adaugă")),
+    L.openInc.length ? h("div.list", null, L.openInc.map((i) => item({ title: "#" + i.no + " " + (i.desc || i.category || "Incident"), sub: INC_STATUS[i.status] + " · " + (personName(i.ownerId) !== "—" ? personName(i.ownerId) : i.dept || "fără responsabil"), href: "#/incident/" + i.id }))) : h("p.small.muted", null, "Niciun incident activ."),
+    sect("Sarcini"), tasks.length ? h("div.list", null, tasks.map((x) => item({ title: x.title, sub: TASK_STATUS[x.status] + (x.due ? " · " + x.due : ""), href: "#/tasks?open=" + x.id }))) : h("p.small.muted", null, "Nicio sarcină deschisă."),
+    sect("Calitate", h("a", { href: "#/audit/new/firstoff?line=" + id }, "First Off")),
+    h("p.small", null, fo.some((a) => a.status === "done") ? "First Off confirmat în acest schimb." : "First Off neconfirmat în acest schimb."));
+}
+const act = (label, ic, tone, onClick) => h("button.la" + (tone ? ".lt-" + tone : ""), { type: "button", onclick: onClick }, icon(ic), h("span", null, label));
+function slotTable(L, id) {
+  return h("div.tablewrap", null, h("table.t", null,
+    h("thead", null, h("tr", null, ["Interval", "Plan", "Realizat", "Δ", "Δ cumulat", "Rebut", "Oprire", "Stare"].map((x) => h("th", null, x)))),
+    h("tbody", null, L.rows.map((r) => h("tr", { onclick: () => (location.hash = "#/report/" + id + "/" + r.slot.i), style: { cursor: "pointer" } },
+      h("td", null, r.slot.label), h("td.num", null, fmtN(r.plan)), h("td.num", null, r.actual === 0 && r.state === "complete" ? "0 ✓" : fmtN(r.actual)),
+      h("td.num", { class: r.delta < 0 ? "neg" : r.delta > 0 ? "pos" : "" }, fmtSigned(r.delta)), h("td.num", { class: r.cumDelta < 0 ? "neg" : "" }, fmtSigned(r.cumDelta)),
+      h("td.num", null, fmtN(r.scrap)), h("td.num", null, r.downtime === null ? "—" : Math.round(r.downtime) + "′"),
+      h("td", null, tag(r.state === "complete" ? "run" : r.state === "overdue" ? "stop" : r.state === "incomplete" ? "warn" : "idle", SLOT_STATE[r.state])))))));
+}
+function correctSheet(e) {
+  const c = ctx();
+  let hm = fmtHM(new Date(e.at)), reason = e.reason || "";
+  const sh = sheet({ title: "Corectează evenimentul", body: h("div.fields", null,
+    note("Corecția păstrează istoricul. Indicatorii se recalculează."),
+    field("Ora reală", input(hm, (v) => (hm = v), { type: "time" })),
+    field("Motiv / descriere", input(reason, (v) => (reason = v))),
+    e.history?.length ? h("details", null, h("summary.small", null, "Istoric corecții (" + e.history.length + ")"), h("ul.small", null, e.history.map((x) => h("li", null, new Date(x.changedAt).toLocaleString("ro-RO") + ": " + Object.keys(x).filter((k) => k !== "changedAt").join(", "))))) : null),
+  footer: [btn("Anulează evenimentul", async () => { if (await confirmSheet("Anulezi evenimentul?", "Evenimentul rămâne în istoric, marcat anulat, și nu mai contează în calcule.", "Anulează evenimentul", true)) { commit((d) => correctEvent(d.events, e.id, { void: true }, now()), "Eveniment anulat"); sh.close(); } }, "danger"),
+    btn("Salvează", () => {
+      if (!validHM(hm)) { toast("Ora nu este validă.", { err: true }); return; }
+      const at = atTime(c.workDay, c.shift, hm) || new Date(new Date(e.at).setHours(+hm.slice(0, 2), +hm.slice(3), 0, 0));
+      if (at > now()) { toast("Ora nu poate fi în viitor.", { err: true }); return; }
+      const r = commit((d) => correctEvent(d.events, e.id, { at, reason }, now()), "Eveniment corectat");
+      if (r.ok) sh.close();
+    }, "primary")] });
 }

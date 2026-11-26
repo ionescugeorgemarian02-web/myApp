@@ -1,65 +1,60 @@
-# Caietul Șefului de Schimb
+# myApp — Centrul de comandă al șefului de schimb
 
-PWA personală, în limba română, pentru coordonarea unui schimb în producție. Aplicația folosește HTML, CSS, module JavaScript și IndexedDB. Rapoartele se pot copia și salva local.
+PWA în limba română pentru coordonarea unui schimb în producția automotive. Rutina EPT organizează ziua, iar producția, oamenii, calitatea, incidentele și sarcinile formează un singur sistem: **plan → execuție → monitorizare → reacție → responsabilitate → verificare → îmbunătățire**.
 
-**Introdu date interne doar dacă politica angajatorului permite utilizarea aplicației și a dispozitivului personal.** Browserul păstrează datele local. Aplicația nu le criptează și nu le sincronizează. Copiile JSON și CSV conțin datele completate. Folosește roluri și identificatori neutri și păstrează copiile într-un loc aprobat. În modul Instruire folosește exclusiv date fictive.
+Tehnologie: HTML, CSS, module JavaScript (fără build, fără dependențe), IndexedDB, Service Worker. Funcționează offline după prima încărcare.
 
-## Pe telefon
+**Introdu date interne doar dacă politica angajatorului permite utilizarea aplicației și a dispozitivului.** Datele rămân în browserul de pe dispozitiv. Aplicația nu le criptează, nu le sincronizează și nu le trimite nicăieri. Modul **Instruire** (`?mod=instruire`) folosește exclusiv date sintetice, separate de datele reale.
 
-1. Deschide adresa aprobată cu internet și așteaptă încărcarea completă. Pe Android folosește meniul Chrome → **Instalează** sau **Adaugă pe ecranul de pornire**. Pe iPhone folosește Safari → **Partajare → Adaugă pe ecranul principal**.
-2. Pornește cu **Setări → Confidențialitate și instruire → Deschide modul de instruire**. Caietul de instruire este separat. Ecranul, rezumatele și exporturile sunt marcate. După încărcare, activează modul avion și redeschide aplicația pentru a verifica offline pe telefonul tău.
-3. Dacă politica locală permite, revino la caietul personal. Zona de lucru este **Sudură** și cuprinde toate cele 13 linii. O poți verifica în **Setări → Zona și liniile**. Un interval raportat pe o linie (ex. PSA 3) intră și în totalul zonei Sudură. Confirmă orele în **Programul schimburilor**. Pentru caiete noi, data planului este 23 noiembrie 2026. Caietele existente își păstrează data, editabilă din **Linia mea**.
-4. Deschide același URL și folosește același browser sau aceeași pictogramă pentru a regăsi datele. Verifică persistența după instalare, deoarece platforma poate folosi un spațiu separat pentru aplicația de pe ecranul principal.
+## Navigare
 
-## Fluxuri principale
-
-| Ecran | Ce faci |
+| Secțiune | Ce găsești |
 | --- | --- |
-| **Azi** | Vezi data de lucru, schimbul, cât a mai rămas din el, câte activități EPT ai bifat și câte linii ai verificat. Cardul **Acum în rutina EPT** arată următoarele activități din faza schimbului, cu DA/NU direct, și verificarea la 2 ore care urmează sau e întârziată. **Liniile mele** arată cele 13 linii colorate după stare. **Planul primei săptămâni** arată punctele zilei din „Săptămâna 1”. Vezi data de lucru, zona și schimbul. Vezi alertele critice și deschizi direct fișele lor sau o ciornă SBAR. Panoul afișează următoarea acțiune a schimbului, permite adăugarea unui interval și deschide etapa curentă a rutinei. Din **Raportează** înregistrezi o problemă sau un eveniment de siguranță. |
-| **Rutina** | Fișa EPT Supervisor, cu cele 47 de activități pe secțiunile colorate de pe hârtie: Înainte (gri), Început (galben), În timpul (verde), Sfârșit (albastru), Reguli (roșu). Apeși DA sau NU. La NU se deschid Observațiile și poți crea o problemă. Butonul **?** explică termenul (TOP 5, Stoc blocat, QPS/8D, EPU…), iar **Cum o fac** dă pașii practici. Verificările la 2 ore și activitățile săptămânale se bifează separat. Fișa pornește goală la fiecare schimb, iar schimburile încheiate rămân în istoric. **Trimite fișa** o copiază ca text, iar **Descarcă pentru Excel** o salvează în CSV. |
-| **Producție** | Sus ai **Liniile mele**: cele 13 linii (Fam B1, Fam B2, PSA 3, P6 JLR, DEGASS, AMG/CCC, M282, JLR 663, GDI, UFC, Valve, PL65 RM, X90 Audi), fiecare cu starea OK / Atenție / Oprită, plan, realizat, rebut, minute de oprire, operatori și ore TL. Ritmul compară realizatul cu cât trebuia produs până la ora curentă. Bifa orei la **Verificările la 2 ore** intră și în fișa EPT. Totalurile liniilor completează indicatorii schimbului și rezumatul. Dedesubt adaugi intervale din **Azi** sau **Producție**. Formularul propune începutul de la finalul ultimului interval din același context, când se potrivește, și afișează ambele date la trecerea peste miezul nopții. Înregistrezi plan, realizat, calitate, timp, cauză și acțiune. Poți lega o problemă sau deschide **Analiză**. Totalurile din acest ecran acoperă numai intervalele afișate și cer valori complete pentru indicatorul calculat. |
-| **Predare schimb** | În fila **Predare**, consulți întâi situația și riscurile, apoi acțiunile și rolurile responsabile. Cifrele se extind separat, înainte de confirmare. Preluarea cere mai întâi o predare verificată. Modificarea fișei invalidează confirmările. Rezumatul poate fi copiat. Fișa personală se folosește în completarea procesului oficial. |
-| **Probleme și acțiuni** | Problemele critice și restante apar primele, cu responsabil și termen. Înregistrezi măsura imediată lângă impact și prioritate. Cauza, corecția și dovada eficacității se completează în fișă. Închiderea cere acțiunea corectivă, dovada eficacității și o concluzie. Cauți după text și filtrezi după stare, termene și urgență. |
-| **Caiet** | Deschizi Analiză, Notițe, Leadership și SBAR, planul de dezvoltare, echipa, polivalența, audituri personale, registrul opririlor și dicționarul KPI local. Rutina folosită este doar fișa EPT (fila Rutina). |
-| **Analiză** | Vezi graficele istorice și sursa fiecărui indicator SQDCP, cu starea raportărilor. **Indicatori operaționali și praguri** adaugă perioada editabilă, sursa, formula, unitatea și pragul per KPI. Pentru indicatorii de producție selectează zona. Pentru OEE, MTTR și MTBF rămâne disponibil dicționarul documentar până la definirea datelor necesare. |
+| **Azi** | Centrul de comandă: rigla schimbului (ora curentă și realizarea pe fiecare oră), realizat față de plan, abatere, „Necesită atenția ta” (reguli explicabile, fiecare cu dovada și linkul spre rezolvare), ce urmează în rutina EPT, linii, oameni, incidente, sarcini. |
+| **Rutina mea EPT** | Cele cinci etape ale fișei EPT (Înainte, Început, În timpul, Sfârșit, Reguli) cu vederile „Ce fac acum”, Timeline, Săptămâna și Reguli. Statusul (Urmează, Disponibil, În lucru, Finalizat, Neîndeplinit, Depășit, Neaplicabil) se ține separat de rezultat (OK, NOK, N/A). NOK → acțiune cu responsabil și termen. „Nu pot îndeplini” consemnează escaladarea. Aplicația nu trimite mesaje. Frecvențele se configurează. |
+| **Producție** | Cele 13 linii dintr-o privire (status, PN, oameni, rigla orelor, abatere) și pagina fiecărei linii: Pornește, Oprește, Nu rulează, Reia, Schimbă PN, cu „Acum” sau „Ora reală”. Corecțiile păstrează istoricul. Butoanele sunt înregistrări digitale, nu comenzi către utilaje. |
+| **Planificare** | Plan pe schimb: mai multe PN-uri pe linie, ore, target, ciclu, operatori, prioritate. Planul orar se distribuie uniform, după minutele productive, din timpul de ciclu sau manual. Suma pe ore este exact targetul. Baseline-ul confirmat nu se mai schimbă; replanificarea este o revizie cu motiv. Include Gantt, conflicte și capacitate față de target. |
+| **Raport orar** | Linia știe intervalul, PN-ul și targetul; tu introduci doar cifrele. Butonul „0” confirmă zero, iar un câmp gol rămâne lipsă. PN-ul se poate schimba în mijlocul orei. Downtime-ul se calculează din evenimente. |
+| **Performanță (OEE)** | Availability, Performance, Quality și OEE afișate separat, după formulele de pe oee.com. Agregarea pe PN-uri diferite folosește timpul ideal ponderat. Lipsa datelor apare ca „—” cu motivul. Mai conține realizarea planului, FPY, rebut, Pareto opriri și rebut, heatmap linii × ore, trend și distribuția timpului. |
+| **Incidente** | Linie → mașină → defect → timp → responsabil. Stări de la Deschis la Închis, cu ore reale. Durata intervenției este separată de downtime-ul liniei. MTTR, MTBF (cu prag de date), recurențe, Pareto. Legătură cu sarcini și 8D. |
+| **Echipă** | Pontaj rapid (individual sau prin selecție multiplă), alocare pe linie și post cu conflicte (absent alocat, dublă alocare, nivel insuficient, nivel 1–2 fără suport) și propuneri de redistribuire. Decizia rămâne la tine. Matricea de calificare are exact 4 niveluri, iar „neevaluat” este afișat separat. Include training și plan de dezvoltare. |
+| **Calitate și Lean** | First Off, LPA (Layer 1–3, plan și checklist versionat), Gemba walk cu TIMWOOD, bottleneck și deviații, audit 6S, Poka-Yoke (3 metode × 2 funcții), 8D D0–D8 cu porți (cauză verificată cu dovadă, eficacitate măsurată), Kaizen PDCA, Lean 4 (Takt, Flow, Zero Defect, Pull). Aplicația nu revendică conformitate IATF sau ISO. |
+| **Sarcini** | Action Center: cine, ce, până când, în ce stadiu, cine verifică. Listă și Kanban, recurență, verificare cu dovadă, export CSV. |
+| **Predare** | Raport generat din module; scrii doar materialele/WIP, prioritățile și observațiile. Se poate copia, descărca și salva în istoric. |
+| **Mai mult** | Cataloage (linii, operații, PN-uri cu ICT, oameni, coduri de defect), setări (program, pauze, praguri, temă, coduri de pontaj), backup. |
 
-Cu programul confirmat, rutina deschide etapa de început în prima oră, etapa de final în ultima oră și etapa de lucru între ele. În ultima oră, panoul pune predarea în prim-plan. Schimbul de noapte folosește data de lucru la care a început. Instrucțiunile scurte apar sub punctele din rutină, tur și planul de dezvoltare și lângă câmpurile de completat. Pentru un punct personal, poți scrie instrucțiuni din detaliile punctului sau din modul Editează. Deschiderea unei predări sau probleme noi pornește o ciornă în fila curentă, iar prima editare validă o înregistrează. Intervalele de producție se înregistrează cu **Salvează**.
+## Date și confidențialitate
 
-La **Polivalență**, alocă întâi schimbul în **Echipa** și folosește „Niveluri și necesar pe schimb” pentru criterii. Indicatorul arată acoperirea pe post pe baza alocării și nivelului înregistrat, fără a verifica prezența, autorizarea sau conflictele de alocare între posturi. Ghidurile, formularele și orele orientative trebuie verificate față de practica locală.
-
-## Backup și recuperare
-
-- **Setări → Copie de siguranță → Salvează copia** descarcă fișierul JSON complet. Verifică fișierul în Descărcări și păstrează-l separat de telefon dacă politica permite.
-- **Încarcă o copie** validează fișierul și cere confirmarea înlocuirii. Exportă întâi caietul curent. Restaurează copiile de instruire în modul Instruire.
-- În tabelele care permit export, **Editează → Export CSV** descarcă tabelul. Funcția de copiere a rapoartelor folosește clipboardul sau afișează textul selectabil.
-- Folosește o filă pentru editare. Dacă altă filă a salvat între timp, cea veche afișează o eroare și păstrează ciorna în sesiunea deschisă. Exportă sesiunea dacă ai modificări de recuperat, apoi reîncarcă.
-- Datele pot deveni inaccesibile dacă se șterge stocarea browserului, se pierde dispozitivul sau se schimbă originea aplicației. Restaurarea înlocuiește documentul caietului după confirmare.
+- Repository-ul este public. Nu conține date reale. Cataloagele tale (linii, oameni, PN-uri) le configurezi pe dispozitiv și nu ajung în cod.
+- **Datele versiunii v4.4 nu se șterg.** La prima pornire, myApp 2 importă liniile, oamenii, calificările și problemele deschise. Nivelurile v4 se convertesc 1→2, 2→3, 3→4 și sunt marcate „de reconfirmat”. Lipsa unei evaluări rămâne „neevaluat”. Setări → „Descarcă datele caietului v4.4” exportă documentul vechi neatins.
+- **Setări → Copie de siguranță** descarcă JSON-ul complet. Restaurarea validează fișierul (format, câmpuri, chei periculoase, maximum 32 MB) și cere confirmare.
+- Datele pot deveni inaccesibile dacă ștergi datele browserului, pierzi telefonul sau se schimbă adresa aplicației. Exportă regulat.
+- Lucrează într-o singură filă: dacă altă filă a salvat între timp, salvarea este refuzată ca să nu suprascrie datele.
 
 ## Dezvoltare și verificare
-
-Rulează din directorul proiectului:
 
 ```sh
 python3 -m http.server 8124 --bind 127.0.0.1
 node --test tests/*.mjs
 ```
 
-Deschide `http://127.0.0.1:8124/`. Service Worker cere HTTPS sau localhost. Testul opțional de browser folosește Chromium și `playwright-core`. Instalează pachetul în afara repository-ului sau indică un modul disponibil:
+Testul de browser (opțional) folosește Chromium și Playwright, instalate în afara repository-ului:
 
 ```sh
 npm install --prefix /tmp/myapp-test playwright-core
 PLAYWRIGHT_MODULE=/tmp/myapp-test/node_modules/playwright-core node tests/browser.cjs
 ```
 
-Variabile opționale: `MYAPP_TEST_URL`, `CHROMIUM_EXECUTABLE` și `MYAPP_LEGACY_BACKUP` (calea către o copie de test exportată din versiunea 3.2). Testul folosește un profil izolat și date fictive. La schimbări ale aplicației actualizează versiunea și lista de resurse din `sw.js`. Testele verifică inventarul de resurse.
+Variabile: `MYAPP_TEST_URL`, `CHROMIUM_EXECUTABLE`.
 
-## Publicare manuală
+Structură:
+- `js/core` — timp, numere, document, persistență, migrare, date sintetice
+- `js/domain` — logică pură, testată în Node
+- `js/ui` — kit DOM sigur și grafice SVG
+- `js/views` — ecrane
 
-GitHub Pages este configurat pentru `main`, folderul rădăcină. După aprobarea publicării, revizuiește branchul, verifică impactul pe un URL local și exportă o copie din versiunea curentă dacă politica permite. Integrează branchul în `main` printr-un pull request, apoi verifică etapa Pages și URL-ul public. Pe dispozitiv, acceptă actualizarea Service Worker după ce ai salvat lucrul și testează o redeschidere offline.
+Design system: `docs/design-system.md`. Decizii: `docs/superpowers/specs/`. Progres: `PROGRESS.md`. La adăugarea unui fișier, actualizează lista și versiunea din `sw.js`.
 
-## Documentație
+## Publicare
 
-- [Capturi mobile înainte și după](docs/capturi/README.md)
-- [Audit inițial](docs/audit.md)
-- [Cercetarea publică și verificările interne](docs/cercetare.md)
-- [Prima mea zi, conducerea schimbului și planul pe 90 de zile](docs/ghid-supervizor.md)
+GitHub Pages servește `main`, folderul rădăcină. Publicarea se face printr-un pull request aprobat. Pe dispozitiv, acceptă actualizarea („Versiune nouă disponibilă → Actualizează”) după ce ai salvat lucrul.
