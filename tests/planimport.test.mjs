@@ -144,3 +144,25 @@ test("link: rebut confirmat, motiv pe linie (CP) și 0 operatori", async () => {
   assert.deepEqual([e.splits[0].total, e.splits[0].scrap, e.splits[0].rework, e.reason], [0, 0, 0, "CP – closed plan"]);
   assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [], scrap: -1 })));
 });
+test("link: pornire la ora reală, idempotent; ora în afara schimbului = eroare", async () => {
+  const { encodePlanLink, decodePlanLink, applyLinkEvents } = await import("../js/domain/planimport.js");
+  const { statusAt } = await import("../js/domain/lines.js");
+  const d = doc();
+  d.events ||= [];
+  const p = decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [],
+    events: [["Linia A", "run", "06:00"], ["Linia B", "notrunning", "06:00", "CP – closed plan"], ["Linia A", "run", "15:00"]] }));
+  const r = applyLinkEvents(d, p.events, p.day, S1);
+  assert.equal(r.saved, 2);
+  assert.deepEqual(r.unknown, ["Linia A"]);
+  assert.equal(applyLinkEvents(d, p.events, p.day, S1).saved, 0);
+  assert.equal(statusAt(d.events, "L0", new Date(2026, 10, 26, 7, 0)), "run");
+  assert.equal(statusAt(d.events, "L1", new Date(2026, 10, 26, 7, 0)), "notrunning");
+  assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [], events: [["Linia A", "explode", "06:00"]] })));
+});
+test("alertă: linia cu plan închis (CP) nu se escaladează", async () => {
+  const { attention } = await import("../js/domain/assistant.js");
+  const d = doc();
+  const L = { line: d.master.lines[0], planned: true, status: "notrunning", statusSince: 200, last: { reason: "CP – closed plan", at: new Date(2026, 10, 26, 6).toISOString() }, rows: [] };
+  const a = attention(d, { lines: [L], people: { marked: true, need: 0, coverage: [] }, sk: "x", workDay: "2026-11-26", shift: S1 }, new Date(2026, 10, 26, 9)).filter((x) => x.ref === "L0");
+  assert.deepEqual(a.map((x) => [x.kind, x.severity]), [["closedplan", "low"]]);
+});

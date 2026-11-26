@@ -6,7 +6,7 @@ import { fmtN, nn } from "../core/num.js";
 import { slotsOf, fmtHM, fmtDay, nextShift, shiftKey } from "../core/time.js";
 import { distribute, hourlyPlan, total, METHODS, planIssues, runSlotMinutes, confirmBaseline, revisePlan, runWindow } from "../domain/plan.js";
 import { gantt } from "../ui/charts.js";
-import { parsePlanText, applyPlanImport, applyActuals, decodePlanLink, rowsFromPayload } from "../domain/planimport.js";
+import { parsePlanText, applyPlanImport, applyActuals, applyLinkEvents, decodePlanLink, rowsFromPayload } from "../domain/planimport.js";
 import { pnItems, pnField, pageHead, prodTabs } from "./common.js";
 import { presentIds } from "../domain/workforce.js";
 
@@ -181,6 +181,8 @@ export function importLinkView(_p, q) {
     payload.hours ? h("div.panel.pad", { style: { marginTop: "12px" } }, h("b", null, "Împărțirea pe ore"),
       h("div.hprof", null, payload.hours.map((v, i) => h("span", null, h("small", null, "Ora " + (i + 1)), h("b.num", null, fmtN(v))))),
       h("p.small.muted", null, "Fiecare linie primește partea ei din fiecare oră; totalurile pe linie și pe oră rămân exacte.")) : null,
+    payload.events ? h("div.panel.pad", { style: { marginTop: "12px" } }, h("b", null, "Starea liniilor"),
+      h("ul.small", null, payload.events.map((e) => h("li", null, e[0] + ": " + (e[1] === "run" ? "pornită" : e[1] === "notrunning" ? "nu rulează" : e[1] === "stop" ? "oprită" : "changeover") + " la " + e[2] + (e[3] ? " (" + e[3] + ")" : ""))))) : null,
     payload.actuals ? actualsPanel(payload, res) : null,
     payload.others ? h("p.small.muted", { style: { marginTop: "8px" } }, "Liniile care nu apar: fără producție planificată.") : null,
     h("div.sticky-actions", null, btn("Renunță", () => (location.hash = "#/"), "ghost"), btn("Aplică planul", () => {
@@ -188,6 +190,7 @@ export function importLinkView(_p, q) {
       if (payload.hours && payload.hours.length !== slotsOf(payload.day, shift).length) return toast("Profilul orar nu are câte o valoare pentru fiecare oră a schimbului.", { err: true });
       const r = commit((d) => {
         const out = applyPlanImport(d, res.rows, payload.day, shift, { markOthersNotPlanned: payload.others, hours: payload.hours || null, norms: payload.norms || null });
+        if (payload.events) out.events = applyLinkEvents(d, payload.events, payload.day, shift);
         if (payload.actuals) out.actuals = applyActuals(d, payload.actuals, payload.day, shift, undefined, { scrap: payload.scrap ?? null, reasons: payload.reasons || null });
         d.meta.appliedLinks = { ...(d.meta.appliedLinks || {}), [key]: new Date().toISOString() };
         return out;
@@ -195,7 +198,8 @@ export function importLinkView(_p, q) {
       if (r.ok) {
         const a = r.result.actuals;
         toast("Plan aplicat: " + r.result.lines + " linii, " + fmtN(r.result.total) + " buc, " + r.result.created + " PN-uri noi salvate." +
-          (a ? " Rapoarte orare: " + a.saved + " salvate" + (a.kept ? ", " + a.kept + " păstrate de pe telefon" : "") + "." : ""));
+          (a ? " Rapoarte orare: " + a.saved + " salvate" + (a.kept ? ", " + a.kept + " păstrate de pe telefon" : "") + "." : "") +
+          (r.result.events ? " Evenimente de linie: " + r.result.events.saved + "." : ""));
         location.hash = "#/production";
       }
     }, "primary big")));

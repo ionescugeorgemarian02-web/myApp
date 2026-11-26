@@ -15,7 +15,13 @@ export function attention(doc, st, now) {
   const push = (a) => out.push({ id: a.kind + ":" + (a.ref || ""), ...a });
   for (const L of st.lines) {
     const name = L.line.name;
-    if (L.planned && (L.status === "stop" || L.status === "notrunning")) {
+    // Plan închis (CP): linia nu rulează intenționat — informare, fără escaladare.
+    const closedPlan = L.status === "notrunning" && /\bCP\b|closed plan|plan închis/i.test(L.last?.reason || "");
+    if (L.planned && closedPlan)
+      push({ kind: "closedplan", ref: L.line.id, severity: "low", title: name + ": plan închis (CP)",
+        evidence: "„" + L.last.reason + "”, de la " + fmtHM(new Date(L.last.at)) + ".", impact: "Planul liniei nu se realizează în acest schimb.",
+        action: "Fără acțiune; redeschide linia când planul se reia.", route: "#/line/" + L.line.id });
+    else if (L.planned && (L.status === "stop" || L.status === "notrunning")) {
       const m = Math.round(L.statusSince || 0);
       push({ kind: "stop", ref: L.line.id, severity: m >= th.escalateStopMin ? "critical" : "high",
         title: name + ": " + (L.status === "stop" ? "oprită" : "nu rulează") + " de " + m + " min",
@@ -35,7 +41,7 @@ export function attention(doc, st, now) {
         evidence: "Intervale fără raport: " + overdue.map((r) => r.slot.label).join(", ") + ".",
         impact: "Totalurile schimbului și OEE rămân incomplete.", action: "Completează raportul orar.", route: "#/report/" + L.line.id + "/" + overdue[0].slot.i });
     const closed = L.rows.filter((r) => r.slot.to <= now && r.plan > 0 && r.actual !== null);
-    if (closed.length) {
+    if (closed.length && !closedPlan) {
       const pl = closed.reduce((a, r) => a + r.plan, 0), ac = closed.reduce((a, r) => a + r.actual, 0);
       if (pl > 0 && (ac / pl) * 100 < th.underTarget)
         push({ kind: "under", ref: L.line.id, severity: (ac / pl) * 100 < th.underTarget - 15 ? "high" : "medium",
