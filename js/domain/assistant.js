@@ -24,7 +24,7 @@ export function attention(doc, st, now) {
         action: m >= th.escalateStopMin ? "Escaladează conform procedurii și leagă un incident." : "Verifică linia și înregistrează incidentul.",
         route: "#/line/" + L.line.id });
     }
-    if (L.planned && L.status === "unknown")
+    if (L.planned && L.status === "unknown" && st.lines.filter((x) => x.planned && x.status === "unknown").length <= 2)
       push({ kind: "unknown", ref: L.line.id, severity: "medium", title: name + ": status necunoscut",
         evidence: "Linia este planificată, dar nu există niciun eveniment de pornire în schimb.",
         impact: "Availability și downtime-ul nu pot fi calculate.", action: "Înregistrează pornirea, cu ora reală.", route: "#/line/" + L.line.id });
@@ -44,6 +44,11 @@ export function attention(doc, st, now) {
           impact: "Deviație negativă față de cerințele clientului.", action: "Analizează cauza și escaladează deviația dacă nu poate fi recuperată.", route: "#/line/" + L.line.id });
     }
   }
+  const unknown = st.lines.filter((x) => x.planned && x.status === "unknown");
+  if (unknown.length > 2)
+    push({ kind: "unknown", ref: "many", severity: "medium", title: unknown.length + " linii planificate fără pornire înregistrată",
+      evidence: unknown.map((x) => x.line.name).join(", ") + ".", impact: "Availability, downtime și OEE nu pot fi calculate pentru ele.",
+      action: "Pe fiecare linie: Pornește, cu ora reală.", route: "#/production?f=problems" });
   for (const inc of doc.incidents.filter((i) => !["resolved", "verified", "closed"].includes(i.status)))
     if (!inc.ownerId && !inc.dept) {
       const line = doc.master.lines.find((l) => l.id === inc.lineId);
@@ -68,7 +73,12 @@ export function attention(doc, st, now) {
   for (const [type, list] of groups)
     push({ kind: "people-" + type, ref: "", severity: PEOPLE[type][0], title: list.length + (list.length === 1 ? " persoană " : " persoane ") + PEOPLE[type][1],
       evidence: list.slice(0, 3).map((c) => c.text).join(" ") + (list.length > 3 ? " …" : ""), impact: "Risc de calitate sau post neacoperit.", action: "Corectează alocarea.", route: "#/team/allocation" });
-  for (const cv of st.people.coverage.filter((c) => c.gap > 0))
+  // Fără pontaj marcat: o singură alertă, nu câte una pe linie.
+  if (!st.people.marked && st.people.need > 0)
+    push({ kind: "attendance", ref: "", severity: "medium", title: "Pontajul nu este marcat",
+      evidence: "Necesar pe liniile planificate: " + st.people.need + " operatori.", impact: "Acoperirea liniilor nu poate fi verificată.",
+      action: "Marchează prezența și alocă operatorii.", route: "#/team" });
+  else for (const cv of st.people.coverage.filter((c) => c.gap > 0))
     push({ kind: "gap", ref: cv.lineId, severity: "high", title: cv.line?.name + ": " + (cv.gap === 1 ? "lipsește 1 operator" : "lipsesc " + cv.gap + " operatori"),
       evidence: "Necesar " + cv.need + ", alocați și prezenți " + cv.present + ".", impact: "Linia nu poate rula la capacitate.",
       action: "Vezi operatorii disponibili pentru redistribuire.", route: "#/team/allocation" });

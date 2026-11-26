@@ -67,3 +67,30 @@ test("link de plan: codare/decodare UTF-8, validare, refuz la conținut stricat"
   assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "nu", shift: "S1", rows: [] })));
   assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [["Linia A", "x", -5, 1]] })));
 });
+
+test("profil orar: rotunjire care păstrează exact totalurile pe linie și pe oră", async () => {
+  const { splitByProfile } = await import("../js/domain/planimport.js");
+  // Numere sintetice: 8 linii, total 1000, profil orar cu două ore mai slabe.
+  const plans = [137, 211, 95, 163, 58, 119, 142, 75];
+  const prof = [134, 134, 134, 95, 101, 134, 134, 134];
+  const m = splitByProfile(plans, prof);
+  m.forEach((row, i) => assert.equal(row.reduce((a, b) => a + b, 0), plans[i]));
+  prof.forEach((p, j) => assert.equal(m.reduce((a, row) => a + row[j], 0), p));
+  assert.ok(m.flat().every((x) => Number.isInteger(x) && x >= 0));
+  assert.throws(() => splitByProfile([10], [3, 3]), /total/);
+});
+test("link cu profil orar și normă: plan manual pe ore, normă salvată pe linie, ciclu planificat pe PN", async () => {
+  const { encodePlanLink, decodePlanLink, rowsFromPayload, applyPlanImport } = await import("../js/domain/planimport.js");
+  const d = doc();
+  const p = decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", others: true, hours: [6, 6, 6, 6, 6, 6, 6, 6],
+    rows: [["Linia A", "PN-H1", 30, 2, 60], ["Linia B", "PN-H2", 18, 1, 40]], norms: { "Linia C": 112 } }));
+  const r = rowsFromPayload(p, d);
+  applyPlanImport(d, r.rows, p.day, S1, { markOthersNotPlanned: true, hours: p.hours, norms: p.norms });
+  const sk = "2026-11-26|S1";
+  const hA = hourlyPlan(d.plans[sk].L0, p.day, S1);
+  assert.equal(total(hA), 30);
+  assert.equal(d.plans[sk].L0.runs[0].method, "manual");
+  assert.equal(d.master.lines[0].hourlyNorm, 60);
+  assert.equal(d.master.lines[2].hourlyNorm, 112);
+  assert.equal(d.master.pns.find((x) => x.code === "PN-H1").cycleSec, 60);
+});

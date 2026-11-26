@@ -12,14 +12,15 @@ import { statusTag, taskFromSheet } from "./common.js";
 export function aggregateRows(lines) {
   if (!lines.length) return [];
   return lines[0].rows.map((r0, i) => {
-    let plan = 0, actual = 0, missing = false, anyPlan = false;
+    let plan = 0, actual = 0, missing = false, anyPlan = false, overdue = false;
     for (const L of lines) {
       const r = L.rows[i];
       if (r.plan === null) { missing = true; continue; }
       plan += r.plan;
-      if (r.plan > 0 || r.ppt > 0) { anyPlan = true; if (r.actual === null) missing = true; else actual += r.actual; }
+      if (r.plan > 0 || r.ppt > 0) { anyPlan = true; if (r.actual === null) missing = true; else actual += r.actual; if (r.state === "overdue") overdue = true; }
     }
-    return { slot: r0.slot, plan, actual: missing ? null : actual, state: anyPlan ? "x" : "na" };
+    // Starea agregată: restant dacă o linie e restantă, altfel în așteptare până sunt toate raportate.
+    return { slot: r0.slot, plan, actual: missing ? null : actual, state: !anyPlan ? "na" : overdue ? "overdue" : missing ? "pending" : "complete" };
   });
 }
 export function todayView(_p, _q, st) {
@@ -42,7 +43,7 @@ export function todayView(_p, _q, st) {
       h("div.hero-clock", null, h("span.num", null, fmtHM(t)), h("small", null, c.live ? fmtDur(st.remainingMin) + " rămase" : c.upcoming ? "începe în " + fmtDur((c.from - t) / 60000) : "schimb încheiat"))),
     h("div.hero-figs", null,
       fig("Realizat", st.planned.length ? fmtN(st.repActual) : "—", "plan schimb " + fmtN(st.planTotal)),
-      fig("Plan ore raportate", st.planned.length ? fmtN(st.repPlan) : "—", !st.planned.length ? "niciun plan pentru schimb" : st.missingClosed ? (st.missingClosed === 1 ? "1 oră încheiată fără raport" : st.missingClosed + " ore încheiate fără raport") : "toate orele încheiate raportate", st.missingClosed ? "warn" : ""),
+      fig("Plan ore raportate", st.planned.length ? fmtN(st.repPlan) : "—", !st.planned.length ? "niciun plan pentru schimb" : !st.lines.some((l) => l.rows.some((r) => r.slot.to <= st.now && r.plan > 0)) ? "nicio oră încheiată încă" : !st.missingClosed && st.planned.some((l) => l.rows.some((r) => r.slot.to <= st.now && r.plan > 0 && r.actual === null)) ? "rapoarte în așteptare (15 min toleranță)" : st.missingClosed ? (st.missingClosed === 1 ? "1 oră încheiată fără raport" : st.missingClosed + " ore încheiate fără raport") : "toate orele încheiate raportate", st.missingClosed ? "warn" : ""),
       fig("Abatere", delta === null ? "—" : fmtSigned(delta), st.repPlan ? fmtPct(st.repActual / st.repPlan, 0) + " din plan" : "fără ore raportate", delta === null ? "" : delta < 0 ? "stop" : "run")),
     agg.length ? ruler(agg, { now: t, from: st.from, to: st.to, under: th.underTarget, onSlot: () => (location.hash = "#/oee") }) : null,
     h("div.legend", null, leg("run", "≥ 100 %"), leg("ok", "≥ " + th.underTarget + " %"), leg("warn", "sub prag"), leg("stop", "critic"), leg("missing", "raport lipsă")));

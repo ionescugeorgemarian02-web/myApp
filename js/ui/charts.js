@@ -18,7 +18,8 @@ export function ruler(rows, { now, from, to, under = 90, compact = false, onSlot
   for (const r of rows) {
     const future = r.slot.from > now;
     const cur = now >= r.slot.from && now < r.slot.to;
-    const b = r.state === "na" ? "na" : future || (cur && r.actual === null) ? "future" : band(r.actual, r.plan, under);
+    // „Raport lipsă” doar după toleranță (state overdue); o oră abia încheiată rămâne „în așteptare”.
+    const b = r.state === "na" ? "na" : future || (r.actual === null && r.state === "pending") ? "future" : band(r.actual, r.plan, under);
     const cell = h(onSlot ? "button.rc" : "div.rc", {
       class: "b-" + b + (cur ? " cur" : ""), type: onSlot ? "button" : null, onclick: onSlot ? () => onSlot(r) : null,
       title: r.slot.label + " · plan " + fmtN(r.plan) + " · realizat " + fmtN(r.actual),
