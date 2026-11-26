@@ -162,3 +162,16 @@ test("fusul orar: un instant salvat cu toISOString se citește înapoi la aceea�
   assert.equal(fromIso(local.toISOString()).getTime(), local.getTime());
   assert.equal(fromIso("2026-11-25T10:00").getHours(), 10);
 });
+
+test("OEE față de ținta 85 % (world class, configurabilă) și semnalarea P > 100 %", async () => {
+  const { oeeBand, performanceSuspect } = await import("../js/domain/oee.js");
+  assert.equal(oeeBand(0.86), "run");
+  assert.equal(oeeBand(0.85), "run");
+  assert.equal(oeeBand(0.70), "warn");
+  assert.equal(oeeBand(0.60), "stop");
+  assert.equal(oeeBand(null), "none");
+  assert.equal(oeeBand(0.8, 75), "run");
+  assert.equal(performanceSuspect({ p: 1.12 }), true);
+  assert.equal(performanceSuspect({ p: 0.95 }), false);
+  assert.equal(performanceSuspect({ p: null }), false);
+});

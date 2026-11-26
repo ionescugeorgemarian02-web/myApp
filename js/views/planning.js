@@ -6,7 +6,7 @@ import { fmtN, nn } from "../core/num.js";
 import { slotsOf, fmtHM, fmtDay, nextShift, shiftKey } from "../core/time.js";
 import { distribute, hourlyPlan, total, METHODS, planIssues, runSlotMinutes, confirmBaseline, revisePlan, runWindow } from "../domain/plan.js";
 import { gantt } from "../ui/charts.js";
-import { pnItems, pageHead } from "./common.js";
+import { pnItems, pnField, pageHead, prodTabs } from "./common.js";
 import { presentIds } from "../domain/workforce.js";
 
 export function planningView(_p, q, st) {
@@ -27,7 +27,7 @@ export function planningView(_p, q, st) {
   const avail = presentIds(doc, c.sk).size;
   const nx = nextShift(c.workDay, c.shift, doc.settings.shifts);
   const issues = rows.flatMap((r) => r.issues.map((i) => ({ ...i, line: r.l })));
-  return h("div", null,
+  return h("div", null, prodTabs("plan"),
     pageHead("Planificare", fmtDay(c.workDay, true) + " · " + c.shift.name + " " + c.shift.start + "–" + c.shift.end,
       [btn("Schimbul următor", () => { S.view = shiftKey(nx.workDay, nx.shift.id); S.render(); }, "", "right"), S.view ? btn("Schimbul curent", () => { S.view = null; S.render(); }, "ghost") : null]),
     h("div.kpis.c4", null,
@@ -120,7 +120,7 @@ function runEditor(r, i, p, draw, c, L) {
   return h("div.runbox.panel.pad", null,
     h("div.row.between", null, h("b", null, "PN " + (i + 1)), p.runs.length > 1 ? btn("Elimină", () => { p.runs.splice(i, 1); draw(); }, "ghost", "trash") : null),
     h("div.fields", null,
-      picker("PN", pnItems(L.id), r.pnId, (v) => { r.pnId = v; const x = byId(S.doc.master.pns, v); if (x?.cycleSec && !r.cycleSec) r.cycleSec = x.cycleSec; draw(); }),
+      pnField("PN", L.id, r.pnId, (v) => { r.pnId = v; const x = byId(S.doc.master.pns, v); if (x?.cycleSec && !r.cycleSec) r.cycleSec = x.cycleSec; draw(); }),
       h("div.fields.c2", null, field("Început", input(r.start, (v) => (r.start = v), { type: "time", onchange: draw })), field("Final", input(r.end, (v) => (r.end = v), { type: "time", onchange: draw }))),
       field("Metodă de distribuire", select(Object.entries(METHODS), r.method, (v) => { r.method = v; if (v === "manual") r.hourly = distribute({ ...r, method: "productive" }, c.workDay, c.shift) || []; draw(); })),
       h("div.fields.c3", null,

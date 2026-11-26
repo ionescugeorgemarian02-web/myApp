@@ -2,6 +2,7 @@
 import { h, put, btn, tag, field, input, area, select, seg, sheet, pick, picker, toast, icon, item } from "../ui/kit.js";
 import { S, ctx, commit, now, lineName, byId } from "../state.js";
 import { LINE_STATUS, addEvent } from "../domain/lines.js";
+import { uid } from "../core/doc.js";
 import { createTask, PRIORITY, SOURCES } from "../domain/tasks.js";
 import { createIncident } from "../domain/incidents.js";
 import { atTime, fmtHM, day, shiftKey, addDays, fmtDay, previousShift, nextShift, validHM } from "../core/time.js";
@@ -9,12 +10,26 @@ import { atTime, fmtHM, day, shiftKey, addDays, fmtDay, previousShift, nextShift
 export const statusTag = (st) => tag(LINE_STATUS[st]?.tone || "unknown", LINE_STATUS[st]?.label || st);
 export const linesItems = () => S.doc.master.lines.filter((l) => l.active !== false).map((l) => ({ id: l.id, label: l.name, sub: l.zone || "" }));
 export const peopleItems = (filter = () => true) => S.doc.master.people.filter((p) => p.active !== false && filter(p)).map((p) => ({ id: p.id, label: p.name, sub: p.category || "" }));
+// PN-urile liniei primele, apoi restul catalogului. Codul nou tastat se creează și se salvează.
 export const pnItems = (lineId) => {
   const line = byId(S.doc.master.lines, lineId);
-  const all = S.doc.master.pns;
-  const own = line?.pnIds?.length ? all.filter((p) => line.pnIds.includes(p.id)) : all;
-  return own.map((p) => ({ id: p.id, label: p.code, sub: p.name }));
+  const own = new Set(line?.pnIds || []);
+  return [...S.doc.master.pns].sort((a, b) => Number(own.has(b.id)) - Number(own.has(a.id)) || a.code.localeCompare(b.code))
+    .map((p) => ({ id: p.id, label: p.code, sub: (p.name ? p.name + " · " : "") + (own.has(p.id) ? "pe această linie" : "din catalog") }));
 };
+// Câmp PN: alegere din listă, creare din căutare, legare automată la linie.
+export function pnField(label, lineId, value, onPick, opts = {}) {
+  const choose = (id) => {
+    if (id && lineId) commit((d) => { const l = d.master.lines.find((x) => x.id === lineId); if (l && !l.pnIds.includes(id)) l.pnIds.push(id); }, null, { undo: false, render: false });
+    onPick(id);
+  };
+  return picker(label, pnItems(lineId), value, choose, { ...opts, createLabel: "PN nou", onCreate: (code) => {
+    const existing = S.doc.master.pns.find((p) => p.code.toLowerCase() === code.toLowerCase());
+    if (existing) return existing.id;
+    const r = commit((d) => { const p = { id: uid(), code, name: "", ict: null, cycleSec: null }; d.master.pns.push(p); return p.id; }, "PN „" + code + "” salvat", { undo: false, render: false });
+    return r.ok ? r.result : null;
+  } });
+}
 export const machineItems = (lineId) => (byId(S.doc.master.lines, lineId)?.machines || []).map((m) => ({ id: m.id, label: m.name, sub: m.op && m.op !== m.name ? m.op : "" }));
 
 // „Acum” sau „Ora reală” (în fereastra schimbului). Returnează un getter care dă Date sau aruncă.
@@ -48,7 +63,7 @@ export function lineEventSheet(lineId, type) {
   const draw = () => put(body, 
     h("p.muted.small", null, L.name + " · înregistrare digitală, nu comandă către utilaj."),
     tc.el,
-    type === "changeover" || type === "run" ? picker("PN", pnItems(lineId), pnId, (v) => { pnId = v; draw(); }, { allowNone: true, noneLabel: "Fără schimbare PN" }) : null,
+    type === "changeover" || type === "run" ? pnField("PN", lineId, pnId, (v) => { pnId = v; draw(); }, { allowNone: true, noneLabel: "Fără schimbare PN" }) : null,
     type === "stop" ? picker("Cod de defect", S.doc.master.faults.map((f) => ({ id: f.id, label: f.code + " · " + f.name })), faultId, (v) => { faultId = v; draw(); }, { allowNone: true, noneLabel: "Necodificat" }) : null,
     type !== "run" ? field("Motiv", input(reason, (v) => (reason = v), { placeholder: type === "notrunning" ? "Ex. lipsă material" : "Ce s-a întâmplat" })) : null,
     type === "stop" ? h("label.check", null, h("input", { type: "checkbox", checked: withIncident, onchange: (e) => (withIncident = e.target.checked) }), "Deschide și un incident") : null);
@@ -131,3 +146,9 @@ export function pageHead(title, sub, actions) {
 }
 export const today = () => day(now());
 export { addDays };
+
+// Subnavigarea producției: pagini dedicate pentru linii, plan, OEE și raportul zilei.
+export function prodTabs(current) {
+  return h("nav.ptabs", { "aria-label": "Producție" }, [["lines", "#/production", "Linii"], ["plan", "#/planning", "Planificare"], ["oee", "#/oee", "OEE"], ["day", "#/day", "Raport zilnic"]]
+    .map(([id, href, label]) => h("a", { href, "aria-current": id === current ? "page" : null }, label)));
+}

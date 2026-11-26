@@ -91,7 +91,7 @@ export function demoDoc(now = new Date()) {
   // Rutina: activitățile de dinainte și de la începutul schimbului sunt deja bifate (sintetic).
   for (const act of defaultTemplate().filter((a) => a.phase === "before" || a.phase === "start"))
     for (const inst of instancesFor(act, workDay, shift))
-      if (inst.from < now && !inst.weekly && act.id !== "b-blocked") record(doc, inst.key, { result: act.id === "s-scrap" ? "nok" : "ok" }, new Date(Math.min(now, inst.to)));
+      if (inst.from < now && !inst.weekly && act.id !== "b8") record(doc, inst.key, { result: act.id === "s3" ? "nok" : "ok" }, new Date(Math.min(now, inst.to)));
   const inc = createIncident(doc.incidents, { lineId: doc.master.lines[5].id, machineId: doc.master.lines[5].machines[1].id, category: "Defect mecanic",
     faultId: doc.master.faults[0].id, desc: "Dispozitiv de prindere blocat", severity: "high", startAt: new Date(now.getTime() - 34 * MIN), dept: "Mentenanță" }, now);
   transition(inc, "notified", now, new Date(now.getTime() - 30 * MIN));

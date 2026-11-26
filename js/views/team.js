@@ -18,8 +18,9 @@ function attendance(st) {
   const doc = S.doc, c = ctx();
   const att = doc.attendance[c.sk] || {};
   const statuses = doc.settings.attendance;
-  const cats = ["all", ...new Set(doc.master.people.map((p) => p.category).filter(Boolean))];
-  const people = doc.master.people.filter((p) => p.active !== false && (cat === "all" || p.category === cat));
+  const teams = [...new Set(doc.master.people.map((p) => p.team).filter(Boolean))].sort();
+  const cats = ["all", ...teams.map((t) => "t:" + t), ...new Set(doc.master.people.map((p) => p.category).filter(Boolean))];
+  const people = doc.master.people.filter((p) => p.active !== false && (cat === "all" || p.category === cat || "t:" + p.team === cat));
   const unmarked = people.filter((p) => !att[p.id]);
   const mark = (ids, s, msg) => commit((d) => { d.attendance[c.sk] ||= {}; for (const id of ids) { if (s) d.attendance[c.sk][id] = s; else delete d.attendance[c.sk][id]; } }, msg);
   const count = (sid) => Object.values(att).filter((x) => x === sid).length;
@@ -27,7 +28,7 @@ function attendance(st) {
     h("div.kpis.c4", null, kpi("Prezenți", String(st.people.present), "din " + doc.master.people.filter((p) => p.active !== false).length + " în echipă"),
       kpi("Absenți / concediu", String(count("absent") + count("leave")), count("late") + " întârzieri", ""), kpi("Nemarcați", String(doc.master.people.filter((p) => p.active !== false && !att[p.id]).length), "", unmarked.length ? "warn" : ""),
       kpi("Necesar linii", String(st.people.need), "deficit " + st.people.gap, st.people.gap ? "stop" : "")),
-    h("div", { style: { margin: "16px 0 8px" } }, chips(cats.map((x) => [x, x === "all" ? "Toți" : x]), cat, (v) => { cat = v; S.render(); }, "Categorie")),
+    h("div", { style: { margin: "16px 0 8px" } }, chips(cats.map((x) => [x, x === "all" ? "Toți" : x.startsWith("t:") ? x.slice(2) : x]), cat, (v) => { cat = v; S.render(); }, "Categorie")),
     h("div.row.wrap", { style: { marginBottom: "8px" } },
       unmarked.length ? btn("Toți nemarcații sunt prezenți (" + unmarked.length + ")", () => mark(unmarked.map((p) => p.id), "present", unmarked.length + " marcați prezenți"), "primary", "check") : null,
       btn(selecting ? "Gata selecția" : "Selectează", () => { selecting = !selecting; selected.clear(); S.render(); }, "ghost", "list"),
@@ -38,7 +39,7 @@ function attendance(st) {
       const meta = statuses.find((s) => s.id === cur);
       return h("div.prow", null,
         selecting ? h("input.pchk", { type: "checkbox", checked: selected.has(p.id), "aria-label": "Selectează " + p.name, onchange: (e) => { e.target.checked ? selected.add(p.id) : selected.delete(p.id); S.render(); } }) : null,
-        h("a.pmain", { href: "#/person/" + p.id }, h("b", null, p.name), h("small", null, p.category || "")),
+        h("a.pmain", { href: "#/person/" + p.id }, h("b", null, p.name), h("small", null, [p.team, p.category].filter(Boolean).join(" · "))),
         h("div.pbtns", null,
           h("button.pb", { type: "button", "aria-pressed": String(cur === "present"), class: "ok", onclick: () => mark([p.id], cur === "present" ? null : "present", null) }, "P"),
           h("button.pb", { type: "button", "aria-pressed": String(cur === "absent"), class: "nok", onclick: () => mark([p.id], cur === "absent" ? null : "absent", null) }, "A"),

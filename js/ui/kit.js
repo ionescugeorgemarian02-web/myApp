@@ -173,18 +173,20 @@ export function promptSheet(title, label, { value = "", required = true, okLabel
   });
 }
 // Selector cu căutare (listă lungă: linii, oameni, PN-uri).
-export function pick({ title, items, value, onPick, allowNone = false, noneLabel = "Nimic" }) {
+export function pick({ title, items, value, onPick, allowNone = false, noneLabel = "Nimic", onCreate = null, createLabel = "Adaugă" }) {
   let q = "";
   const list = h("div.list");
   const draw = () => {
     const nq = q.trim().toLowerCase();
     const vis = items.filter((i) => !nq || (i.label + " " + (i.sub || "")).toLowerCase().includes(nq));
-    put(list, ...(allowNone ? [item({ title: noneLabel, onClick: () => { onPick(null); sh.close(); }, chev: false })] : []),
+    const exact = items.some((i) => i.label.toLowerCase() === nq);
+    put(list, ...(onCreate && nq && !exact ? [item({ title: createLabel + " „" + q.trim() + "”", sub: "se salvează în catalog", lead: icon("plus"), chev: false, onClick: () => { const id = onCreate(q.trim()); if (id) onPick(id); sh.close(); } })] : []),
+      ...(allowNone ? [item({ title: noneLabel, onClick: () => { onPick(null); sh.close(); }, chev: false })] : []),
       ...vis.map((i) => item({ title: i.label, sub: i.sub, end: i.id === value ? icon("check") : i.end || null, chev: false, onClick: () => { onPick(i.id); sh.close(); } })));
     if (!vis.length) list.append(h("div.item", null, h("div.s", null, "Niciun rezultat.")));
   };
-  const search = input("", (v) => { q = v; draw(); }, { placeholder: "Caută…", type: "search", "aria-label": "Caută" });
-  const sh = sheet({ title, body: [items.length > 7 ? h("div.search", null, search) : null, list] });
+  const search = input("", (v) => { q = v; draw(); }, { placeholder: onCreate ? "Caută sau scrie unul nou…" : "Caută…", type: "search", "aria-label": "Caută" });
+  const sh = sheet({ title, body: [items.length > 7 || onCreate ? h("div.search", null, search) : null, list] });
   draw();
   return sh;
 }

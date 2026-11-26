@@ -7,7 +7,7 @@ import { fmtDay, fmtHM, isoWeek, addDays, productiveMin, breaksOf } from "../cor
 import { templatesOf, updateTemplate, startAudit, answer, score, finishAudit, recurringNok, TIMWOOD, POKA_METHOD, POKA_FUNCTION, SIX_M, D_STEPS, create8D, canComplete, completeStep, verifyCause, d8Progress, PDCA, kaizenScore } from "../domain/quality.js";
 import { runWindow } from "../domain/plan.js";
 import { trend } from "../ui/charts.js";
-import { taskFromSheet, linesItems, machineItems, peopleItems, pnItems, pageHead, backLink } from "./common.js";
+import { taskFromSheet, linesItems, machineItems, peopleItems, pnItems, pnField, pageHead, backLink } from "./common.js";
 
 const TYPE_NAME = { lpa: "LPA", gemba: "Gemba walk", firstoff: "First Off", s6: "Audit 6S", q8: "8 baze ale calității" };
 export function qualityView(_p, _q, st) {
@@ -128,7 +128,7 @@ export function auditView([id]) {
     h("p.small.muted", { style: { margin: "6px 0 12px" } }, (a.questions.length - sc.missing) + "/" + a.questions.length + " răspunsuri · " + sc.ok + " OK · " + sc.nok + " NOK · " + sc.na + " N/A" + (sc.ratio !== null ? " · scor " + fmtPct(sc.ratio, 0) + " (N/A exclus)" : "")),
     h("div.panel.pad.fields", null,
       h("div.fields.c2", null, field("Auditor", input(a.auditor, (v) => (a.auditor = v), { onchange: () => commit(() => 0, null, { undo: false }), disabled: ro })),
-        a.type === "firstoff" ? picker("PN", pnItems(a.lineId), a.pnId, (v) => commit(() => (a.pnId = v), null)) : field("Zonă / linie", input(a.zone || L?.name || "", (v) => (a.zone = v), { onchange: () => commit(() => 0, null, { undo: false }), disabled: ro || !!L }))),
+        a.type === "firstoff" ? pnField("PN", a.lineId, a.pnId, (v) => commit(() => (a.pnId = v), null)) : field("Zonă / linie", input(a.zone || L?.name || "", (v) => (a.zone = v), { onchange: () => commit(() => 0, null, { undo: false }), disabled: ro || !!L }))),
       a.type === "firstoff" ? field("Moment", seg([["start", "Pornire"], ["changeover", "Schimbare reper"], ["intervention", "După intervenție"]], a.extra.trigger, (v) => commit(() => (a.extra.trigger = v), null))) : null),
     a.questions.map((q, i) => qRow(a, q, i, set, ro)),
     a.type === "gemba" ? gembaExtra(a, ro) : null,
@@ -199,7 +199,7 @@ function pokaSheet(existing) {
   let chk = { r: "ok", note: "" };
   const draw = () => put(body, picker("Linie", linesItems(), p.lineId, (v) => { p.lineId = v; draw(); }),
     p.lineId ? picker("Mașină / operație", machineItems(p.lineId), p.machineId, (v) => { p.machineId = v; draw(); }, { allowNone: true }) : null,
-    p.lineId ? picker("PN", pnItems(p.lineId), p.pnId, (v) => { p.pnId = v; draw(); }, { allowNone: true, noneLabel: "Toate PN-urile" }) : null,
+    p.lineId ? pnField("PN", p.lineId, p.pnId, (v) => { p.pnId = v; draw(); }, { allowNone: true, noneLabel: "Toate PN-urile" }) : null,
     field("Eroarea prevenită", input(p.error, (v) => (p.error = v))),
     field("Metoda", seg(Object.entries(POKA_METHOD).map(([k, v]) => [k, v.label]), p.method, (v) => { p.method = v; draw(); })),
     h("small.muted", null, POKA_METHOD[p.method].text),

@@ -29,6 +29,13 @@
   --focus: #12202a;
   --scrim: rgba(18, 32, 42, .42);
   --chrome: #12202a; --chrome-ink: #eef2f4;
+  /* Tokeni de componentă: culorile etapelor de pe fișa EPT (hârtie). Marchează etapa, nu starea. */
+  --ph-before: #9aa3aa; --ph-before-ink: #12202a;
+  --ph-start: #f2cd00; --ph-start-ink: #12202a;
+  --ph-during: #2e8b57; --ph-during-ink: #ffffff;
+  --ph-end: #2f67c8; --ph-end-ink: #ffffff;
+  --ph-rules: #c0262d; --ph-rules-ink: #ffffff;
+  --oee-target: #12202a;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;

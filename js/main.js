@@ -2,7 +2,7 @@
 import { h, icon, toast, sheetOpen, btn, put } from "./ui/kit.js";
 import { S, ctx, now, applyTheme } from "./state.js";
 import { loadDoc, saveDoc, loadLegacy, onStatus, persistStorage, flush, exportDoc } from "./core/store.js";
-import { emptyDoc, looksLikeDemo } from "./core/doc.js";
+import { emptyDoc, looksLikeDemo, defaultLines } from "./core/doc.js";
 import { migrateV4 } from "./core/migrate.js";
 import { fmtDur, fmtDay, day } from "./core/time.js";
 import { shiftState } from "./domain/shift.js";
@@ -19,6 +19,7 @@ import { teamView, personView } from "./views/team.js";
 import { tasksView } from "./views/tasks.js";
 import { qualityView, auditView, auditNew, auditsList, eightDList, eightDView, pokaView, kaizenView, leanView } from "./views/quality.js";
 import { handoverView } from "./views/handover.js";
+import { dayView } from "./views/day.js";
 import { moreView, settingsView, catalogView } from "./views/settings.js";
 
 const params = new URLSearchParams(location.search);
@@ -28,7 +29,7 @@ if (S.training && params.get("t")) S.clockOffset = new Date(params.get("t")).get
 const ROUTES = {
   "": [todayView, "today"], routine: [routineView, "today"], handover: [handoverView, "today"],
   production: [productionView, "production"], line: [lineView, "production"], planning: [planningView, "production"], report: [reportView, "production"],
-  oee: [oeeView, "production"], incidents: [incidentsView, "production"], incident: [incidentView, "production"],
+  oee: [oeeView, "production"], day: [dayView, "production"], incidents: [incidentsView, "production"], incident: [incidentView, "production"],
   team: [teamView, "team"], person: [personView, "team"],
   quality: [qualityView, "quality"], audit: [auditView, "quality"], audits: [auditsList, "quality"], eightd: [eightDList, "quality"], "8d": [eightDView, "quality"],
   poka: [pokaView, "quality"], kaizen: [kaizenView, "quality"], lean: [leanView, "quality"],
@@ -37,7 +38,7 @@ const ROUTES = {
 const TABS = [["today", "#/", "Azi", "today"], ["production", "#/production", "Producție", "production"], ["team", "#/team", "Echipă", "team"], ["quality", "#/quality", "Calitate", "quality"], ["more", "#/more", "Mai mult", "more"]];
 const SIDE = [
   ["Schimb", [["#/", "Centru de comandă", "today"], ["#/routine", "Rutina mea EPT", "check"], ["#/handover", "Predarea schimbului", "handover"]]],
-  ["Producție", [["#/production", "Linii", "production"], ["#/planning", "Planificare", "calendar"], ["#/oee", "Performanță OEE", "chart"], ["#/incidents", "Incidente", "wrench"]]],
+  ["Producție", [["#/production", "Linii", "production"], ["#/planning", "Planificare", "calendar"], ["#/oee", "Performanță OEE", "chart"], ["#/day", "Raport zilnic", "book"], ["#/incidents", "Incidente", "wrench"]]],
   ["Echipă", [["#/team", "Pontaj și alocare", "team"], ["#/team/matrix", "Matrice de calificare", "grid"]]],
   ["Calitate și Lean", [["#/quality", "Calitate", "quality"], ["#/eightd", "8D", "layers"], ["#/lean", "Lean 4", "target"], ["#/kaizen", "Kaizen", "bulb"]]],
   ["Administrare", [["#/tasks", "Sarcini", "list"], ["#/catalog", "Cataloage", "box"], ["#/settings", "Setări și backup", "settings"]]],
@@ -118,6 +119,7 @@ async function boot() {
     let imported = null, cleaned = false;
     // Datele fictive ale vechiului mod demo se elimină; catalogul pornește cu liniile reale.
     if (doc && looksLikeDemo(doc)) { doc = null; cleaned = true; }
+    if (doc && !doc.master.lines.length && !doc.meta.defaultLines) { doc.master.lines = defaultLines(); doc.meta.defaultLines = true; await saveDoc(doc); }
     if (!doc) {
       if (S.training) doc = emptyDoc(true);
       else {
@@ -130,7 +132,7 @@ async function boot() {
     } else S.doc = doc;
     applyTheme();
     render();
-    if (cleaned) toast("Datele fictive au fost șterse." + (S.doc.master.lines.length ? " Liniile tale au fost preluate din caietul v4.4." : " Adaugă liniile tale în Cataloage."), { ms: 9000 });
+    if (cleaned) toast("Datele fictive au fost șterse. Liniile tale sunt în catalog, fără date.", { ms: 9000 });
     if (imported) toast("Importat din v4.4: " + imported.lines + " linii, " + imported.people + " oameni, " + imported.quals + " calificări (de reconfirmat), " + imported.tasks + " sarcini. Caietul vechi rămâne neatins.", { ms: 12000 });
   } catch (e) {
     put(main, h("div.empty", null, h("h3", null, "Datele locale nu pot fi deschise"), h("p", null, e.message), btn("Reîncarcă", () => location.reload(), "primary")));

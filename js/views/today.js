@@ -97,7 +97,7 @@ function routineQuick(r) {
 function onboarding() {
   return h("div", null, h("div.head", null, h("div", null, h("h1", null, "Bun venit"), h("p", null, "Configurează catalogul ca centrul de comandă să aibă date reale. Nimic nu este inventat."))),
     h("div.steps", null,
-      step("1", "Liniile tale", "Cataloage → „Adaugă mai multe”: lipește cele 13 denumiri, câte una pe rând. Rămân doar pe acest telefon, nu ajung pe internet.", "#/catalog"),
+      step("1", "Liniile și mașinile", "Adaugă liniile, mașinile și operatorii necesari. Se salvează pe acest dispozitiv.", "#/catalog"),
       step("2", "PN-uri și timpi de ciclu", "Timpul ideal (ICT) permite OEE corect. Fără el, OEE apare „Date insuficiente”.", "#/catalog?tab=pns"),
       step("3", "Echipa", "Oamenii, rolurile și matricea de calificare 1–4.", "#/catalog?tab=people"),
       step("4", "Programul schimburilor", "Orele și pauzele. Pauzele scad minutele productive din plan.", "#/settings")),

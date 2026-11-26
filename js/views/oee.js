@@ -1,20 +1,21 @@
 // PERFORMANȚĂ — OEE (A, P, Q separat), plan attainment, FPY, Pareto, heatmap, trend. Fiecare cifră are drilldown.
-import { h, btn, kpi, sect, seg, picker, note, empty, table, field, input, plural } from "../ui/kit.js";
+import { h, btn, kpi, sect, seg, picker, note, empty, table, field, input, plural, tag } from "../ui/kit.js";
 import { S, ctx, now, byId } from "../state.js";
 import { fmtN, fmtPct } from "../core/num.js";
 import { addDays, shiftKey, shiftWindow, fmtDay, fmtHM, MIN } from "../core/time.js";
 import { lineState } from "../domain/shift.js";
-import { sumOee, ratiosOf } from "../domain/oee.js";
+import { sumOee, ratiosOf, oeeBand, performanceSuspect } from "../domain/oee.js";
 import { segments } from "../domain/lines.js";
 import { pareto } from "../domain/incidents.js";
-import { apq, planActual, cumulative, paretoBars, heatmap, trend, timeSplit } from "../ui/charts.js";
+import { apq, planActual, cumulative, paretoBars, heatmap, trend, timeSplit, oeeGauge } from "../ui/charts.js";
 import { aggregateRows } from "./today.js";
-import { linesItems, pageHead } from "./common.js";
+import { linesItems, pageHead, prodTabs } from "./common.js";
 
 let period = "shift", lineF = null, pnF = null, from = null, to = null;
 export function oeeView(_p, q) {
   if (q.get("line")) { lineF = q.get("line"); history.replaceState(null, "", "#/oee"); }
   const doc = S.doc, c = ctx(), t = now();
+  const target = doc.settings.thresholds.oeeTarget ?? 85;
   if (!doc.master.lines.length) return h("div", null, pageHead("Performanță"), empty("Fără date", "Configurează liniile și PN-urile.", null));
   from ||= addDays(c.workDay, -6); to ||= c.workDay;
   const days = { shift: 0, day: 1, week: 7, month: 30 }[period];
@@ -56,15 +57,18 @@ export function oeeView(_p, q) {
   });
   const shiftLines = period === "shift" ? states.map((x) => x.L) : [];
   return h("div", null,
-    pageHead("Performanță", "OEE după oee.com · A, P și Q separat · „—” înseamnă date insuficiente, nu zero"),
+    prodTabs("oee"),
+    pageHead("Performanță OEE", "A, P și Q separat, după oee.com · „—” înseamnă date insuficiente, nu zero"),
     h("div.filters", null, seg([["shift", "Schimb"], ["day", "24 h"], ["week", "7 zile"], ["month", "30 zile"], ["custom", "Perioadă"]], period, (v) => { period = v; S.render(); }),
       h("div.fields.c2", null, picker("Linie", linesItems(), lineF, (v) => { lineF = v; S.render(); }, { allowNone: true, noneLabel: "Toate liniile" }),
         picker("PN", doc.master.pns.map((x) => ({ id: x.id, label: x.code, sub: x.name })), pnF, (v) => { pnF = v; S.render(); }, { allowNone: true, noneLabel: "Toate PN-urile" }))),
     period === "custom" ? h("div.fields.c2", null, field("De la", input(from, (v) => (from = v), { type: "date", onchange: () => S.render() })), field("Până la", input(to, (v) => (to = v), { type: "date", onchange: () => S.render() }))) : null,
     pnF ? note("Filtru PN: " + (mixedExcluded ? mixedExcluded + " ore cu mai multe PN-uri sunt excluse (timpul planificat nu se împarte arbitrar)." : "doar orele dedicate acestui PN.")) : null,
     !states.length ? note("Nu există planuri în perioada aleasă.", "warn") : null,
+    h("div.panel", { style: { marginTop: "16px" } }, oeeGauge(r, target, "Ținta " + target + " % este referința „world class” de pe oee.com (nu un standard); o schimbi în Setări → Praguri.")),
+    performanceSuspect(r) ? note("Performance peste 100 % (" + fmtPct(r.p) + "): verifică timpul ideal de ciclu (ICT) al PN-urilor sau cantitățile raportate.", "warn") : null,
     h("div.split", { style: { marginTop: "16px" } },
-      h("div.panel.pad", null, h("h3.ph3", null, "OEE"), apq(r), h("p.tiny.faint", { style: { marginTop: "8px" } },
+      h("div.panel.pad", null, h("h3.ph3", null, "Availability · Performance · Quality"), apq(r), h("p.tiny.faint", { style: { marginTop: "8px" } },
         (agg ? oeeParts.length + " ore complete · " + Math.round(agg.ppt) + " min planificate" : "Nicio oră completă") + ". Quality este ponderat cu timpul ideal (corect pentru PN-uri diferite). Good = bune la prima trecere.")),
       h("div.kpis", null,
         kpi("Realizare plan", fmtPct(planDone ? actDone / planDone : null, 0), missing ? plural(missing, "oră fără raport (exclusă)", "ore fără raport (excluse)") : "ore încheiate", "", "#/production?f=reports"),
@@ -76,7 +80,7 @@ export function oeeView(_p, q) {
       sect("Producție cumulată și abatere"), h("div.panel.pad", null, cumulative(cumRows(aggregateRows(shiftLines))), h("div.legend", null, h("span", null, h("i.l-plan"), "plan"), h("span", null, h("i.l-act"), "realizat"))),
       sect("Heatmap linii × ore", h("span.aside", null, "atinge pentru raport")),
       h("div.panel.pad.scrollx", null, heatmap(shiftLines, { under: doc.settings.thresholds.underTarget, onCell: (L, row) => (location.hash = "#/report/" + L.line.id + "/" + row.slot.i) }))] : null,
-    trendPts.length ? [sect("Trend OEE zilnic"), h("div.panel.pad", null, trend(trendPts, { label: "OEE pe zi" }) || note("Nicio zi cu ore complete."))] : null,
+    trendPts.length ? [sect("Trend OEE zilnic"), h("div.panel.pad", null, trend(trendPts, { label: "OEE pe zi", target: target / 100 }) || note("Nicio zi cu ore complete."))] : null,
     sect("Distribuția timpului"), h("div.panel.pad", null, timeSplit(mins) || note("Fără evenimente de stare.")),
     h("div.grid.c2-lg", null,
       h("div", null, sect("Pareto opriri (minute)"), h("div.panel.pad", null, paretoBars(pareto(stops, (x) => x.key, (x) => x.min).map((x) => ({ ...x, value: Math.round(x.value) }))) || note("Nicio oprire."))),
@@ -87,7 +91,7 @@ export function oeeView(_p, q) {
       const parts = st2.flatMap((x) => x.L.rows.filter((r2) => r2.oee).map((r2) => r2.oee));
       const rr = parts.length ? ratiosOf(sumOee(parts)) : null;
       const rep = st2.flatMap((x) => x.L.rows.filter((r2) => r2.actual !== null && r2.plan !== null)), rp = rep.reduce((a, r2) => a + r2.plan, 0), ra = rep.reduce((a, r2) => a + r2.actual, 0);
-      return { id: l.id, cells: [l.name, ...[rr?.a, rr?.p, rr?.q, rr?.oee].map((v) => ({ v: fmtPct(v, 0), cls: "num" })), { v: fmtPct(rp ? ra / rp : null, 0), cls: "num" },
+      return { id: l.id, cells: [l.name, ...[rr?.a, rr?.p, rr?.q].map((v) => ({ v: fmtPct(v, 0), cls: "num" })), { v: rr?.oee != null ? tag("oee-" + oeeBand(rr.oee, target) + ".plain", fmtPct(rr.oee, 0)) : "—", cls: "num" }, { v: fmtPct(rp ? ra / rp : null, 0), cls: "num" },
         { v: Math.round(st2.reduce((a, x) => a + x.L.mins.stop + x.L.mins.notrunning, 0)) + " min", cls: "num" }] };
     }), { onRow: (r) => (location.hash = "#/line/" + r.id) }));
 }
