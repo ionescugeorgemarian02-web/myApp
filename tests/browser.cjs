@@ -227,6 +227,24 @@ async function demoCleanupFlow(browser) {
   await ctx.close();
 }
 
+// Plan primit prin link: datele doar în link; un buton le aplică (PN-uri salvate, plan, operatori).
+async function linkFlow(browser) {
+  const { ctx, page, errors } = await fresh(browser);
+  await page.goto(BASE + "manifest.json");
+  const code = await page.evaluate(async () => (await import("./js/domain/planimport.js")).encodePlanLink({ v: 1, day: "2026-11-25", shift: "S1", rows: [["Fam B1", "PN-TEST-LINK-1", 300, 9], ["GDI", "PN-TEST-LINK-2", 120, 2]], others: true }));
+  await page.goto(BASE + "#/import?d=" + code);
+  await page.getByRole("heading", { name: "Plan primit prin link" }).waitFor();
+  await page.getByRole("button", { name: "Aplică planul" }).click();
+  await page.locator(".toast", { hasText: "Plan aplicat: 2 linii, 420 buc, 2 PN-uri noi salvate" }).waitFor();
+  const d = await page.evaluate(async () => { const { S } = await import("./js/state.js"); const sk = "2026-11-25|S1"; const b1 = S.doc.master.lines.find((l) => l.name === "Fam B1");
+    return { pns: S.doc.master.pns.map((p) => p.code), ops: b1.requiredOps, planned: Object.values(S.doc.plans[sk]).filter((p) => !p.notPlanned).length }; });
+  assert.deepEqual(d.pns, ["PN-TEST-LINK-1", "PN-TEST-LINK-2"]);
+  assert.equal(d.ops, 9);
+  assert.equal(d.planned, 2);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+}
+
 async function legacyFlow(browser) {
   const { ctx, page, errors } = await fresh(browser);
   await page.goto(BASE + "manifest.json");
@@ -263,6 +281,8 @@ async function legacyFlow(browser) {
     console.log("ok - schimbul meu: S1 din 26 la 03:43, apoi S1 din 27 după încheiere");
     await demoCleanupFlow(browser);
     console.log("ok - datele fictive vechi sunt eliminate");
+    await linkFlow(browser);
+    console.log("ok - plan primit prin link: un buton, PN-uri salvate, operatori, plan");
     await legacyFlow(browser);
     console.log("ok - migrare v4.4 fără a modifica documentul vechi");
   } finally { await browser.close(); }

@@ -11,7 +11,7 @@ import { quickActions, shiftSheet } from "./views/common.js";
 import { todayView } from "./views/today.js";
 import { routineView } from "./views/routine.js";
 import { productionView, lineView } from "./views/production.js";
-import { planningView } from "./views/planning.js";
+import { planningView, importLinkView } from "./views/planning.js";
 import { reportView } from "./views/report.js";
 import { oeeView } from "./views/oee.js";
 import { incidentsView, incidentView } from "./views/incidents.js";
@@ -28,7 +28,7 @@ if (S.training && params.get("t")) S.clockOffset = new Date(params.get("t")).get
 
 const ROUTES = {
   "": [todayView, "today"], routine: [routineView, "today"], handover: [handoverView, "today"],
-  production: [productionView, "production"], line: [lineView, "production"], planning: [planningView, "production"], report: [reportView, "production"],
+  production: [productionView, "production"], line: [lineView, "production"], planning: [planningView, "production"], import: [importLinkView, "production"], report: [reportView, "production"],
   oee: [oeeView, "production"], day: [dayView, "production"], incidents: [incidentsView, "production"], incident: [incidentView, "production"],
   team: [teamView, "team"], person: [personView, "team"],
   quality: [qualityView, "quality"], audit: [auditView, "quality"], audits: [auditsList, "quality"], eightd: [eightDList, "quality"], "8d": [eightDView, "quality"],
@@ -76,7 +76,7 @@ function render() {
   drawBar(c, st);
   drawNav(tab, r);
   // Pe ecranele cu bară fixă de salvare, butonul rapid ar acoperi acțiunea principală.
-  fab.hidden = ["report", "audit", "auditNew"].includes(r.name) || (r.name === "incident" && r.parts[0] === "new");
+  fab.hidden = ["report", "audit", "auditNew", "import"].includes(r.name) || (r.name === "incident" && r.parts[0] === "new");
   const key = location.hash;
   const y = key === lastRoute ? scrollY : 0;
   let content;
@@ -145,15 +145,23 @@ async function boot() {
     if (!sheetOpen() && !(a && a.matches("input, textarea, select"))) render();
   }, 60000);
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    // Actualizare automată: versiunea nouă se instalează și se activează singură; reîncărcarea așteaptă
+    // până nu ai un formular deschis, ca să nu pierzi ce scrii.
     navigator.serviceWorker.register("./sw.js").then((reg) => {
-      const offer = (w) => toast("Versiune nouă disponibilă. Salvează lucrul, apoi actualizează.", { undo: () => { w.postMessage("activate"); }, label: "Actualizează", ms: 15000 });
-      if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
-      reg.addEventListener("updatefound", () => { const w = reg.installing; w?.addEventListener("statechange", () => { if (w.state === "installed" && navigator.serviceWorker.controller) offer(w); }); });
+      if (reg.waiting) reg.waiting.postMessage("activate");
+      reg.addEventListener("updatefound", () => { const w = reg.installing; w?.addEventListener("statechange", () => { if (w.state === "installed") w.postMessage("activate"); }); });
+      const check = () => reg.update().catch(() => {});
+      addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
+      setInterval(check, 30 * 60000);
     }).catch(() => {});
-    // Reîncărcare doar la actualizare (exista deja un controller), nu la prima instalare.
     const hadController = !!navigator.serviceWorker.controller;
     let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController && !reloading) { reloading = true; flush().finally(() => location.reload()); } });
+    const safeReload = () => {
+      const a = document.activeElement;
+      if (sheetOpen() || (a && a.matches("input, textarea, select"))) { setTimeout(safeReload, 3000); return; }
+      flush().finally(() => location.reload());
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController && !reloading) { reloading = true; toast("Se încarcă versiunea nouă…"); safeReload(); } });
   }
   addEventListener("pagehide", () => flush());
 }

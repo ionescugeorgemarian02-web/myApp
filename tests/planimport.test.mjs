@@ -52,3 +52,18 @@ test("planul cu baseline nu se suprascrie în tăcere", () => {
   d.plans["2026-11-26|S1"].L0.baseline = { total: 348 };
   assert.throws(() => applyPlanImport(d, parsePlanText("Linia A; PN-T1; 100; 11", d).rows, "2026-11-26", S1), /baseline/);
 });
+
+test("link de plan: codare/decodare UTF-8, validare, refuz la conținut stricat", async () => {
+  const { encodePlanLink, decodePlanLink, rowsFromPayload } = await import("../js/domain/planimport.js");
+  const payload = { v: 1, day: "2026-11-26", shift: "S1", rows: [["Linia A", "PN-T.Ă1", 348, 11], ["Linia B", "PN-T2", 200, null]], others: true };
+  const code = encodePlanLink(payload);
+  assert.match(code, /^[A-Za-z0-9_-]+$/, "sigur în URL");
+  const back = decodePlanLink(code);
+  assert.deepEqual(back, payload);
+  const r = rowsFromPayload(back, doc());
+  assert.equal(r.total, 548);
+  assert.deepEqual(r.errors, []);
+  assert.throws(() => decodePlanLink("nu-e-valid!!"));
+  assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "nu", shift: "S1", rows: [] })));
+  assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [["Linia A", "x", -5, 1]] })));
+});
