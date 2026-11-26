@@ -1,7 +1,7 @@
 // Service Worker myApp 2: offline complet. Instalarea reușește doar dacă toate resursele există.
 // La orice fișier nou: adaugă-l în listă și crește versiunea (testul verifică inventarul).
 const prefix = "caiet-" + self.registration.scope + "-",
-  cache = prefix + "v35";
+  cache = prefix + "v36";
 const files = [
   "./",
   "./index.html",
@@ -51,8 +51,9 @@ const files = [
   "./js/views/team.js",
   "./js/views/today.js",
 ];
+// Versiunea nouă se activează singură (datele sunt deja salvate în IndexedDB), fără să aștepte un buton.
 self.addEventListener("install", (e) =>
-  e.waitUntil(caches.open(cache).then((c) => c.addAll(files.map((url) => new Request(url, { cache: "reload" }))))),
+  e.waitUntil(caches.open(cache).then((c) => c.addAll(files.map((url) => new Request(url, { cache: "reload" })))).then(() => self.skipWaiting())),
 );
 self.addEventListener("message", (e) => {
   if (e.data === "activate") self.skipWaiting();

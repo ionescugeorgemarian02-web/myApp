@@ -58,3 +58,25 @@ export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanne
       doc.plans[sk][l.id] = { lineId: l.id, notPlanned: true, runs: [], baseline: null, revisions: [] };
   return { created, lines: rows.length, total: rows.reduce((a, r) => a + r.target, 0) };
 }
+
+// Link de plan: datele merg doar în link (fragmentul #, nu ajunge la server și nu e în cod).
+// Format: { v: 1, day: "YYYY-MM-DD", shift: "S1", rows: [[linie, pn, plan, operatori]], others: bool }
+const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export function encodePlanLink(payload) {
+  return b64url(new TextEncoder().encode(JSON.stringify(payload)));
+}
+export function decodePlanLink(code) {
+  if (typeof code !== "string" || !/^[A-Za-z0-9_-]+$/.test(code) || code.length > 20000) throw Error("Linkul de plan nu este valid.");
+  let p;
+  try {
+    const bin = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
+    p = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+  } catch { throw Error("Linkul de plan este deteriorat."); }
+  const ok = p && p.v === 1 && /^\d{4}-\d{2}-\d{2}$/.test(p.day) && typeof p.shift === "string" && Array.isArray(p.rows) && p.rows.length <= 100 &&
+    p.rows.every((r) => Array.isArray(r) && typeof r[0] === "string" && (r[1] === null || typeof r[1] === "string") && Number.isInteger(r[2]) && r[2] >= 0 && (r[3] === null || (Number.isInteger(r[3]) && r[3] >= 0)));
+  if (!ok) throw Error("Linkul de plan are un format greșit.");
+  return { v: 1, day: p.day, shift: p.shift, rows: p.rows.map((r) => [r[0], r[1], r[2], r[3]]), others: !!p.others };
+}
+export function rowsFromPayload(p, doc) {
+  return parsePlanText(p.rows.map((r) => [r[0], r[1] || "", r[2], r[3] ?? ""].join("; ")).join("\n"), doc);
+}

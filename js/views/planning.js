@@ -6,7 +6,7 @@ import { fmtN, nn } from "../core/num.js";
 import { slotsOf, fmtHM, fmtDay, nextShift, shiftKey } from "../core/time.js";
 import { distribute, hourlyPlan, total, METHODS, planIssues, runSlotMinutes, confirmBaseline, revisePlan, runWindow } from "../domain/plan.js";
 import { gantt } from "../ui/charts.js";
-import { parsePlanText, applyPlanImport } from "../domain/planimport.js";
+import { parsePlanText, applyPlanImport, decodePlanLink, rowsFromPayload } from "../domain/planimport.js";
 import { pnItems, pnField, pageHead, prodTabs } from "./common.js";
 import { presentIds } from "../domain/workforce.js";
 
@@ -161,4 +161,31 @@ function importSheet() {
     const r = commit((d) => applyPlanImport(d, res.rows, c.workDay, c.shift, { markOthersNotPlanned: others }), null);
     if (r.ok) { sh.close(); toast("Plan aplicat: " + r.result.lines + " linii, " + fmtN(r.result.total) + " buc, " + r.result.created + " PN-uri noi salvate."); }
   }, "primary")] });
+}
+
+// Planul primit prin link (#/import?d=…): previzualizare și aplicare cu un singur buton.
+export function importLinkView(_p, q) {
+  let payload, res, err = null;
+  try { payload = decodePlanLink(q.get("d") || ""); res = rowsFromPayload(payload, S.doc); } catch (e) { err = e.message; }
+  if (err) return h("div", null, pageHead("Plan primit prin link"), note(err, "stop"), btn("Mergi la Planificare", () => (location.hash = "#/planning"), "", "calendar"));
+  const shift = S.doc.settings.shifts.find((x) => x.id === payload.shift) || S.doc.settings.shifts[0];
+  const key = (q.get("d") || "").slice(0, 64);
+  const applied = S.doc.meta.appliedLinks?.[key];
+  return h("div", null, pageHead("Plan primit prin link", fmtDay(payload.day, true) + " · " + shift.name + " " + shift.start + "–" + shift.end),
+    applied ? note("Acest plan a fost deja aplicat la " + new Date(applied).toLocaleString("ro-RO") + ". Îl poți aplica din nou dacă s-a schimbat ceva.", "run") : null,
+    res.errors.map((e) => note(e, "stop")),
+    h("div.tablewrap", null, h("table.t", null,
+      h("thead", null, h("tr", null, ["Linie", "PN", "Plan", "Op."].map((x) => h("th", null, x)))),
+      h("tbody", null, res.rows.map((r) => h("tr", null, h("td", null, r.lineName), h("td", null, r.pn || "—"), h("td.num", null, fmtN(r.target)), h("td.num", null, r.ops ?? "—")))),
+      h("tfoot", null, h("tr", null, h("td", null, "Total"), h("td"), h("td.num", null, fmtN(res.total)), h("td"))))),
+    payload.others ? h("p.small.muted", { style: { marginTop: "8px" } }, "Liniile care nu apar: fără producție planificată.") : null,
+    h("div.sticky-actions", null, btn("Renunță", () => (location.hash = "#/"), "ghost"), btn("Aplică planul", () => {
+      if (res.errors.length || !res.rows.length) return toast("Linkul conține rânduri invalide.", { err: true });
+      const r = commit((d) => {
+        const out = applyPlanImport(d, res.rows, payload.day, shift, { markOthersNotPlanned: payload.others });
+        d.meta.appliedLinks = { ...(d.meta.appliedLinks || {}), [key]: new Date().toISOString() };
+        return out;
+      }, null, { undo: false });
+      if (r.ok) { toast("Plan aplicat: " + r.result.lines + " linii, " + fmtN(r.result.total) + " buc, " + r.result.created + " PN-uri noi salvate."); location.hash = "#/production"; }
+    }, "primary big")));
 }
