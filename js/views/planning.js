@@ -188,7 +188,7 @@ export function importLinkView(_p, q) {
       if (payload.hours && payload.hours.length !== slotsOf(payload.day, shift).length) return toast("Profilul orar nu are câte o valoare pentru fiecare oră a schimbului.", { err: true });
       const r = commit((d) => {
         const out = applyPlanImport(d, res.rows, payload.day, shift, { markOthersNotPlanned: payload.others, hours: payload.hours || null, norms: payload.norms || null });
-        if (payload.actuals) out.actuals = applyActuals(d, payload.actuals, payload.day, shift);
+        if (payload.actuals) out.actuals = applyActuals(d, payload.actuals, payload.day, shift, undefined, { scrap: payload.scrap ?? null, reasons: payload.reasons || null });
         d.meta.appliedLinks = { ...(d.meta.appliedLinks || {}), [key]: new Date().toISOString() };
         return out;
       }, null, { undo: false });
@@ -215,5 +215,6 @@ function actualsPanel(payload, res) {
         return h("tr", null, h("td", null, k), Array.from({ length: n }, (_, i) => h("td.num", null, Number.isInteger(a[i]) ? fmtN(a[i]) : "—")), h("td.num", null, fmtN(t)), h("td.num", null, planOf(k) != null ? fmtN(planOf(k)) : "—"));
       })),
       h("tfoot", null, h("tr", null, h("td", null, "Total"), colSum.map((v) => h("td.num", null, fmtN(v))), h("td.num", null, fmtN(colSum.reduce((x, y) => x + y, 0))), h("td"))))),
-    h("p.small.muted", null, "Se salvează ca rapoarte orare. Rebutul și rework-ul nu sunt în link: rapoartele rămân incomplete până le completezi. Un raport introdus deja pe telefon nu se suprascrie."));
+    h("p.small.muted", null, (payload.scrap !== undefined ? "Se salvează ca rapoarte orare, cu rebut " + payload.scrap + "." : "Se salvează ca rapoarte orare. Rebutul nu e în link: rapoartele rămân incomplete până îl completezi.") +
+      (payload.reasons ? " Motive: " + Object.entries(payload.reasons).map(([k, v]) => k + " – " + v).join("; ") + "." : "") + " Un raport introdus deja pe telefon nu se suprascrie."));
 }

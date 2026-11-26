@@ -54,7 +54,7 @@ export function applyPlanImport(doc, rows, workDay, shift, { markOthersNotPlanne
       if (!line.pnIds.includes(p.id)) line.pnIds.push(p.id);
       if (r.norm > 0) p.cycleSec = Math.round((3600 / r.norm) * 100) / 100; // ciclu planificat din norma orară (nu ICT)
     }
-    if (r.ops) line.requiredOps = r.ops;
+    if (r.ops != null) line.requiredOps = r.ops;
     // Reparație: un link anterior cu operatori lipsă salva norma ca operatori (ex. 30 operatori = 30 buc/oră).
     else if (r.ops == null && r.norm > 0 && line.requiredOps === r.norm) line.requiredOps = null;
     if (r.norm > 0) line.hourlyNorm = r.norm;
@@ -93,12 +93,16 @@ export function decodePlanLink(code) {
     (p.hours === undefined || (Array.isArray(p.hours) && p.hours.length <= 24 && p.hours.every(intOk))) &&
     (p.norms === undefined || (p.norms && typeof p.norms === "object" && !Array.isArray(p.norms) && Object.values(p.norms).every(intOk))) &&
     (p.actuals === undefined || (p.actuals && typeof p.actuals === "object" && !Array.isArray(p.actuals) &&
-      Object.values(p.actuals).every((a) => Array.isArray(a) && a.length <= 24 && a.every((x) => x === null || intOk(x)))));
+      Object.values(p.actuals).every((a) => Array.isArray(a) && a.length <= 24 && a.every((x) => x === null || intOk(x))))) &&
+    (p.scrap === undefined || intOk(p.scrap)) &&
+    (p.reasons === undefined || (p.reasons && typeof p.reasons === "object" && !Array.isArray(p.reasons) && Object.values(p.reasons).every((x) => typeof x === "string" && x.length <= 120)));
   if (!ok || !extraOk) throw Error("Linkul de plan are un format greșit.");
   const out = { v: 1, day: p.day, shift: p.shift, rows: p.rows.map((r) => (r[4] === undefined ? [r[0], r[1], r[2], r[3]] : [r[0], r[1], r[2], r[3], r[4]])), others: !!p.others };
   if (p.hours) out.hours = p.hours.slice();
   if (p.norms) out.norms = Object.fromEntries(Object.entries(p.norms).filter(([k]) => !BAD_KEYS.includes(k)));
   if (p.actuals) out.actuals = Object.fromEntries(Object.entries(p.actuals).filter(([k]) => !BAD_KEYS.includes(k)).map(([k, a]) => [k, a.slice()]));
+  if (p.scrap !== undefined) out.scrap = p.scrap;
+  if (p.reasons) out.reasons = Object.fromEntries(Object.entries(p.reasons).filter(([k]) => !BAD_KEYS.includes(k)));
   return out;
 }
 export function rowsFromPayload(p, doc) {
@@ -140,7 +144,8 @@ export function splitByProfile(plans, profile) {
 // Realizatul pe ore venit din link (ex. raportul orar din Excel): { linie: [ora1, ora2, …] }, null = lipsă.
 // Se salvează ca raport orar cu rebut/rework necunoscute (raport incomplet, nu 0). Un raport introdus
 // pe telefon are prioritate; rapoartele venite anterior din link se actualizează.
-export function applyActuals(doc, actuals, workDay, shift, at = new Date().toISOString()) {
+// Opțional: scrap = rebutul confirmat de supervizor pentru aceste ore (ex. 0), reasons = motiv pe linie (ex. „CP – closed plan”).
+export function applyActuals(doc, actuals, workDay, shift, at = new Date().toISOString(), { scrap = null, reasons = null } = {}) {
   const sk = shiftKey(workDay, shift.id);
   let saved = 0, kept = 0;
   const unknown = [];
@@ -154,7 +159,10 @@ export function applyActuals(doc, actuals, workDay, shift, at = new Date().toISO
       doc.reports[sk][line.id] ||= {};
       const cur = doc.reports[sk][line.id][i];
       if (cur && cur.source !== "link") { kept++; return; }
-      doc.reports[sk][line.id][i] = { splits: [{ pnId, total, scrap: null, rework: null }], note: "", reason: "", issueId: null, na: false, at, source: "link" };
+      const q = Number.isInteger(scrap) && scrap <= total ? scrap : null;
+      const reason = Object.entries(reasons || {}).find(([k]) => norm(k) === norm(name))?.[1] || "";
+      doc.reports[sk][line.id][i] = { splits: [{ pnId, total, scrap: q, rework: q === null ? null : 0 }],
+        note: q === null ? "" : "Rebut " + q + " confirmat de supervizor (din Excel); rework neurmărit separat.", reason, issueId: null, na: false, at, source: "link" };
       saved++;
     });
   }
