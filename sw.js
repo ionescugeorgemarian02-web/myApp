@@ -1,7 +1,7 @@
 // Service Worker myApp 2: offline complet. Instalarea reușește doar dacă toate resursele există.
 // La orice fișier nou: adaugă-l în listă și crește versiunea (testul verifică inventarul).
 const prefix = "caiet-" + self.registration.scope + "-",
-  cache = prefix + "v33";
+  cache = prefix + "v35";
 const files = [
   "./",
   "./index.html",
@@ -25,6 +25,7 @@ const files = [
   "./js/domain/lines.js",
   "./js/domain/oee.js",
   "./js/domain/plan.js",
+  "./js/domain/planimport.js",
   "./js/domain/quality.js",
   "./js/domain/reports.js",
   "./js/domain/routine.js",

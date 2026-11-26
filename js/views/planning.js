@@ -6,6 +6,7 @@ import { fmtN, nn } from "../core/num.js";
 import { slotsOf, fmtHM, fmtDay, nextShift, shiftKey } from "../core/time.js";
 import { distribute, hourlyPlan, total, METHODS, planIssues, runSlotMinutes, confirmBaseline, revisePlan, runWindow } from "../domain/plan.js";
 import { gantt } from "../ui/charts.js";
+import { parsePlanText, applyPlanImport } from "../domain/planimport.js";
 import { pnItems, pnField, pageHead, prodTabs } from "./common.js";
 import { presentIds } from "../domain/workforce.js";
 
@@ -29,7 +30,7 @@ export function planningView(_p, q, st) {
   const issues = rows.flatMap((r) => r.issues.map((i) => ({ ...i, line: r.l })));
   return h("div", null, prodTabs("plan"),
     pageHead("Planificare", fmtDay(c.workDay, true) + " · " + c.shift.name + " " + c.shift.start + "–" + c.shift.end,
-      [btn("Schimbul următor", () => { S.view = shiftKey(nx.workDay, nx.shift.id); S.render(); }, "", "right"), S.view ? btn("Schimbul curent", () => { S.view = null; S.render(); }, "ghost") : null]),
+      [btn("Importă plan din text", () => importSheet(), "primary", "upload"), btn("Schimbul următor", () => { S.view = shiftKey(nx.workDay, nx.shift.id); S.render(); }, "", "right"), S.view ? btn("Schimbul curent", () => { S.view = null; S.render(); }, "ghost") : null]),
     h("div.kpis.c4", null,
       kpi("Linii planificate", planned.length + "/" + lines.length, rows.filter((r) => r.p?.notPlanned).length + " marcate neplanificate"),
       kpi("Target total", fmtN(planned.every((r) => r.tot !== null) ? planned.reduce((a, r) => a + r.tot, 0) : null), planned.filter((r) => r.p.baseline).length + " cu baseline confirmat"),
@@ -130,4 +131,34 @@ function runEditor(r, i, p, draw, c, L) {
       h("div.fields.c2", null, field("Ordin de producție", input(r.order || "", (v) => (r.order = v), { placeholder: "opțional" })), field("Prioritate", seg([["A", "A"], ["B", "B"], ["C", "C"]], r.priority, (v) => { r.priority = v; draw(); }))),
       h("p.small.muted", null, Math.round(mins) + " min productive" + (cap !== null ? " · capacitate la ciclul confirmat: " + fmtN(cap) + " buc" : " · fără ciclu confirmat, capacitatea nu se calculează") + (pn?.ict ? " · ICT " + pn.ict + " s" : " · ICT lipsă (OEE incomplet)")),
       cap !== null && tgt !== null && tgt > cap ? note("Targetul (" + fmtN(tgt) + ") depășește capacitatea la ciclul confirmat (" + fmtN(cap) + ").", "stop") : null));
+}
+
+// Import rapid: lipești rândurile (sau le copiezi din Excel); previzualizare cu total înainte de aplicare.
+function importSheet() {
+  const c = ctx();
+  let text = "", others = true, res = parsePlanText("", S.doc);
+  const preview = h("div");
+  const draw = () => {
+    res = parsePlanText(text, S.doc);
+    put(preview,
+      res.errors.map((e) => note(e, "stop")),
+      res.rows.length ? h("div.tablewrap", { style: { marginTop: "12px" } }, h("table.t", null,
+        h("thead", null, h("tr", null, ["Linie", "PN", "Plan", "Op."].map((x) => h("th", null, x)))),
+        h("tbody", null, res.rows.map((r) => h("tr", null, h("td", null, r.lineName), h("td", null, r.pn || "—"), h("td.num", null, fmtN(r.target)), h("td.num", null, r.ops ?? "—")))),
+        h("tfoot", null, h("tr", null, h("td", null, "Total"), h("td"), h("td.num", null, fmtN(res.total)), h("td"))))) : null,
+      res.skipped.length ? h("p.small.muted", null, "Fără plan: " + res.skipped.join(", ") + ".") : null);
+  };
+  const body = h("div.fields", null,
+    note("Lipește câte un rând pe linie: „Linie; PN; Plan; Operatori”, sau copiază direct coloanele PLAN, ACTUAL, PROGRAM, pn, nr op din Excel. PN-urile noi se salvează în catalog pentru zilele următoare."),
+    h("p.small.muted", null, "Se aplică pe " + c.shift.name + ", " + fmtDay(c.workDay, true) + "."),
+    h("textarea.area", { rows: 8, placeholder: "Fam B1; 11.00.000.000.000A; 300; 10", oninput: (e) => { text = e.target.value; draw(); }, "aria-label": "Rândurile planului" }),
+    h("label.check", null, h("input", { type: "checkbox", checked: others, onchange: (e) => (others = e.target.checked) }), "Liniile care nu apar: fără producție planificată"),
+    preview);
+  draw();
+  const sh = sheet({ title: "Importă planul schimbului", body, wide: true, footer: [btn("Renunță", () => sh.close()), btn("Aplică planul", () => {
+    if (!res.rows.length) return toast("Nu am găsit niciun rând valid.", { err: true });
+    if (res.errors.length) return toast("Corectează rândurile marcate cu roșu.", { err: true });
+    const r = commit((d) => applyPlanImport(d, res.rows, c.workDay, c.shift, { markOthersNotPlanned: others }), null);
+    if (r.ok) { sh.close(); toast("Plan aplicat: " + r.result.lines + " linii, " + fmtN(r.result.total) + " buc, " + r.result.created + " PN-uri noi salvate."); }
+  }, "primary")] });
 }

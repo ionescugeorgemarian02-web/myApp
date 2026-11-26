@@ -14,11 +14,10 @@ Se aplică tuturor skillurilor din `.claude/skills/`.
 
 Orice procent, total sau „N din M” dintr-un răspuns provine dintr-un calcul rulat pe date (test, script, funcție). Nu provine dintr-o estimare din memorie. O afirmație negativă („nu există opriri”) spune pe ce filtru se bazează.
 
-## 3. Date sintetice
+## 3. Date în teste
 
-- Testele, exemplele și demonstrațiile folosesc exclusiv date fictive: `Linia A`, `Post 1`, `Operator 01`, `PN-TEST-001`.
-- Nu se copiază în repository nume de angajați, matricole, pontaje, PN-uri reale, volume reale, clienți sau documente interne.
-- Repository-ul este public pe GitHub Pages. Orice fișier comis devine public.
+- Testele automate folosesc date sintetice (`Linia A`, `PN-TEST-001`), ca să nu depindă de producția reală.
+- Datele reale ale utilizatorului (linii, PN-uri, plan) pot fi în aplicație, la cererea lui explicită (26.11.2026).
 
 ## 4. Fără conectări implicite
 
