@@ -28,6 +28,11 @@ export const DEFAULT_SHIFTS = [
   { id: "S2", name: "Schimbul 2", start: "14:00", end: "22:00", breaks: [] },
   { id: "S3", name: "Schimbul 3", start: "22:00", end: "06:00", breaks: [] },
 ];
+// Documentele generate de vechiul mod demo (date fictive): „Linia A…”, „PN-TEST-…”, „Operator 01…”.
+export function looksLikeDemo(doc) {
+  const lines = doc?.master?.lines || [], pns = doc?.master?.pns || [];
+  return lines.length > 0 && lines.every((l) => /^Linia [A-Z]$/.test(l.name)) && pns.length > 0 && pns.every((p) => /^PN-TEST-/.test(p.code));
+}
 export const ATTENDANCE = [
   { id: "present", label: "Prezent", present: true },
   { id: "late", label: "Întârziere", present: true },
@@ -45,6 +50,7 @@ export function emptyDoc(training = false) {
     settings: {
       shifts: structuredClone(DEFAULT_SHIFTS),
       shiftHold: null,
+      myShiftId: "S1",
       theme: "auto",
       thresholds: { underTarget: 90, stopAlertMin: 10, escalateStopMin: 30, reportGraceMin: 15, tlLineMaxMin: 240 },
       attendance: structuredClone(ATTENDANCE),
@@ -52,7 +58,6 @@ export function emptyDoc(training = false) {
       departments: ["Producție", "Mentenanță", "Calitate", "Logistică", "Inginerie", "HSE"],
       incidentCategories: ["Defect mecanic", "Defect electric", "Sculă / dispozitiv", "Senzor", "Lipsă material", "Calitate", "Altele"],
       zone: "",
-      demoMarked: training,
     },
     master: { lines: [], pns: [], people: [], faults: [] },
     plans: {},
@@ -88,6 +93,7 @@ export function ensureShape(raw) {
       throw Error("Câmpul „" + k + "” are un format nevalid.");
   }
   for (const [k, v] of Object.entries(base.settings)) if (doc.settings[k] === undefined) doc.settings[k] = v;
+  if (doc.settings.myShiftId !== null && !doc.settings.shifts?.some?.((x) => x.id === doc.settings.myShiftId)) doc.settings.myShiftId = "S1";
   for (const [k, v] of Object.entries(base.settings.thresholds)) if (doc.settings.thresholds?.[k] === undefined) doc.settings.thresholds = { ...doc.settings.thresholds, [k]: v };
   for (const k of ["lines", "pns", "people", "faults"]) if (!Array.isArray(doc.master[k])) doc.master[k] = [];
   if (!Array.isArray(doc.settings.shifts) || !doc.settings.shifts.length) doc.settings.shifts = structuredClone(DEFAULT_SHIFTS);

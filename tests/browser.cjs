@@ -29,6 +29,8 @@ async function realFlow(browser) {
   const { ctx, page, errors } = await fresh(browser);
   await page.goto(BASE);
   await page.getByRole("heading", { name: "Bun venit" }).waitFor();
+  assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.lines.length), 0, "fără linii fictive");
+  assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.people.length), 0, "fără oameni fictivi");
   // Catalog: linii, PN cu ICT, oameni.
   await page.goto(BASE + "#/catalog");
   await page.getByRole("button", { name: "Adaugă mai multe (câte una pe rând)" }).click();
@@ -53,7 +55,7 @@ async function realFlow(browser) {
 
   // Plan: Linia Test 1, 06:00–14:00, target 760, baseline.
   await page.goto(BASE + "#/planning");
-  await page.getByRole("button", { name: /Linia Test 1/ }).click();
+  await page.getByRole("button", { name: /^Linia Test 1/ }).click();
   await pickIn(page, "PN", "PN-TEST-001");
   await page.locator("dialog[open]").getByLabel("Target total").fill("760");
   await page.locator("dialog[open]").getByLabel("Target total").blur();
@@ -63,7 +65,7 @@ async function realFlow(browser) {
 
   // Linie: pornire cu ora reală 06:10.
   await page.goto(BASE + "#/production");
-  await page.getByRole("link", { name: /Linia Test 1/ }).click();
+  await page.getByRole("link", { name: /^Linia Test 1/ }).click();
   await page.getByRole("button", { name: /Pornește/ }).click();
   await sheetBtn(page, "Ora reală").click();
   await page.locator("dialog[open] input[type=time]").fill("06:10");
@@ -85,11 +87,11 @@ async function realFlow(browser) {
   // Persistență după reîncărcare.
   await page.reload();
   await ready(page);
-  await page.goto(BASE + "#/line/" + (await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.lines[0].id)));
   const reported = await page.evaluate(async () => {
     const { S } = await import("./js/state.js");
     const sk = Object.keys(S.doc.reports)[0];
-    return S.doc.reports[sk][S.doc.master.lines[0].id][0].splits[0];
+    const id = S.doc.master.lines.find((l) => l.name === "Linia Test 1").id;
+    return S.doc.reports[sk][id][0].splits[0];
   });
   assert.equal(reported.total, 80);
   assert.equal(reported.scrap, 0);
@@ -139,6 +141,7 @@ async function realFlow(browser) {
   // Matrice: nivelul 4 cere nivelul 3 înainte.
   await page.keyboard.press("Escape");
   await page.goto(BASE + "#/team/matrix");
+  await pickIn(page, "Linie", "Linia Test 1");
   await page.getByRole("button", { name: /Operator 01, OP10: neevaluat/ }).click();
   await page.locator("dialog[open] .lp.l4").click();
   await sheetBtn(page, "Salvează nivelul").click();
@@ -170,6 +173,47 @@ async function realFlow(browser) {
   await page.reload();
   await page.locator(".hero, .head").first().waitFor();
   await ctx.setOffline(false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+}
+
+// Schimbul meu: ieri (25) schimbul 1; la 03:43 pe 26 aplicația arată schimbul 1 din 26, care urmează.
+async function myShiftFlow(browser) {
+  const { ctx, page, errors } = await fresh(browser);
+  await page.clock.setFixedTime(new Date(2026, 10, 26, 3, 43, 0));
+  await page.goto(BASE + "manifest.json");
+  await page.evaluate(async () => { const { emptyDoc } = await import("./js/core/doc.js"); const d = emptyDoc(false);
+    d.master.lines.push({ id: "l1", name: "Linia A", machines: [], pnIds: [] });
+    await new Promise((ok) => { const r = indexedDB.open("caiet-sef-schimb", 1); r.onupgradeneeded = () => r.result.createObjectStore("local");
+      r.onsuccess = () => { const tx = r.result.transaction("local", "readwrite"); tx.objectStore("local").put(d, "v2"); tx.oncomplete = () => { r.result.close(); ok(); }; }; }); });
+  await page.goto(BASE);
+  await page.locator(".hero").waitFor();
+  await page.locator(".hero-day", { hasText: "26 nov. · Schimbul 1 · urmează" }).waitFor();
+  await page.locator(".shiftbtn", { hasText: "începe în 2 h 17 min" }).waitFor();
+  await page.clock.setFixedTime(new Date(2026, 10, 26, 14, 30, 0));
+  await page.reload();
+  await page.locator(".shiftbtn", { hasText: "Schimbul 1 · 27 nov." }).waitFor();
+  assert.deepEqual(errors, []);
+  await ctx.close();
+}
+// Un caiet demo vechi (date fictive) găsit pe dispozitiv este înlocuit cu catalogul real.
+async function demoCleanupFlow(browser) {
+  const { ctx, page, errors } = await fresh(browser);
+  await page.goto(BASE + "manifest.json");
+  await page.evaluate(async () => {
+    const { emptyDoc } = await import("./js/core/doc.js");
+    const d = emptyDoc(false);
+    d.master.lines = ["A", "B"].map((x, i) => ({ id: "l" + i, name: "Linia " + x, machines: [], pnIds: [] }));
+    d.master.pns = [{ id: "p", code: "PN-TEST-001" }];
+    d.master.people = [{ id: "o", name: "Operator 01" }];
+    await new Promise((ok, no) => { const r = indexedDB.open("caiet-sef-schimb", 1); r.onupgradeneeded = () => r.result.createObjectStore("local");
+      r.onsuccess = () => { const tx = r.result.transaction("local", "readwrite"); tx.objectStore("local").put(d, "v2"); tx.oncomplete = () => { r.result.close(); ok(); }; tx.onerror = () => no(tx.error); }; });
+  });
+  await page.goto(BASE);
+  await page.locator(".toast", { hasText: "Datele fictive au fost șterse" }).waitFor();
+  const d = await page.evaluate(async () => { const { S } = await import("./js/state.js"); return { lines: S.doc.master.lines.map((l) => l.name), people: S.doc.master.people.length }; });
+  assert.equal(d.lines.length, 0);
+  assert.equal(d.people, 0);
   assert.deepEqual(errors, []);
   await ctx.close();
 }
@@ -206,6 +250,10 @@ async function legacyFlow(browser) {
   try {
     await realFlow(browser);
     console.log("ok - flux real: catalog, plan+baseline, pornire cu oră reală, raport, persistență, rutină, incident, sarcină, matrice, backup, offline");
+    await myShiftFlow(browser);
+    console.log("ok - schimbul meu: S1 din 26 la 03:43, apoi S1 din 27 după încheiere");
+    await demoCleanupFlow(browser);
+    console.log("ok - datele fictive vechi sunt eliminate");
     await legacyFlow(browser);
     console.log("ok - migrare v4.4 fără a modifica documentul vechi");
   } finally { await browser.close(); }

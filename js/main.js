@@ -2,10 +2,9 @@
 import { h, icon, toast, sheetOpen, btn, put } from "./ui/kit.js";
 import { S, ctx, now, applyTheme } from "./state.js";
 import { loadDoc, saveDoc, loadLegacy, onStatus, persistStorage, flush, exportDoc } from "./core/store.js";
-import { emptyDoc } from "./core/doc.js";
+import { emptyDoc, looksLikeDemo } from "./core/doc.js";
 import { migrateV4 } from "./core/migrate.js";
-import { demoDoc } from "./core/seed.js";
-import { fmtDur, fmtDay } from "./core/time.js";
+import { fmtDur, fmtDay, day } from "./core/time.js";
 import { shiftState } from "./domain/shift.js";
 import { attention } from "./domain/assistant.js";
 import { quickActions, shiftSheet } from "./views/common.js";
@@ -96,7 +95,8 @@ function drawBar(c, st) {
   put(bar, 
     h("span.mark", { "aria-hidden": "true" }, h("i", { class: tone === "stop" ? "stop" : "" }), h("i", { class: tone === "warn" ? "warn" : "" }), h("i", { class: tone === "run" ? "run" : "" })),
     h("button.shiftbtn", { type: "button", onclick: shiftSheet, "aria-label": "Schimbă schimbul afișat" },
-      h("b", null, c.shift.name), h("span", null, c.live ? "mai sunt " + fmtDur(st.remainingMin) : S.view ? fmtDay(c.workDay) + " · istoric" : "în afara programului")),
+      h("b", null, c.shift.name + (c.workDay !== day(now()) || S.view ? " · " + fmtDay(c.workDay) : "")),
+      h("span", null, c.live ? "mai sunt " + fmtDur(st.remainingMin) : c.upcoming ? "începe în " + fmtDur((c.from - now()) / 60000) : "încheiat")),
     h("span.grow"),
     S.training ? h("span.demo-flag", { title: "Date sintetice" }, "INSTRUIRE") : null,
     saveEl);
@@ -115,9 +115,11 @@ async function boot() {
   document.body.append(nav, fab);
   try {
     let doc = await loadDoc(S.training);
-    let imported = null;
+    let imported = null, cleaned = false;
+    // Datele fictive ale vechiului mod demo se elimină; catalogul pornește cu liniile reale.
+    if (doc && looksLikeDemo(doc)) { doc = null; cleaned = true; }
     if (!doc) {
-      if (S.training) doc = demoDoc(now());
+      if (S.training) doc = emptyDoc(true);
       else {
         const legacy = await loadLegacy().catch(() => undefined);
         if (legacy) { try { doc = migrateV4(legacy, now()); imported = doc.meta.importedFromV4; } catch (e) { doc = emptyDoc(false); toast("Caietul v4.4 nu a putut fi importat: " + e.message, { err: true, ms: 9000 }); } }
@@ -128,6 +130,7 @@ async function boot() {
     } else S.doc = doc;
     applyTheme();
     render();
+    if (cleaned) toast("Datele fictive au fost șterse." + (S.doc.master.lines.length ? " Liniile tale au fost preluate din caietul v4.4." : " Adaugă liniile tale în Cataloage."), { ms: 9000 });
     if (imported) toast("Importat din v4.4: " + imported.lines + " linii, " + imported.people + " oameni, " + imported.quals + " calificări (de reconfirmat), " + imported.tasks + " sarcini. Caietul vechi rămâne neatins.", { ms: 12000 });
   } catch (e) {
     put(main, h("div.empty", null, h("h3", null, "Datele locale nu pot fi deschise"), h("p", null, e.message), btn("Reîncarcă", () => location.reload(), "primary")));

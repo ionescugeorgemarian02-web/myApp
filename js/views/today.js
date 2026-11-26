@@ -37,12 +37,12 @@ export function todayView(_p, _q, st) {
 
   const hero = h("section.hero.panel", null,
     h("div.hero-top", null,
-      h("div", null, h("div.hero-day", null, fmtDay(c.workDay, true) + (S.view ? " · istoric" : "")),
+      h("div", null, h("div.hero-day", null, fmtDay(c.workDay, true) + " · " + c.shift.name + (S.view ? " · istoric" : c.upcoming ? " · urmează" : "")),
         h("div.hero-shift.num", null, c.shift.start + " – " + c.shift.end), h("div.small.muted", null, fmtPct(st.elapsed, 0) + " din schimb scurs")),
-      h("div.hero-clock", null, h("span.num", null, fmtHM(t)), h("small", null, c.live ? fmtDur(st.remainingMin) + " rămase" : "schimb închis"))),
+      h("div.hero-clock", null, h("span.num", null, fmtHM(t)), h("small", null, c.live ? fmtDur(st.remainingMin) + " rămase" : c.upcoming ? "începe în " + fmtDur((c.from - t) / 60000) : "schimb încheiat"))),
     h("div.hero-figs", null,
       fig("Realizat", st.planned.length ? fmtN(st.repActual) : "—", "plan schimb " + fmtN(st.planTotal)),
-      fig("Plan ore raportate", st.planned.length ? fmtN(st.repPlan) : "—", st.missingClosed ? (st.missingClosed === 1 ? "1 oră încheiată fără raport" : st.missingClosed + " ore încheiate fără raport") : "toate orele încheiate raportate", st.missingClosed ? "warn" : ""),
+      fig("Plan ore raportate", st.planned.length ? fmtN(st.repPlan) : "—", !st.planned.length ? "niciun plan pentru schimb" : st.missingClosed ? (st.missingClosed === 1 ? "1 oră încheiată fără raport" : st.missingClosed + " ore încheiate fără raport") : "toate orele încheiate raportate", st.missingClosed ? "warn" : ""),
       fig("Abatere", delta === null ? "—" : fmtSigned(delta), st.repPlan ? fmtPct(st.repActual / st.repPlan, 0) + " din plan" : "fără ore raportate", delta === null ? "" : delta < 0 ? "stop" : "run")),
     agg.length ? ruler(agg, { now: t, from: st.from, to: st.to, under: th.underTarget, onSlot: () => (location.hash = "#/oee") }) : null,
     h("div.legend", null, leg("run", "≥ 100 %"), leg("ok", "≥ " + th.underTarget + " %"), leg("warn", "sub prag"), leg("stop", "critic"), leg("missing", "raport lipsă")));
@@ -97,10 +97,10 @@ function routineQuick(r) {
 function onboarding() {
   return h("div", null, h("div.head", null, h("div", null, h("h1", null, "Bun venit"), h("p", null, "Configurează catalogul ca centrul de comandă să aibă date reale. Nimic nu este inventat."))),
     h("div.steps", null,
-      step("1", "Liniile și mașinile", "Adaugă liniile tale, operațiile și operatorii necesari. Datele rămân pe acest dispozitiv.", "#/catalog"),
+      step("1", "Liniile tale", "Cataloage → „Adaugă mai multe”: lipește cele 13 denumiri, câte una pe rând. Rămân doar pe acest telefon, nu ajung pe internet.", "#/catalog"),
       step("2", "PN-uri și timpi de ciclu", "Timpul ideal (ICT) permite OEE corect. Fără el, OEE apare „Date insuficiente”.", "#/catalog?tab=pns"),
       step("3", "Echipa", "Oamenii, rolurile și matricea de calificare 1–4.", "#/catalog?tab=people"),
       step("4", "Programul schimburilor", "Orele și pauzele. Pauzele scad minutele productive din plan.", "#/settings")),
-    h("p.small.muted", { style: { marginTop: "16px" } }, "Vrei să vezi aplicația cu date sintetice? ", h("a", { href: "?mod=instruire" }, "Deschide modul Instruire"), "."));
+    null);
 }
 const step = (n, t, d, href) => h("a.stepcard", { href }, h("span.num.stepn", null, n), h("span", null, h("b", null, t), h("small", null, d)), icon("right", "chev"));

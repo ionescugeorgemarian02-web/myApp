@@ -4,7 +4,7 @@ PWA în limba română: HTML, CSS, module ES vanilla, IndexedDB și Service Work
 
 ## Arhitectură
 
-- `js/core/` — timp (schimb peste miezul nopții), numere (lipsă ≠ 0), documentul v2 (`doc.js`: `ensureShape`, `sanitize`), `store.js` (IndexedDB, cheia `v2`; v4.4 rămâne în `caiet`), `migrate.js` (v4 → v2), `seed.js` (doar date sintetice)
+- `js/core/` — timp (schimb peste miezul nopții), numere (lipsă ≠ 0), documentul v2 (`doc.js`: `ensureShape`, `sanitize`), `store.js` (IndexedDB, cheia `v2`; v4.4 rămâne în `caiet`), `migrate.js` (v4 → v2); datele sintetice doar în `tests/fixtures/demo.mjs` (aplicația nu are date fictive). Denumirile reale ale liniilor NU se pun în cod (doar pe dispozitiv: import v4.4 sau Cataloage); „schimbul meu”: `settings.myShiftId` + `myShiftOccurrence()`
 - `js/domain/` — logică pură testată: `plan`, `lines` (evenimente → stare), `reports`, `oee`, `shift` (situația schimbului), `routine` (EPT), `incidents`, `tasks`, `workforce` (niveluri 1–4), `quality`, `assistant`, `handover`
 - `js/ui/kit.js` — `h()` doar cu `textContent`; `put()` în loc de `replaceChildren` cu array-uri; `field()` pune `<label>` doar pe controale simple
 - `js/views/` — ecranele. Nu apela `commit()` în timpul randării (re-randează)
