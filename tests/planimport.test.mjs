@@ -132,3 +132,15 @@ test("link: repară operatorii salvați greșit egal cu norma când operatorii l
   applyPlanImport(d, [{ lineId: "L0", lineName: "Linia A", pn: "PN-Y", target: 200, ops: null, norm: 30 }], "2026-11-26", S1);
   assert.equal(d.master.lines[0].requiredOps, null);
 });
+test("link: rebut confirmat, motiv pe linie (CP) și 0 operatori", async () => {
+  const { encodePlanLink, decodePlanLink, rowsFromPayload, applyPlanImport, applyActuals } = await import("../js/domain/planimport.js");
+  const d = doc();
+  const p = decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [["Linia A", "PN-Z", 30, 0, 60]],
+    actuals: { "Linia A": [0, 3] }, scrap: 0, reasons: { "Linia A": "CP – closed plan" } }));
+  applyPlanImport(d, rowsFromPayload(p, d).rows, p.day, S1);
+  assert.equal(d.master.lines[0].requiredOps, 0);
+  applyActuals(d, p.actuals, p.day, S1, undefined, { scrap: p.scrap, reasons: p.reasons });
+  const e = d.reports["2026-11-26|S1"].L0[0];
+  assert.deepEqual([e.splits[0].total, e.splits[0].scrap, e.splits[0].rework, e.reason], [0, 0, 0, "CP – closed plan"]);
+  assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [], scrap: -1 })));
+});
