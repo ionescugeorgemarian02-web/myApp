@@ -2,7 +2,8 @@
 // (PLAN, ACTUAL, PROGRAM, pn, nr op). Creează PN-urile lipsă (rămân în catalog), le leagă de linii,
 // setează operatorii și planul schimbului. Liniile necunoscute sunt erori, nu se ghicesc.
 import { uid } from "../core/doc.js";
-import { shiftKey } from "../core/time.js";
+import { shiftKey, atTime, validHM } from "../core/time.js";
+import { addEvent, LINE_STATUS } from "./lines.js";
 
 const norm = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 const isInt = (t) => /^\d+$/.test(t);
@@ -95,6 +96,8 @@ export function decodePlanLink(code) {
     (p.actuals === undefined || (p.actuals && typeof p.actuals === "object" && !Array.isArray(p.actuals) &&
       Object.values(p.actuals).every((a) => Array.isArray(a) && a.length <= 24 && a.every((x) => x === null || intOk(x))))) &&
     (p.scrap === undefined || intOk(p.scrap)) &&
+    (p.events === undefined || (Array.isArray(p.events) && p.events.length <= 200 && p.events.every((e) => Array.isArray(e) && typeof e[0] === "string" &&
+      ["run", "stop", "changeover", "notrunning"].includes(e[1]) && typeof e[2] === "string" && validHM(e[2]) && (e[3] === undefined || (typeof e[3] === "string" && e[3].length <= 120))))) &&
     (p.reasons === undefined || (p.reasons && typeof p.reasons === "object" && !Array.isArray(p.reasons) && Object.values(p.reasons).every((x) => typeof x === "string" && x.length <= 120)));
   if (!ok || !extraOk) throw Error("Linkul de plan are un format greșit.");
   const out = { v: 1, day: p.day, shift: p.shift, rows: p.rows.map((r) => (r[4] === undefined ? [r[0], r[1], r[2], r[3]] : [r[0], r[1], r[2], r[3], r[4]])), others: !!p.others };
@@ -102,6 +105,7 @@ export function decodePlanLink(code) {
   if (p.norms) out.norms = Object.fromEntries(Object.entries(p.norms).filter(([k]) => !BAD_KEYS.includes(k)));
   if (p.actuals) out.actuals = Object.fromEntries(Object.entries(p.actuals).filter(([k]) => !BAD_KEYS.includes(k)).map(([k, a]) => [k, a.slice()]));
   if (p.scrap !== undefined) out.scrap = p.scrap;
+  if (p.events) out.events = p.events.map((e) => e.slice(0, 4));
   if (p.reasons) out.reasons = Object.fromEntries(Object.entries(p.reasons).filter(([k]) => !BAD_KEYS.includes(k)));
   return out;
 }
@@ -167,4 +171,21 @@ export function applyActuals(doc, actuals, workDay, shift, at = new Date().toISO
     });
   }
   return { saved, kept, unknown };
+}
+
+// Evenimente de linie din link: [linie, tip, "HH:MM", motiv?] — ora reală în schimb. Idempotent:
+// un eveniment identic (linie, tip, oră) existent nu se dublează.
+export function applyLinkEvents(doc, events, workDay, shift, now = new Date()) {
+  let saved = 0;
+  const unknown = [];
+  for (const [name, type, hm, reason = ""] of events || []) {
+    const line = doc.master.lines.find((l) => norm(l.name) === norm(name));
+    const at = atTime(workDay, shift, hm);
+    if (!line || !at || !LINE_STATUS[type]) { unknown.push(name); continue; }
+    if (doc.events.some((e) => !e.void && e.lineId === line.id && e.type === type && Date.parse(e.at) === at.getTime())) continue;
+    const pnId = doc.plans[shiftKey(workDay, shift.id)]?.[line.id]?.runs?.[0]?.pnId ?? null;
+    addEvent(doc.events, { lineId: line.id, type, at, reason, pnId, note: "din linkul de plan" }, now);
+    saved++;
+  }
+  return { saved, unknown };
 }
