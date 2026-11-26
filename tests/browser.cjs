@@ -28,8 +28,8 @@ async function pickIn(page, label, option) {
 async function realFlow(browser) {
   const { ctx, page, errors } = await fresh(browser);
   await page.goto(BASE);
-  await page.getByRole("heading", { name: "Bun venit" }).waitFor();
-  assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.lines.length), 0, "fără linii fictive");
+  await page.locator(".hero").waitFor();
+  assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.lines.length), 13, "cele 13 linii ale utilizatorului");
   assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.people.length), 0, "fără oameni fictivi");
   // Catalog: linii, PN cu ICT, oameni.
   await page.goto(BASE + "#/catalog");
@@ -72,6 +72,17 @@ async function realFlow(browser) {
   await sheetBtn(page, "Înregistrează").click();
   await page.locator(".head .tag", { hasText: "În funcțiune" }).waitFor();
 
+  // PN nou creat din listă: se salvează în catalog și se leagă de linie.
+  await page.getByRole("button", { name: /Schimbă PN/ }).click();
+  await page.locator("dialog[open] .field", { hasText: "PN" }).locator("button.picker").click();
+  await page.locator("dialog[open]").last().getByRole("searchbox").fill("PN-NOU-7");
+  await page.locator("dialog[open]").last().getByRole("button", { name: /PN nou „PN-NOU-7”/ }).click();
+  await sheetBtn(page, "Înregistrează").click();
+  const pnOk = await page.evaluate(async () => { const { S } = await import("./js/state.js"); const p = S.doc.master.pns.find((x) => x.code === "PN-NOU-7"); const l = S.doc.master.lines.find((x) => x.name === "Linia Test 1"); return !!p && l.pnIds.includes(p.id); });
+  assert.equal(pnOk, true, "PN creat din listă, salvat și legat de linie");
+  await page.getByRole("button", { name: /Reia|Pornește/ }).first().click();
+  await sheetBtn(page, "Înregistrează").click();
+
   // Raport orar 06:00–07:00: 0 rebut confirmat cu butonul „0”.
   await page.getByRole("button", { name: "Raportează producție" }).click();
   await page.getByRole("link", { name: /06:00/ }).click();
@@ -102,11 +113,9 @@ async function realFlow(browser) {
   // Rutina: OK pe o activitate, persistă.
   await page.goto(BASE + "#/routine");
   await page.locator(".routine").waitFor();
-  await page.getByRole("button", { name: /Timeline/ }).click();
-  await page.locator(".phase").first().waitFor();
-  await page.locator(".ritem", { hasText: "Inventarul necesar planului confirmat" }).first().click();
-  await page.locator("dialog[open]").waitFor();
-  await sheetBtn(page, "DA / OK").click();
+  const row = page.locator(".erow", { hasText: "Confirmarea inventarului pentru a realiza planul de producție" }).first();
+  await row.getByRole("button", { name: "DA" }).click();
+  await page.locator(".erow.small-row", { hasText: "Confirmarea inventarului" }).waitFor(); // rândul bifat se strânge
   await page.reload();
   await ready(page);
   const log = await page.evaluate(async () => Object.values((await import("./js/state.js")).S.doc.routine.log));
@@ -123,7 +132,7 @@ async function realFlow(browser) {
   await sheetBtn(page, "Confirmă").click();
   await page.locator(".head .tag", { hasText: "În intervenție" }).waitFor();
   const lineStatus = await page.evaluate(async () => { const { S } = await import("./js/state.js"); return S.doc.events.filter((e) => !e.void).map((e) => e.type); });
-  assert.deepEqual(lineStatus, ["run", "stop"]);
+  assert.deepEqual(lineStatus, ["run", "changeover", "run", "stop"]);
 
   // Sarcină: verificarea cere dovadă.
   await page.goto(BASE + "#/tasks");
@@ -155,12 +164,12 @@ async function realFlow(browser) {
   const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Descarcă copia (JSON)" }).click()]);
   const saved = JSON.parse(fs.readFileSync(await dl.path(), "utf8"));
   assert.equal(saved.schemaVersion, 2);
-  assert.equal(saved.master.lines.length, 2);
+  assert.equal(saved.master.lines.length, 15);
   const evil = path.join(os.tmpdir(), "myapp-evil-" + Date.now() + ".json");
   fs.writeFileSync(evil, JSON.stringify({ schemaVersion: 2, tasks: "nu", __proto__: { polluted: 1 } }));
   await page.locator("input[type=file]").setInputFiles(evil);
   await page.locator(".toast.err", { hasText: "format nevalid" }).waitFor();
-  assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.lines.length), 2);
+  assert.equal(await page.evaluate(async () => (await import("./js/state.js")).S.doc.master.lines.length), 15);
   assert.equal(await page.evaluate(() => ({}).polluted), undefined);
   fs.unlinkSync(evil);
 
@@ -212,7 +221,7 @@ async function demoCleanupFlow(browser) {
   await page.goto(BASE);
   await page.locator(".toast", { hasText: "Datele fictive au fost șterse" }).waitFor();
   const d = await page.evaluate(async () => { const { S } = await import("./js/state.js"); return { lines: S.doc.master.lines.map((l) => l.name), people: S.doc.master.people.length }; });
-  assert.equal(d.lines.length, 0);
+  assert.equal(d.lines[0], "Fam B1");
   assert.equal(d.people, 0);
   assert.deepEqual(errors, []);
   await ctx.close();

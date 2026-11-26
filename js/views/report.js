@@ -5,7 +5,7 @@ import { fmtN, fmtSigned, nn } from "../core/num.js";
 import { fmtDur } from "../core/time.js";
 import { plannedPnAt } from "../domain/reports.js";
 import { splitGood, SLOT_STATE } from "../domain/reports.js";
-import { backLink, pnItems, taskFromSheet } from "./common.js";
+import { backLink, pnItems, pnField, taskFromSheet } from "./common.js";
 
 export function reportView([lineId, slotArg], _q, st) {
   const L = st.lines.find((x) => x.line.id === lineId);
@@ -66,7 +66,7 @@ function splitBox(s, i, f, draw, lineId, row) {
   const good = splitGood(s);
   const zeroBtn = (k) => h("button.zero", { type: "button", onclick: () => { s[k] = 0; draw(); }, "aria-label": "Zero confirmat" }, "0");
   return h("div.splitbox.panel.pad", null,
-    h("div.row.between", null, picker("PN" + (f.splits.length > 1 ? " " + (i + 1) : ""), pnItems(lineId), s.pnId, (v) => { s.pnId = v; draw(); }),
+    h("div.row.between", null, pnField("PN" + (f.splits.length > 1 ? " " + (i + 1) : ""), lineId, s.pnId, (v) => { s.pnId = v; draw(); }),
       f.splits.length > 1 ? btn("Elimină", () => { f.splits.splice(i, 1); draw(); }, "ghost", "trash") : null),
     f.splits.length > 1 ? field("Din ora", input(s.from || "", (v) => (s.from = v), { type: "time" }), "Pentru trasabilitatea PN-ului în interval") : null,
     h("div.fields", { style: { marginTop: "12px" } },

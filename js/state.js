@@ -31,7 +31,7 @@ export function ctx() {
 }
 let version = 0;
 // Aplică o modificare, salvează, randează. La eroare: revenire în loc. Undo doar dacă nu au urmat alte modificări.
-export function commit(fn, msg, { undo = true } = {}) {
+export function commit(fn, msg, { undo = true, render = true } = {}) {
   const snapshot = structuredClone(S.doc);
   let result;
   try {
@@ -44,7 +44,7 @@ export function commit(fn, msg, { undo = true } = {}) {
   }
   const mine = ++version;
   saveDoc(S.doc).catch((e) => toast(e.message, { err: true, ms: 8000 }));
-  S.render();
+  if (render) S.render(); // render: false — modificări de catalog făcute din interiorul unui formular deschis
   if (msg) toast(msg, undo ? { undo: () => {
     if (version !== mine) { toast("Anularea nu mai este posibilă: au urmat alte modificări.", { err: true }); return; }
     restoreInto(S.doc, snapshot); version++; saveDoc(S.doc); S.render(); toast("Modificare anulată.");

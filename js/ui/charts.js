@@ -120,7 +120,7 @@ export function gantt(rowsData, from, to, { now } = {}) {
   return el;
 }
 // Trend zilnic (OEE etc.) ca puncte + linie, valori lipsă = goluri.
-export function trend(points, { label = "Trend", fmt = (v) => fmtPct(v, 0) } = {}) {
+export function trend(points, { label = "Trend", fmt = (v) => fmtPct(v, 0), target = null } = {}) {
   const H = 140, pad = 22;
   const vals = points.map((p) => p.v).filter((v) => v !== null);
   if (!vals.length) return null;
@@ -129,6 +129,7 @@ export function trend(points, { label = "Trend", fmt = (v) => fmtPct(v, 0) } = {
   const y = (v) => H - pad - (v / max) * (H - pad * 2);
   const svg = frame(H, label);
   svg.append(s("line", { x1: pad, x2: W - pad, y1: H - pad, y2: H - pad, class: "axis" }));
+  if (target !== null) svg.append(s("line", { x1: pad, x2: W - pad, y1: y(target), y2: y(target), class: "ln-target" }), s("text", { x: W - pad, y: y(target) - 5, class: "lbl", "text-anchor": "end" }, "țintă " + fmt(target)));
   let seg = [];
   const flush = () => { if (seg.length > 1) svg.append(s("polyline", { points: seg.join(" "), class: "ln-actual" })); seg = []; };
   points.forEach((p, i) => {
@@ -148,4 +149,21 @@ export function apq(r) {
     h("span.ab", null, v !== null && v !== undefined ? h("i", { style: { width: Math.min(100, v * 100) + "%" } }) : h("i.none")),
     h("span.av.num", null, v !== null && v !== undefined ? fmtPct(v) : "—"),
     v === null || v === undefined ? h("span.aw", null, why || "Date insuficiente") : null)));
+}
+
+// Indicatorul OEE: cifra mare, bara 0–100 % și reperul țintei (world class 85 %, configurabil).
+export function oeeGauge(r, target = 85, note = "") {
+  const v = r?.oee ?? null;
+  const b = v === null ? "none" : v * 100 >= target ? "run" : v * 100 >= target - 20 ? "warn" : "stop";
+  const gap = v === null ? null : v * 100 - target;
+  return h("div.ogauge.ob-" + b, null,
+    h("div.og-top", null,
+      h("div", null, h("span.og-l", null, "OEE"), h("span.og-v.num", null, v === null ? "—" : fmtN(v * 100, 1) + " %")),
+      h("div.og-gap", null, v === null ? h("span", null, r?.why?.oee || r?.why?.all || "Date insuficiente") :
+        [h("b.num", null, (gap >= 0 ? "+" : "−") + fmtN(Math.abs(gap), 1) + " pp"), h("span", null, gap >= 0 ? "peste țintă" : "sub țintă")])),
+    h("div.og-track", { role: "img", "aria-label": "OEE " + (v === null ? "necunoscut" : fmtN(v * 100, 1) + " %") + ", țintă " + target + " %" },
+      v !== null ? h("i.og-fill", { style: { width: Math.min(100, v * 100) + "%" } }) : null,
+      h("span.og-target", { style: { left: target + "%" } }, h("small", null, "World class " + target + " %"))),
+    h("div.og-scale.num", null, h("span", null, "0"), h("span", null, "50"), h("span", null, "100 %")),
+    note ? h("p.og-note", null, note) : null);
 }

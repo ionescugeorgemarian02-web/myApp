@@ -28,6 +28,9 @@ export const DEFAULT_SHIFTS = [
   { id: "S2", name: "Schimbul 2", start: "14:00", end: "22:00", breaks: [] },
   { id: "S3", name: "Schimbul 3", start: "22:00", end: "06:00", breaks: [] },
 ];
+// Cele 13 linii ale utilizatorului, cu denumirile date de el (cerință explicită, 26.11.2026). Fără date de producție.
+export const DEFAULT_LINES = ["Fam B1", "Fam B2", "PSA 3", "P6 JLR", "DEGASS", "AMG/CCC", "M282", "JLR 663", "GDI", "UFC", "Valve", "PL65 RM", "X90 Audi"];
+export const defaultLines = () => DEFAULT_LINES.map((name, i) => ({ id: uid(), code: "L" + String(i + 1).padStart(2, "0"), name, zone: "Sudură", machines: [], pnIds: [], tlId: null, requiredOps: null, active: true }));
 // Documentele generate de vechiul mod demo (date fictive): „Linia A…”, „PN-TEST-…”, „Operator 01…”.
 export function looksLikeDemo(doc) {
   const lines = doc?.master?.lines || [], pns = doc?.master?.pns || [];
@@ -52,14 +55,14 @@ export function emptyDoc(training = false) {
       shiftHold: null,
       myShiftId: "S1",
       theme: "auto",
-      thresholds: { underTarget: 90, stopAlertMin: 10, escalateStopMin: 30, reportGraceMin: 15, tlLineMaxMin: 240 },
+      thresholds: { underTarget: 90, stopAlertMin: 10, escalateStopMin: 30, reportGraceMin: 15, tlLineMaxMin: 240, oeeTarget: 85 },
       attendance: structuredClone(ATTENDANCE),
       personCategories: ["Operator", "Team Leader", "Quality Wall", "TESA", "Auxiliar"],
       departments: ["Producție", "Mentenanță", "Calitate", "Logistică", "Inginerie", "HSE"],
       incidentCategories: ["Defect mecanic", "Defect electric", "Sculă / dispozitiv", "Senzor", "Lipsă material", "Calitate", "Altele"],
-      zone: "",
+      zone: "Sudură",
     },
-    master: { lines: [], pns: [], people: [], faults: [] },
+    master: { lines: defaultLines(), pns: [], people: [], faults: [] },
     plans: {},
     events: [],
     reports: {},
@@ -69,7 +72,7 @@ export function emptyDoc(training = false) {
     quals: {},
     trainings: [],
     tasks: [],
-    routine: { template: null, log: {} },
+    routine: { template: null, log: {}, tv: 2 },
     templates: {},
     audits: [],
     lpaPlan: [],
@@ -100,6 +103,8 @@ export function ensureShape(raw) {
   for (const coll of ["events", "incidents", "tasks", "audits", "eightD", "kaizen", "poka", "handovers", "trainings"])
     for (const item of doc[coll]) if (!isObj(item) || typeof item.id !== "string") throw Error("Înregistrare fără identificator în „" + coll + "”.");
   if (!isObj(doc.routine.log)) doc.routine.log = {};
+  // Fișa EPT a fost retranscrisă exact după document (v2): un șablon personalizat vechi se înlocuiește.
+  if (doc.routine.tv !== 2) { doc.routine.template = null; doc.routine.tv = 2; }
   // Structuri imbricate: un backup corupt nu trebuie să blocheze pornirea.
   const hm = (x) => typeof x === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
   for (const sh of doc.settings.shifts) {

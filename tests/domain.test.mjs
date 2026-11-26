@@ -112,13 +112,13 @@ test("rutina: instanțe stabile la redeschidere, 2h generează puncte, NOK = fin
   const r2 = routineFor(d, D, S1, at("12:00"));
   assert.deepEqual(r1.map((r) => r.inst.key), r2.map((r) => r.inst.key));
   assert.equal(new Set(r1.map((r) => r.inst.key)).size, r1.length);
-  assert.equal(r1.filter((r) => r.act.id === "d-status").length, 3);
-  const k = r1.find((r) => r.act.id === "s-workforce").inst.key;
+  assert.equal(r1.filter((r) => r.act.id === "d4").length, 3);
+  const k = r1.find((r) => r.act.id === "s2").inst.key;
   record(d, k, { result: "nok", note: "Lipsă 2 operatori" }, at("06:20"));
   const row = routineFor(d, D, S1, at("07:00")).find((r) => r.inst.key === k);
   assert.equal(row.status, "done");
   assert.equal(row.entry.result, "nok");
-  assert.equal(routineFor(d, D, S1, at("13:00")).find((r) => r.act.id === "b-hse").status, "overdue");
+  assert.equal(routineFor(d, D, S1, at("13:00")).find((r) => r.act.id === "b10").status, "overdue");
   assert.ok(nowList(routineFor(d, D, S1, at("07:00"))).length > 0);
   assert.ok(progress(r1).total > 30);
 });

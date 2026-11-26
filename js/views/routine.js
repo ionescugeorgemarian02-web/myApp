@@ -15,61 +15,80 @@ const LINKS = {
   oee: ["#/oee", "Indicatori"], firstoff: ["#/audit/new/firstoff", "First Off"], report: ["#/production?f=reports", "Rapoarte orare"],
   eightd: ["#/eightd", "8D / QPS"], kaizen: ["#/kaizen", "Idei Kaizen"], s5: ["#/audit/new/s6", "Audit 6S"], gemba: ["#/audit/new/gemba", "Gemba walk"], matrix: ["#/team/matrix", "Matricea de calificare"],
 };
-let viewMode = "now";
+let viewMode = "sheet";
+const open = new Set();        // rânduri bifate deschise manual
+const folded = new Map();      // etape pliate / desfăcute de utilizator
+const FREQ_SHORT = { shift: "Zilnic", "2h": "La fiecare 2 ore", afterBreak: "După pauză", weekly: "Săptămânal", twiceWeekly: "2× pe săptămână", rule: "Zilnic" };
+const isDone = (r) => r.status === "done" || r.status === "missed" || r.status === "na";
 export function routineView(_p, q, st) {
   const c = ctx(), t = now();
   const rows = routineFor(S.doc, c.workDay, c.shift, t);
   const prog = progress(rows);
   const focus = q.get("focus");
-  if (focus) { const r = rows.find((x) => x.inst.key === focus); if (r) setTimeout(() => itemSheet(r, st), 0); history.replaceState(null, "", "#/routine"); }
-  const byPhase = PHASES.map((p) => ({ p, rows: rows.filter((r) => r.act.phase === p.id && !r.inst.weekly) }));
+  if (focus) { open.add(focus); viewMode = "sheet"; history.replaceState(null, "", "#/routine"); setTimeout(() => document.getElementById("r-" + focus)?.scrollIntoView({ block: "center" }), 50); }
   const head = h("div.head", null,
-    h("div", null, h("h1", null, "Rutina mea EPT"), h("p", null, "Supervisor standard work · " + c.shift.name + " · " + c.shift.start + "–" + c.shift.end)),
+    h("div", null, h("h1", null, "Rutina EPT"), h("p", null, "EPT Supervisor Routine · " + c.shift.name + " · " + c.shift.start + "–" + c.shift.end)),
     h("div.actions", null, btn("Configurează", () => configSheet(), "ghost", "settings")));
   const summary = h("div.rsum.panel", null,
-    h("div.rs-big", null, h("span.num", null, fmtPct(prog.ratio, 0)), h("small", null, prog.done + " din " + prog.total + " finalizate")),
-    h("div.rs-phases", null, byPhase.filter((x) => x.p.id !== "rules").map(({ p, rows: rs }) => {
-      const pr = progress(rs);
-      return h("div.rsp.ph-" + p.id, null, h("span", null, p.short), h("span.pbar", null, h("i", { style: { width: (pr.ratio || 0) * 100 + "%" } })), h("span.num.small", null, pr.done + "/" + pr.total));
+    h("div.rs-big", null, h("span.num", null, prog.done + "/" + prog.total), h("small", null, "bifate · " + fmtPct(prog.ratio, 0))),
+    h("div.rs-phases", null, PHASES.map((p) => {
+      const pr = progress(rows.filter((r) => r.act.phase === p.id));
+      return h("button.rsp.ph-" + p.id, { type: "button", onclick: () => { viewMode = "sheet"; folded.set(p.id, false); S.render(); setTimeout(() => document.getElementById("ph-" + p.id)?.scrollIntoView({ block: "start" }), 50); } },
+        h("span", null, p.short), h("span.pbar", null, h("i", { style: { width: (pr.ratio || 0) * 100 + "%" } })), h("span.num.small", null, pr.done + "/" + pr.total));
     })),
-    h("div.rs-flags", null, prog.overdue ? tag("stop", prog.overdue + " depășite") : null, prog.nok ? tag("nok", prog.nok + " NOK") : null, !prog.overdue && !prog.nok ? tag("run", "La zi") : null));
-  const mode = seg([["now", "Acum"], ["timeline", "Timeline"], ["week", "Săptămâna"], ["rules", "Reguli"]], viewMode, (v) => { viewMode = v; S.render(); });
+    h("div.rs-flags", null, prog.overdue ? tag("stop", prog.overdue + " depășite") : null, prog.nok ? tag("nok", prog.nok + " NU") : null, !prog.overdue && !prog.nok ? tag("run", "La zi") : null));
+  const mode = seg([["sheet", "Fișa"], ["now", "Acum"], ["week", "Săptămâna"]], viewMode, (v) => { viewMode = v; S.render(); });
   let body;
-  if (viewMode === "now") {
+  if (viewMode === "sheet") {
+    body = PHASES.map((p) => {
+      const rs = rows.filter((r) => r.act.phase === p.id && !r.inst.weekly);
+      const pr = progress(rs);
+      const complete = rs.length > 0 && rs.every(isDone);
+      const isFolded = folded.has(p.id) ? folded.get(p.id) : complete;
+      return h("section.eband.ph-" + p.id, { id: "ph-" + p.id },
+        h("button.eband-h", { type: "button", "aria-expanded": String(!isFolded), onclick: () => { folded.set(p.id, !isFolded); S.render(); } },
+          h("span.eb-t", null, p.title), h("span.eb-p.num", null, pr.done + "/" + pr.total), icon(isFolded ? "down" : "close")),
+        isFolded ? null : h("div.eband-b", null, rs.map((r) => rowEl(r, st))),
+        p.id === "rules" && !isFolded ? h("p.esc-foot", null, "* " + ESCALATION_RULE) : null);
+    });
+  } else if (viewMode === "now") {
     const list = nowList(rows, 12);
-    const up = rows.filter((r) => r.status === "upcoming" && !r.inst.weekly).sort((a, b) => a.inst.from - b.inst.from).slice(0, 4);
-    body = [sect("Ce trebuie să fac acum"), list.length ? h("div.rlist", null, list.map((r) => rowEl(r, st))) : note("Nicio activitate deschisă în acest moment."),
-      up.length ? [sect("Urmează"), h("div.rlist", null, up.map((r) => rowEl(r, st)))] : null];
-  } else if (viewMode === "timeline") {
-    body = byPhase.filter((x) => x.p.id !== "rules").map(({ p, rows: rs }) => h("section.phase.ph-" + p.id, null,
-      h("div.ph-h", null, h("span.ph-dot"), h("h2", null, p.title), h("span.small.muted", null, progress(rs).done + "/" + progress(rs).total)),
-      groupBy(rs).map(([g, items]) => h("div.ph-g", null, h("div.ph-gt", null, g), h("div.rlist", null, items.map((r) => rowEl(r, st))))))).flat();
-  } else if (viewMode === "week") {
-    const w = rows.filter((r) => r.inst.weekly);
-    body = [note("Activitățile săptămânale rămân deschise toată săptămâna și se bifează o singură dată. Frecvențele se configurează (ex. LPA, audit de muncă standardizată de 2 ori pe săptămână)."),
-      h("div.rlist", { style: { marginTop: "12px" } }, w.map((r) => rowEl(r, st)))];
+    body = [list.length ? h("div.eband.plain", null, h("div.eband-b", null, list.map((r) => rowEl(r, st)))) : note("Nicio activitate deschisă acum."), h("p.esc-foot", null, "* " + ESCALATION_RULE)];
   } else {
-    const rules = rows.filter((r) => r.act.phase === "rules");
-    body = [h("div.rule-esc.panel.pad", null, icon("alert"), h("div", null, h("b", null, "Regula de escaladare"), h("p.small", null, ESCALATION_RULE + " Aplicația nu trimite mesaje: consemnează doar că ai informat."))),
-      h("div.rlist", { style: { marginTop: "12px" } }, rules.map((r) => rowEl(r, st)))];
+    const w = rows.filter((r) => r.inst.weekly);
+    body = [note("Activitățile săptămânale se bifează o dată pe săptămână."), h("div.eband.plain", { style: { marginTop: "12px" } }, h("div.eband-b", null, w.map((r) => rowEl(r, st))))];
   }
-  return h("div.routine", null, head, summary, h("div", { style: { margin: "16px 0 4px" } }, mode), body);
+  return h("div.routine", null, head, summary, h("div", { style: { margin: "16px 0 12px" } }, mode), body);
 }
-function groupBy(rows) {
-  const m = new Map();
-  for (const r of rows) m.set(r.act.group, [...(m.get(r.act.group) || []), r]);
-  return [...m];
-}
+// Un rând al fișei: deschis (Activitate, Descriere, Frecvență, DA/NU, Observații) sau, după bifare, o singură linie.
 function rowEl(r, st) {
-  const res = r.entry?.result;
-  const window = r.inst.rule ? "permanent" : r.inst.weekly ? r.inst.label : fmtHM(r.inst.from) + "–" + fmtHM(r.inst.to) + (r.inst.label ? " · " + r.inst.label : "");
-  return h("button.ritem.st-" + r.status + ".ph-" + r.act.phase, { type: "button", onclick: () => itemSheet(r, st) },
-    h("span.ri-mark", { "aria-hidden": "true" }, r.status === "done" ? icon(res === "nok" ? "alert" : "check") : null),
-    h("span.ri-main", null, h("span.ri-t", null, r.act.title), h("span.ri-s", null, r.act.group + " · " + window)),
-    h("span.ri-end", null, tag(ST_TONE[r.status], STATUS[r.status]), res ? tag(res === "ok" ? "ok" : res === "nok" ? "nok" : "idle", res === "ok" ? "OK" : res === "nok" ? "NOK" : "N/A") : null,
-      r.entry?.taskId ? tag("plain", "acțiune") : null));
+  const k = r.inst.key, res = r.entry?.result;
+  const set = (patch, msg) => commit((d) => record(d, k, patch, now()), msg, { undo: !!msg });
+  const freq = FREQ_SHORT[r.act.freq] + (r.inst.label && !r.inst.weekly ? " · " + r.inst.label : "");
+  if (isDone(r) && !open.has(k)) {
+    const yes = res === "ok";
+    return h("div.erow.small-row", { id: "r-" + k },
+      h("button.er-compact", { type: "button", onclick: () => { open.add(k); S.render(); }, "aria-label": r.act.group + ": " + r.act.title + ", " + (yes ? "DA" : res === "nok" ? "NU" : "N/A") + ". Atinge pentru detalii." },
+        h("span.er-mark." + (yes ? "yes" : res === "nok" ? "no" : "na"), null, icon(yes ? "check" : res === "nok" ? "close" : "right")),
+        h("span.er-ct", null, h("b", null, r.act.group), h("span.clip", null, r.act.title)),
+        h("span.er-res." + (yes ? "yes" : "no"), null, yes ? "DA" : res === "nok" ? "NU" : r.status === "missed" ? "Escaladat" : "N/A"),
+        r.entry?.at ? h("span.er-time.num", null, fmtHM(new Date(r.entry.at))) : null),
+      res === "nok" && !r.entry?.taskId ? h("button.er-act", { type: "button", onclick: () => nokFlow(r) }, icon("plus"), "Acțiune") : null);
+  }
+  let noteV = r.entry?.note || "";
+  return h("div.erow.st-" + r.status, { id: "r-" + k },
+    h("div.er-top", null, h("b.er-act-name", null, r.act.group), h("span.er-freq", null, freq),
+      r.status === "overdue" ? tag("stop", "Depășit") : r.status === "upcoming" && !r.inst.weekly ? tag("idle", "de la " + fmtHM(r.inst.from)) : null,
+      isDone(r) ? h("button.ibtn.er-fold", { type: "button", "aria-label": "Strânge", onclick: () => { open.delete(k); S.render(); } }, icon("down")) : null),
+    h("p.er-desc", null, r.act.title),
+    r.act.desc ? h("p.er-hint", null, r.act.desc) : null,
+    h("div.er-yn", null,
+      h("button.yn.yes", { type: "button", "aria-pressed": String(res === "ok"), onclick: () => { open.delete(k); set({ result: "ok", note: noteV }, null); } }, icon("check"), "DA"),
+      h("button.yn.no", { type: "button", "aria-pressed": String(res === "nok"), onclick: () => { open.delete(k); set({ result: "nok", note: noteV }, null); } }, icon("close"), "NU"),
+      h("button.yn.more", { type: "button", "aria-label": "Mai multe opțiuni", onclick: () => itemSheet(r, st) }, "…")),
+    h("input.input.er-obs", { value: noteV, placeholder: "Observații", "aria-label": "Observații: " + r.act.title, oninput: (e) => (noteV = e.target.value),
+      onchange: () => { if (r.entry || noteV) commit((d) => record(d, k, { note: noteV }, now()), null, { undo: false }); } }));
 }
-// Date din alte module care ajută verificarea (precompletare, nu confirmare automată).
 function contextFor(link, st) {
   const c = ctx();
   if (link === "allocation" || link === "team") {

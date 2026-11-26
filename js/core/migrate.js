@@ -1,7 +1,7 @@
 // Import din caietul v4.4 (cheia „caiet”). Documentul vechi NU se modifică și NU se șterge.
 // Niveluri v4 (indici): 1 „Cu supraveghere” → 2, 2 „Autonom” → 3, 3 „Poate instrui” → 4.
 // Lipsa înregistrării (0 / „Neinstruit”) nu se convertește: rămâne „neevaluat”.
-import { emptyDoc, uid, sanitize } from "./doc.js";
+import { emptyDoc, uid, sanitize, defaultLines } from "./doc.js";
 import { validHM } from "./time.js";
 
 const norm = (s) => String(s ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -13,6 +13,7 @@ export function migrateV4(old, now = new Date()) {
   const src = sanitize(old);
   if (!src || src.schemaVersion !== 1 || !Array.isArray(src.pages)) throw Error("Caietul v4 nu are formatul așteptat.");
   const doc = emptyDoc(false);
+  doc.master.lines = []; // liniile vin din caietul v4; implicitele doar dacă v4 nu are niciuna
   const report = { lines: 0, people: 0, quals: 0, tasks: 0, skipped: [] };
   const s = src.settings || {};
   if (Array.isArray(s.hours) && s.hours.length === 3 && s.hours.every(validHM))
@@ -26,6 +27,7 @@ export function migrateV4(old, now = new Date()) {
     byName.set(norm(name), line);
     report.lines++;
   }
+  if (!doc.master.lines.length) for (const l of defaultLines()) { doc.master.lines.push(l); byName.set(norm(l.name), l); }
   const blocks = blocksOf(src);
   const team = blocks.find((b) => b.type === "table" && col(b, "name"));
   const personIds = new Map();

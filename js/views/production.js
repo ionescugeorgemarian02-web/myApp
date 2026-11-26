@@ -1,6 +1,7 @@
 // PRODUCȚIE — overview linii (identificare imediată a problemelor) și pagina liniei.
-import { h, btn, icon, tag, kpi, sect, chips, empty, note, sheet, field, input, toast, item, confirmSheet } from "../ui/kit.js";
+import { h, promptSheet, btn, icon, tag, kpi, sect, chips, empty, note, sheet, field, input, toast, item, confirmSheet } from "../ui/kit.js";
 import { S, ctx, commit, now, byId, pnCode, personName } from "../state.js";
+import { uid } from "../core/doc.js";
 import { fmtN, fmtPct, fmtSigned } from "../core/num.js";
 import { fmtHM, fmtDur, atTime, validHM } from "../core/time.js";
 import { ruler, planActual, cumulative, timeSplit } from "../ui/charts.js";
@@ -8,7 +9,7 @@ import { LINE_STATUS, correctEvent, lineEvents } from "../domain/lines.js";
 import { SLOT_STATE } from "../domain/reports.js";
 import { INC_STATUS } from "../domain/incidents.js";
 import { isOpen, TASK_STATUS } from "../domain/tasks.js";
-import { statusTag, lineEventSheet, taskFromSheet, backLink, pageHead } from "./common.js";
+import { statusTag, lineEventSheet, taskFromSheet, backLink, pageHead, prodTabs } from "./common.js";
 
 let filter = "all";
 const PROBLEM = (L) => L.status === "stop" || L.status === "notrunning" || (L.planned && L.status === "unknown") || L.rows.some((r) => r.state === "overdue") || (L.attainment !== null && L.attainment * 100 < S.doc.settings.thresholds.underTarget);
@@ -21,7 +22,7 @@ export function productionView(_p, q, st) {
   };
   const lines = st.lines.filter(F[filter] || F.all);
   const count = (k) => st.lines.filter(F[k]).length;
-  return h("div", null,
+  return h("div", null, prodTabs("lines"),
     pageHead("Linii", st.planned.length + " planificate · " + st.counts.run + " în funcțiune · " + st.counts.stop + " oprite",
       [btn("Planificare", () => (location.hash = "#/planning"), "", "calendar"), btn("OEE", () => (location.hash = "#/oee"), "", "chart")]),
     chips([["all", "Toate " + st.lines.length], ["problems", "Probleme " + count("problems")], ["run", "În funcțiune " + count("run")], ["stop", "Oprite " + count("stop")], ["reports", "Rapoarte lipsă " + count("reports")], ["notplanned", "Neplanificate " + count("notplanned")]], filter, (v) => { filter = v; S.render(); }),
@@ -83,6 +84,10 @@ export function lineView([id], _q, st) {
       L.planned ? h("div.panel.pad", null, h("h3.ph3", null, "Cumulat"), cumulative(L.rows), h("div.legend", null, h("span", null, h("i.l-plan"), "plan"), h("span", null, h("i.l-act"), "realizat"))) : null,
       h("div.panel.pad", null, h("h3.ph3", null, "Timpul schimbului"), timeSplit(L.mins) || h("p.small.muted", null, "Fără evenimente de stare."))),
     L.planned ? [sect("Rapoarte orare"), slotTable(L, id)] : null,
+    sect("Mașini / operații", h("button.linkbtn", { type: "button", onclick: () => addMachine(id) }, "+ Adaugă")),
+    L.line.machines.length ? h("div.chipline", null, L.line.machines.map((m) => h("span.pchip", null, m.name, h("small.faint", null, "nec. " + (m.requiredLevel || 3)),
+      h("button.x", { type: "button", "aria-label": "Șterge " + m.name, onclick: async () => { if (await confirmSheet("Ștergi " + m.name + "?", "Mașina dispare din catalogul liniei. Evenimentele și calificările existente rămân în istoric.", "Șterge", true)) commit((d) => { const l = d.master.lines.find((x) => x.id === id); l.machines = l.machines.filter((x) => x.id !== m.id); }, m.name + " ștearsă"); } }, "×"))))
+      : h("p.small.muted", null, "Nicio mașină adăugată. Se salvează în catalogul liniei."),
     sect("Evenimente", h("span.aside", null, "atinge pentru corecție")),
     evs.length ? h("div.list", null, evs.map((e) => item({ title: LINE_STATUS[e.type].label + " · " + fmtHM(new Date(e.at)) + (e.void ? " (anulat)" : ""),
       sub: [e.reason, e.pnId ? "PN " + pnCode(e.pnId) : "", e.history?.length ? "corectat de " + e.history.length + "×" : "", "înregistrat " + fmtHM(new Date(e.recordedAt))].filter(Boolean).join(" · "),
@@ -119,4 +124,11 @@ function correctSheet(e) {
       const r = commit((d) => correctEvent(d.events, e.id, { at, reason }, now()), "Eveniment corectat");
       if (r.ok) sh.close();
     }, "primary")] });
+}
+
+async function addMachine(lineId) {
+  const v = await promptSheet("Mașini noi", "Denumiri (ex. OP10 Robot sudură), câte una pe rând", { multiline: true, okLabel: "Adaugă" });
+  if (!v) return;
+  const names = v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  commit((d) => { const l = d.master.lines.find((x) => x.id === lineId); for (const n of names) l.machines.push({ id: uid(), name: n, op: "", requiredLevel: 3 }); }, names.length + (names.length === 1 ? " mașină adăugată" : " mașini adăugate"));
 }

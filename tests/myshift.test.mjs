@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { myShiftOccurrence } from "../js/core/time.js";
-import { emptyDoc, ensureShape, looksLikeDemo } from "../js/core/doc.js";
+import { emptyDoc, ensureShape, looksLikeDemo, DEFAULT_LINES } from "../js/core/doc.js";
 import { demoDoc } from "./fixtures/demo.mjs";
 
 const shifts = emptyDoc().settings.shifts;
@@ -22,9 +22,10 @@ test("schimbul meu de noapte: la 02:00 este schimbul început ieri la 22:00", ()
   assert.equal(o.workDay, "2026-11-25");
   assert.equal(o.shift.id, "S3");
 });
-test("documentul nou: fără date fictive și fără denumiri în cod; schimbul meu implicit = S1", () => {
+test("documentul nou: cele 13 linii ale utilizatorului, fără date; schimbul meu implicit = S1", () => {
   const d = emptyDoc();
-  assert.equal(d.master.lines.length, 0);
+  assert.deepEqual(d.master.lines.map((l) => l.name), DEFAULT_LINES);
+  assert.ok(d.master.lines.every((l) => l.machines.length === 0 && l.pnIds.length === 0));
   assert.equal(d.settings.myShiftId, "S1");
   assert.equal(d.plans && Object.keys(d.plans).length, 0);
   assert.equal(d.master.people.length, 0);

@@ -47,3 +47,12 @@ export function ratiosOf(s) {
   else why.oee = why.p || why.q;
   return out;
 }
+
+// Poziția față de țintă (implicit 85 % — referința „world class” de pe oee.com, nu un standard; configurabilă).
+export function oeeBand(v, target = 85) {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "none";
+  const pct = v * 100;
+  return pct >= target ? "run" : pct >= target - 20 ? "warn" : "stop";
+}
+// Performance > 100 % semnalează un ICT greșit sau o numărare greșită (oee.com). Nu se taie la 100 %.
+export const performanceSuspect = (r) => r?.p !== null && r?.p !== undefined && r.p > 1.0001;

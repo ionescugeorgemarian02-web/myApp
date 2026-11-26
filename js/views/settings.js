@@ -47,7 +47,7 @@ export function settingsView() {
       note("Pauzele scad minutele productive din plan și din OEE. Nu sunt presupuse: configurează-le după programul real."),
       note("Atenție: schimbarea orelor reinterpretează intervalele orare ale schimburilor deja raportate. Modifică programul între schimburi.", "warn")),
     sect("Praguri pentru asistent"),
-    h("div.panel.pad.fields.c2", null, ...[["underTarget", "Sub target (%)"], ["stopAlertMin", "Alertă oprire (min)"], ["escalateStopMin", "Escaladare oprire (min)"], ["reportGraceMin", "Toleranță raport orar (min)"], ["tlLineMaxMin", "TL pe linie, maxim (min, regulă locală)"]].map(([k, l]) =>
+    h("div.panel.pad.fields.c2", null, ...[["oeeTarget", "Țintă OEE (%) · world class 85"], ["underTarget", "Sub target (%)"], ["stopAlertMin", "Alertă oprire (min)"], ["escalateStopMin", "Escaladare oprire (min)"], ["reportGraceMin", "Toleranță raport orar (min)"], ["tlLineMaxMin", "TL pe linie, maxim (min, regulă locală)"]].map(([k, l]) =>
       field(l, numInput(st.thresholds[k], (v) => { const n = nn(v, true); if (n !== null) st.thresholds[k] = n; }, { onchange: () => save("Prag salvat") })))),
     sect("Liste configurabile"),
     h("div.panel.pad.stack", null, listEditor("Departamente", st.departments), listEditor("Categorii de personal", st.personCategories), listEditor("Categorii de incident", st.incidentCategories),
@@ -145,7 +145,7 @@ function pnSheet(existing) {
 function peopleTab() {
   const doc = S.doc;
   return h("div", null, h("div.row.wrap", null, btn("Persoană nouă", () => personSheet(), "primary", "plus"), btn("Adaugă mai multe", bulk("Oameni noi", "Nume sau identificatori neutri, câte unul pe rând", (d, names) => names.forEach((n) => d.master.people.push({ id: uid(), name: n, role: "operator", category: "Operator", shiftId: null, active: true }))), "ghost")),
-    doc.master.people.length ? h("div.list", { style: { marginTop: "12px" } }, doc.master.people.map((p) => item({ title: p.name + (p.active === false ? " (inactiv)" : ""), sub: [p.category, p.role === "tl" ? "Team Leader" : ""].filter(Boolean).join(" · "), onClick: () => personSheet(p) }))) : empty("Nicio persoană", "Adaugă echipa.", null));
+    doc.master.people.length ? h("div.list", { style: { marginTop: "12px" } }, doc.master.people.map((p) => item({ title: p.name + (p.active === false ? " (inactiv)" : ""), sub: [p.team, p.category, p.role === "tl" ? "Team Leader" : ""].filter(Boolean).join(" · "), onClick: () => personSheet(p) }))) : empty("Nicio persoană", "Adaugă echipa.", null));
 }
 function personSheet(existing) {
   const p = existing ? { ...existing } : { id: uid(), name: "", role: "operator", category: "Operator", shiftId: null, active: true };
@@ -153,6 +153,8 @@ function personSheet(existing) {
   const draw = () => put(body, field("Nume / identificator", input(p.name, (v) => (p.name = v))),
     field("Rol", seg([["operator", "Operator"], ["tl", "Team Leader"], ["aux", "Auxiliar"]], p.role, (v) => { p.role = v; draw(); })),
     field("Categorie", select(S.doc.settings.personCategories.map((x) => [x, x]), p.category, (v) => (p.category = v))),
+    field("Echipă", input(p.team || "", (v) => (p.team = v.trim()), { list: "teams", placeholder: "Ex. Echipa 1" }), "Alege o echipă existentă sau scrie una nouă"),
+    h("datalist", { id: "teams" }, [...new Set(S.doc.master.people.map((x) => x.team).filter(Boolean))].map((t) => h("option", { value: t }))),
     h("label.check", null, h("input", { type: "checkbox", checked: p.active !== false, onchange: (e) => (p.active = e.target.checked) }), "Activ"));
   draw();
   const sh = sheet({ title: existing ? p.name : "Persoană nouă", body, footer: [btn("Salvează", () => {
