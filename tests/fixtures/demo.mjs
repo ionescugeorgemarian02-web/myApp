@@ -1,13 +1,15 @@
-// Date SINTETICE pentru modul Instruire și pentru capturi. Nu reprezintă nicio fabrică reală.
-import { emptyDoc, uid } from "./doc.js";
-import { shiftKey, currentShift, shiftWindow, MIN } from "./time.js";
-import { addEvent } from "../domain/lines.js";
-import { createIncident, transition } from "../domain/incidents.js";
-import { createTask } from "../domain/tasks.js";
-import { defaultTemplate, instancesFor, record } from "../domain/routine.js";
+// Date SINTETICE doar pentru teste (nu sunt încărcate de aplicație). Nu reprezintă nicio fabrică reală.
+import { emptyDoc, uid } from "../../js/core/doc.js";
+import { shiftKey, currentShift, shiftWindow, MIN } from "../../js/core/time.js";
+import { addEvent } from "../../js/domain/lines.js";
+import { createIncident, transition } from "../../js/domain/incidents.js";
+import { createTask } from "../../js/domain/tasks.js";
+import { defaultTemplate, instancesFor, record } from "../../js/domain/routine.js";
 
 export function demoDoc(now = new Date()) {
   const doc = emptyDoc(true);
+  doc.master.lines = [];
+  doc.settings.myShiftId = null;
   doc.settings.zone = "Zona demo";
   doc.settings.shifts.forEach((s) => (s.breaks = s.id === "S1" ? [{ start: "10:00", end: "10:20" }] : s.id === "S2" ? [{ start: "18:00", end: "18:20" }] : [{ start: "02:00", end: "02:20" }]));
   const L = (n) => "Linia " + String.fromCharCode(64 + n);

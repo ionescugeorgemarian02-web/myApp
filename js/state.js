@@ -1,6 +1,6 @@
 // Starea aplicației: documentul, contextul schimbului și comiterea modificărilor (cu Undo).
 import { saveDoc } from "./core/store.js";
-import { currentShift, shiftKey, parseShiftKey, shiftWindow, day } from "./core/time.js";
+import { currentShift, shiftKey, parseShiftKey, shiftWindow, day, myShiftOccurrence } from "./core/time.js";
 import { toast } from "./ui/kit.js";
 import { restoreInto } from "./core/restore.js";
 
@@ -16,13 +16,18 @@ export function ctx() {
     shift = shifts.find((x) => x.id === p.shiftId);
     workDay = p.workDay;
   }
+  // Schimbul meu (setare): apariția în desfășurare sau următoarea; altfel, schimbul după ceas.
+  if (!shift && S.doc.settings.myShiftId) {
+    const o = myShiftOccurrence(now(), shifts, S.doc.settings.myShiftId);
+    if (o) ({ workDay, shift } = o);
+  }
   if (!shift) {
     const c = currentShift(now(), shifts);
     if (c) ({ workDay, shift } = c);
     else { shift = shifts[0]; workDay = day(now()); }
   }
   const w = shiftWindow(workDay, shift);
-  return { workDay, shift, sk: shiftKey(workDay, shift.id), live: now() >= w.from && now() < w.to, ...w };
+  return { workDay, shift, sk: shiftKey(workDay, shift.id), live: now() >= w.from && now() < w.to, upcoming: now() < w.from, ...w };
 }
 let version = 0;
 // Aplică o modificare, salvează, randează. La eroare: revenire în loc. Undo doar dacă nu au urmat alte modificări.

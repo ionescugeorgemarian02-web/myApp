@@ -6,7 +6,6 @@ import { nn } from "../core/num.js";
 import { validHM } from "../core/time.js";
 import { exportDoc, readBackup, replaceDoc, loadLegacy, download } from "../core/store.js";
 import { migrateV4 } from "../core/migrate.js";
-import { demoDoc } from "../core/seed.js";
 import { pageHead, backLink } from "./common.js";
 
 export function moreView() {
@@ -20,7 +19,7 @@ export function moreView() {
       link("#/incidents", "wrench", "Istoric incidente", "MTTR, MTBF, recurențe"),
       link("#/catalog", "box", "Cataloage", "Linii, mașini, PN-uri, oameni, coduri de defect"),
       link("#/settings", "settings", "Setări și backup", "Program, praguri, temă, copii de siguranță")),
-    h("p.tiny.faint", { style: { marginTop: "16px" } }, "myApp " + VERSION + " · date locale, fără sincronizare · " + (S.training ? "mod Instruire (date sintetice)" : "mod real")));
+    h("p.tiny.faint", { style: { marginTop: "16px" } }, "myApp " + VERSION + " · date locale, fără sincronizare · " + (S.training ? "caiet de exersare" : "caiet real")));
 }
 
 export function settingsView() {
@@ -29,6 +28,10 @@ export function settingsView() {
   return h("div", null, backLink("#/more", "Mai mult"), pageHead("Setări"),
     sect("Aspect"),
     h("div.panel.pad", null, field("Temă", seg([["auto", "Automată"], ["light", "Luminoasă"], ["dark", "Întunecată"]], st.theme, (v) => { commit(() => (st.theme = v), null, { undo: false }); applyTheme(); }))),
+    sect("Schimbul meu"),
+    h("div.panel.pad.stack", null,
+      field("În ce schimb lucrez", seg([...st.shifts.map((x) => [x.id, x.name]), ["", "După ceas"]], st.myShiftId || "", (v) => commit(() => (st.myShiftId = v || null), "Schimbul meu: " + (st.shifts.find((x) => x.id === v)?.name || "după ceas")))),
+      note("Aplicația afișează schimbul tău: în timpul lui, ziua curentă; după ce se termină, trece la același schimb din ziua următoare. La rotație, schimbă aici.")),
     sect("Programul schimburilor"),
     h("div.panel.pad.stack", null, st.shifts.map((sh) => h("div.shiftcfg", null,
       h("b", null, sh.name),
@@ -66,9 +69,8 @@ export function settingsView() {
       }, "ghost") : null),
     sect("Mod de lucru"),
     h("div.panel.pad.stack", null,
-      S.training ? note("Mod Instruire: date sintetice, separate de datele reale.", "warn") : note("Mod real. Introdu date interne doar dacă politica angajatorului permite utilizarea dispozitivului."),
-      h("div.row.wrap", null, S.training ? btn("Ieși din Instruire", () => (location.href = location.pathname)) : btn("Deschide modul Instruire", () => (location.href = location.pathname + "?mod=instruire"), "", "eye"),
-        S.training ? btn("Regenerează datele sintetice", async () => { if (await confirmSheet("Regenerezi?", "Datele de instruire se înlocuiesc.", "Regenerează")) { await replaceDoc(demoDoc(now())); location.reload(); } }, "ghost") : null)));
+      S.training ? note("Caiet de exersare, separat de datele reale. Nu conține date fictive.", "warn") : note("Introdu date interne doar dacă politica angajatorului permite utilizarea dispozitivului."),
+      S.training ? btn("Înapoi la caietul real", () => (location.href = location.pathname)) : null));
 }
 function listEditor(title, arr) {
   return h("div", null, h("b", null, title), h("div.chipline", null, arr.map((x, i) => h("span.pchip", null, x, h("button.x", { type: "button", "aria-label": "Șterge " + x, onclick: () => commit(() => arr.splice(i, 1), "Șters") }, "×"))),
@@ -92,7 +94,7 @@ export function catalogView(_p, q) {
   const tabs = seg([["lines", "Linii " + doc.master.lines.length], ["pns", "PN-uri " + doc.master.pns.length], ["people", "Oameni " + doc.master.people.length], ["faults", "Defecte " + doc.master.faults.length]], ctab, (v) => { ctab = v; S.render(); });
   const T = { lines: linesTab, pns: pnsTab, people: peopleTab, faults: faultsTab };
   return h("div", null, backLink("#/more", "Mai mult"), pageHead("Cataloage", "Master data · configurate local; nu se publică nicăieri"),
-    !S.training ? note("Repository-ul aplicației este public, dar cataloagele tale rămân doar pe acest dispozitiv. Folosește denumiri permise de politica locală.") : note("Date sintetice de instruire.", "warn"),
+    note("Cataloagele tale rămân doar pe acest dispozitiv."),
     h("div", { style: { margin: "12px 0" } }, tabs), T[ctab]());
 }
 const bulk = (title, label, fn) => async () => { const v = await promptSheet(title, label, { multiline: true, okLabel: "Adaugă" }); if (v) commit((d) => fn(d, v.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)), "Adăugat"); };

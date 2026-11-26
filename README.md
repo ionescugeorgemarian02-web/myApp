@@ -4,7 +4,7 @@ PWA în limba română pentru coordonarea unui schimb în producția automotive.
 
 Tehnologie: HTML, CSS, module JavaScript (fără build, fără dependențe), IndexedDB, Service Worker. Funcționează offline după prima încărcare.
 
-**Introdu date interne doar dacă politica angajatorului permite utilizarea aplicației și a dispozitivului.** Datele rămân în browserul de pe dispozitiv. Aplicația nu le criptează, nu le sincronizează și nu le trimite nicăieri. Modul **Instruire** (`?mod=instruire`) folosește exclusiv date sintetice, separate de datele reale.
+**Introdu date interne doar dacă politica angajatorului permite utilizarea aplicației și a dispozitivului.** Datele rămân în browserul de pe dispozitiv. Aplicația nu le criptează, nu le sincronizează și nu le trimite nicăieri. Aplicația nu conține date fictive și nici denumiri reale în cod. Liniile se preiau automat din caietul v4.4 de pe același dispozitiv sau le adaugi o singură dată în Cataloage → „Adaugă mai multe”; rămân doar pe telefon. **Schimbul meu** (Setări) stabilește ce schimb afișează aplicația: în timpul lui ziua curentă, iar după ce se termină, același schimb din ziua următoare.
 
 ## Navigare
 
@@ -48,7 +48,7 @@ PLAYWRIGHT_MODULE=/tmp/myapp-test/node_modules/playwright-core node tests/browse
 Variabile: `MYAPP_TEST_URL`, `CHROMIUM_EXECUTABLE`.
 
 Structură:
-- `js/core` — timp, numere, document, persistență, migrare, date sintetice
+- `js/core` — timp (inclusiv „schimbul meu”), numere, document, persistență, migrare (datele sintetice există doar în `tests/fixtures`)
 - `js/domain` — logică pură, testată în Node
 - `js/ui` — kit DOM sigur și grafice SVG
 - `js/views` — ecrane

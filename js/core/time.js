@@ -125,3 +125,19 @@ export function fmtDay(iso, long = false) {
   if (!d) return "—";
   return (long ? DAYS[d.getDay()] + ", " : "") + d.getDate() + " " + MONTHS[d.getMonth()];
 }
+
+// Apariția „schimbului meu” care contează acum: cea în desfășurare sau următoarea.
+// Ex.: lucrez în S1; la 03:43 pe 26 → S1 din 26 (urmează), la 15:00 pe 26 → S1 din 27.
+export function myShiftOccurrence(now, shifts, shiftId) {
+  const shift = shifts.find((s) => s.id === shiftId);
+  if (!shift) return null;
+  let best = null;
+  for (const delta of [-1, 0, 1, 2]) {
+    const d = new Date(now.getTime());
+    d.setDate(d.getDate() + delta);
+    const wd = day(d);
+    const w = shiftWindow(wd, shift);
+    if (w.to > now && (!best || w.from < best.from)) best = { workDay: wd, shift, ...w };
+  }
+  return best;
+}

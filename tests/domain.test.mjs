@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { emptyDoc, ensureShape, sanitize } from "../js/core/doc.js";
 import { migrateV4 } from "../js/core/migrate.js";
-import { demoDoc } from "../js/core/seed.js";
+import { demoDoc } from "./fixtures/demo.mjs";
 import { createIncident, transition, durations, reliability } from "../js/domain/incidents.js";
 import { createTask, setStatus, isOverdue, spawnNext } from "../js/domain/tasks.js";
 import { setLevel, levelOf, conflicts, assign, suggestions } from "../js/domain/workforce.js";
