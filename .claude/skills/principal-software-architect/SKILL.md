@@ -5,19 +5,18 @@ description: Arhitectura software a myApp, o PWA vanilla JS cu module ES, Indexe
 
 # Arhitect software principal (myApp)
 
-## Arhitectura actuală (constatată pe 25.11.2026)
+## Arhitectura actuală (myApp 2, 25.11.2026)
 
 | Strat | Fișiere | Rol |
 | --- | --- | --- |
-| Intrare | `index.html`, `js/app.js` | Pornire, rutare, legarea funcțiilor din `state.js` |
-| Stare | `js/state.js` (`app.data`, `undo`, `editing`) | Stare comună în memorie |
-| Persistență | `js/store.js` | IndexedDB `caiet-sef-schimb` v1, `migrate()`, `save` / `flush`, revizie pentru concurența între file, backup JSON |
-| Domeniu | `production.js`, `quality.js`, `metrics.js`, `operations.js`, `records.js`, `ept.js`, `leadership.js`, `logic.js`, `notes.js` | Calcule pure, testabile |
-| Prezentare | `js/views/*`, `js/blocks/*`, `js/ui.js`, `js/charts.js`, `css/*` | Ecrane și componente DOM |
-| Offline | `sw.js` (cache versionat, listă explicită de resurse) | Instalarea reușește doar dacă toate resursele există |
-| Teste | `tests/*.test.mjs` (`node --test`), `tests/browser.cjs` (Playwright opțional, mobil 390 px) | 39 de teste unitare trec (baseline) |
-
-Nu există `package.json` sau bundler și nu există dependențe la rulare. Aplicația se publică pe GitHub Pages din `main`.
+| Intrare | `index.html`, `js/main.js` | Pornire, migrare v4.4 o singură dată, router pe hash, shell (bară, sidebar, navigare jos) |
+| Stare | `js/state.js` | `S.doc`, `ctx()` (schimbul afișat), `commit()` cu rollback și Undo |
+| Persistență | `js/core/store.js`, `js/core/doc.js` | IndexedDB `caiet-sef-schimb`, cheia `v2` (v4.4 neatins în `caiet`), revizie anti-conflict, backup validat (`ensureShape`, `sanitize`) |
+| Migrare | `js/core/migrate.js` | v4 → v2 (niveluri 1→2, 2→3, 3→4, marcate de reconfirmat) |
+| Domeniu | `js/domain/*.js` | Logică pură: plan, evenimente de linie, rapoarte, OEE, rutină, incidente, sarcini, oameni, calitate, asistent, predare |
+| Prezentare | `js/ui/kit.js`, `js/ui/charts.js`, `js/views/*.js`, `css/tokens.css`, `css/app.css`, `css/views.css` | DOM sigur, grafice SVG, ecrane, design system „Andon” |
+| Offline | `sw.js` | Cache versionat cu listă explicită |
+| Teste | `tests/*.test.mjs` (Node), `tests/browser.cjs` (Playwright, opțional) | Domeniu + fluxuri reale, persistență, migrare, backup, offline |
 
 ## Când se activează
 
@@ -30,8 +29,8 @@ Nu există `package.json` sau bundler și nu există dependențe la rulare. Apli
 1. **Citește înainte de a propune.** Identifică modulul proprietar și testele existente. Reutilizează funcțiile existente (`nonnegative`, `validDate`, `csvCell` etc.).
 2. **Logica de domeniu rămâne pură** (fără DOM) și se pune în `js/*.js`, cu test în `tests/`. View-urile doar afișează.
 3. **Schimbare de schemă:**
-   - câmpuri noi cu valoare implicită în `migrate()`;
-   - backup-urile vechi (inclusiv v3.2, vezi `MYAPP_LEGACY_BACKUP`) se restaurează în continuare;
+   - câmpuri noi cu valoare implicită în `ensureShape()` (`js/core/doc.js`);
+   - backup-urile v2 vechi se restaurează în continuare, iar documentul v4.4 rămâne importabil (`js/core/migrate.js`);
    - test de migrare cu date sintetice;
    - fără ștergerea câmpurilor fără migrare.
 4. **Service Worker:** orice fișier nou se adaugă în lista `files` și versiunea cache-ului crește (testele verifică inventarul).

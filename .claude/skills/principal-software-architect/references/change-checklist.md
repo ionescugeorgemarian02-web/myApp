@@ -15,7 +15,7 @@
 
 ## Schema de date
 
-- [ ] Valoarea implicită pentru câmpul nou se setează în `migrate()`.
+- [ ] Valoarea implicită pentru câmpul nou se setează în `ensureShape()` (`js/core/doc.js`).
 - [ ] Restaurarea backup-urilor vechi a fost testată.
 - [ ] Exportul CSV / JSON include câmpul, dacă e relevant.
 

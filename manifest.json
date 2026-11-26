@@ -1,17 +1,26 @@
 {
   "id": "./",
-  "name": "Caietul Șefului de Schimb",
+  "name": "myApp · Centrul de comandă al schimbului",
   "short_name": "Șef Schimb",
   "lang": "ro",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#15191e",
-  "theme_color": "#15191e",
-  "description": "Caiet personal pentru șeful de schimb: rutină, predare, echipă, indicatori.",
-  "orientation": "portrait",
+  "background_color": "#12202a",
+  "theme_color": "#12202a",
+  "description": "Centrul de comandă al șefului de schimb: rutina EPT, producție, oameni, calitate, incidente, sarcini. Date locale, offline.",
   "icons": [
-    { "src": "icons/192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "icons/192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

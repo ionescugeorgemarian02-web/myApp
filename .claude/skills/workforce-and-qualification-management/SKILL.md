@@ -16,7 +16,7 @@ description: Managementul echipei și al calificărilor în myApp. Acoperă plan
 
 Acesta este modelul utilizatorului, nu un standard extern. Nu se înlocuiește cu alte scale.
 
-**Observație despre codul actual** (de analizat în etapa următoare, nu de modificat acum): `SKILL_LEVELS` din `js/metrics.js` are etichetele „Neinstruit / Cu supraveghere / Autonom / Poate instrui” pe indicii 0–3, iar celula ciclează `% 4`, cu 0 = absent din matrice. Diferențe de verificat: „operator nou” față de „neinstruit”, criteriul explicit de calitate și cantitate pentru nivelul 3, și dacă 0 („necalificat pe post”) rămâne o stare separată de nivelul 1. Orice schimbare cere migrarea datelor existente (`principal-software-architect`).
+**Implementare (myApp 2):** `js/domain/workforce.js` folosește exact nivelurile 1–4. „Neevaluat” = lipsa înregistrării. Nivelul 4 cere nivelul 3 pe același post. Migrarea din v4.4 (`js/core/migrate.js`) convertește 1→2, 2→3, 3→4 și marchează nivelurile „de reconfirmat”. Indexul 0 (lipsă înregistrare) nu se convertește.
 
 ## Când se activează
 
