@@ -94,3 +94,41 @@ test("link cu profil orar și normă: plan manual pe ore, normă salvată pe lin
   assert.equal(d.master.lines[2].hourlyNorm, 112);
   assert.equal(d.master.pns.find((x) => x.code === "PN-H1").cycleSec, 60);
 });
+test("link cu realizat pe ore: rapoarte orare completate, rebutul rămâne necunoscut, raportul introdus manual nu se suprascrie", async () => {
+  const { encodePlanLink, decodePlanLink, rowsFromPayload, applyPlanImport, applyActuals } = await import("../js/domain/planimport.js");
+  const d = doc();
+  const p = decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", others: true, hours: [6, 6, 6, 6, 6, 6, 6, 6],
+    rows: [["Linia A", "PN-R1", 30, 2, 60], ["Linia B", "PN-R2", 18, 1, 40]], actuals: { "Linia A": [4, 5], "Linia B": [null, 2] } }));
+  assert.deepEqual(p.actuals["Linia A"], [4, 5]);
+  const r = rowsFromPayload(p, d);
+  applyPlanImport(d, r.rows, p.day, S1, { markOthersNotPlanned: true, hours: p.hours });
+  const sk = "2026-11-26|S1";
+  d.reports[sk] = { L1: { 1: { splits: [{ pnId: null, total: 9, scrap: 0, rework: 0 }], na: false } } };
+  const out = applyActuals(d, p.actuals, p.day, S1, "2026-11-26T06:00:00.000Z");
+  const a0 = d.reports[sk].L0[0].splits[0];
+  assert.equal(a0.total, 4);
+  assert.equal(a0.scrap, null);
+  assert.equal(a0.pnId, d.master.pns.find((x) => x.code === "PN-R1").id);
+  assert.equal(d.reports[sk].L0[1].splits[0].total, 5);
+  assert.equal(d.reports[sk].L1[0], undefined, "null = lipsă, nu 0");
+  assert.equal(d.reports[sk].L1[1].splits[0].total, 9, "raportul de pe telefon are prioritate");
+  assert.deepEqual(out, { saved: 2, kept: 1, unknown: [] });
+  // Re-aplicarea actualizează rapoartele venite din link.
+  applyActuals(d, { "Linia A": [7] }, p.day, S1, "2026-11-26T07:00:00.000Z");
+  assert.equal(d.reports[sk].L0[0].splits[0].total, 7);
+  assert.throws(() => decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [], actuals: { "Linia A": [-1] } })));
+});
+test("link: operatori lipsă nu mută norma în coloana de operatori", async () => {
+  const { encodePlanLink, decodePlanLink, rowsFromPayload } = await import("../js/domain/planimport.js");
+  const p = decodePlanLink(encodePlanLink({ v: 1, day: "2026-11-26", shift: "S1", rows: [["Linia A", "PN-X", 200, null, 30]] }));
+  const r = rowsFromPayload(p, doc()).rows[0];
+  assert.equal(r.ops, null);
+  assert.equal(r.norm, 30);
+});
+test("link: repară operatorii salvați greșit egal cu norma când operatorii lipsesc", async () => {
+  const { applyPlanImport } = await import("../js/domain/planimport.js");
+  const d = doc();
+  d.master.lines[0].requiredOps = 30;
+  applyPlanImport(d, [{ lineId: "L0", lineName: "Linia A", pn: "PN-Y", target: 200, ops: null, norm: 30 }], "2026-11-26", S1);
+  assert.equal(d.master.lines[0].requiredOps, null);
+});
